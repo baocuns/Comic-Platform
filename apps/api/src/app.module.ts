@@ -1,0 +1,40 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { AppController } from './app.controller';
+import { PrismaModule } from './prisma/prisma.module';
+import { StorageModule } from './storage/storage.module';
+import { RedisModule } from './redis/redis.module';
+import { AuthModule } from './auth/auth.module';
+import { ComicModule } from './comic/comic.module';
+import { ChapterModule } from './chapter/chapter.module';
+import { UploadModule } from './upload/upload.module';
+import { BookmarkModule } from './bookmark/bookmark.module';
+import { HistoryModule } from './history/history.module';
+import { CommentModule } from './comment/comment.module';
+import { RatingModule } from './rating/rating.module';
+import { UserModule } from './user/user.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '../../.env',
+    }),
+    PrismaModule,
+    StorageModule,
+    RedisModule,
+    AuthModule,
+    ComicModule,
+    ChapterModule,
+    UploadModule,
+    BookmarkModule,
+    HistoryModule,
+    CommentModule,
+    RatingModule,
+    UserModule,
+  ],
+  controllers: [AppController],
+})
+export class AppModule {}
+
+

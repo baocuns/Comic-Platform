@@ -1,0 +1,369 @@
+// Prisma Schema for Comic Reading Platform
+// Database: PostgreSQL (Neon)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════
+//  ENUMS
+// ═══════════════════════════════
+
+enum UserRole {
+  READER
+  AUTHOR
+  MODERATOR
+  ADMIN
+}
+
+enum ComicStatus {
+  DRAFT
+  ONGOING
+  COMPLETED
+  HIATUS
+  CANCELLED
+}
+
+enum ContentRating {
+  EVERYONE
+  TEEN
+  MATURE
+}
+
+enum NotificationType {
+  NEW_CHAPTER
+  COMMENT_REPLY
+  RATING_RECEIVED
+  FOLLOW_NEW
+  SYSTEM
+  ACHIEVEMENT
+}
+
+enum ReportReason {
+  COPYRIGHT
+  INAPPROPRIATE
+  SPAM
+  HARASSMENT
+  OTHER
+}
+
+// ═══════════════════════════════
+//  MODELS
+// ═══════════════════════════════
+
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  email           String    @unique @db.VarChar(255)
+  username        String    @unique @db.VarChar(50)
+  passwordHash    String?   @map("password_hash") @db.VarChar(255)
+  displayName     String    @map("display_name") @db.VarChar(100)
+  avatarUrl       String?   @map("avatar_url") @db.VarChar(500)
+  banner          Json?     @db.JsonB
+  role            UserRole  @default(READER)
+  bio             String?
+  socialLinks     Json      @default("{}") @map("social_links")
+  isVerified      Boolean   @default(false) @map("is_verified")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+
+  // OAuth
+  oauthProvider String? @map("oauth_provider") @db.VarChar(50)
+  oauthId       String? @map("oauth_id") @db.VarChar(255)
+
+  // Gamification
+  coins      Int @default(0)
+  experience Int @default(0)
+  level      Int @default(1)
+
+  // Timestamps
+  lastLoginAt DateTime? @map("last_login_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Relations
+  comics         Comic[]
+  bookmarks      Bookmark[]
+  readingHistory ReadingHistory[]
+  comments       Comment[]
+  ratings        Rating[]
+  followers      Follow[]       @relation("following")
+  following      Follow[]       @relation("follower")
+  notifications  Notification[]
+  reports        Report[]       @relation("reporter")
+  resolvedReports Report[]      @relation("resolver")
+
+  @@index([email])
+  @@index([username])
+  @@index([role])
+  @@index([oauthProvider, oauthId])
+  @@map("users")
+}
+
+model Comic {
+  id               String        @id @default(uuid()) @db.Uuid
+  authorId         String        @map("author_id") @db.Uuid
+  title            String        @db.VarChar(255)
+  slug             String        @unique @db.VarChar(300)
+  description      String?
+  coverUrl         String?       @map("cover_url") @db.VarChar(500)
+  bannerUrl        String?       @map("banner_url") @db.VarChar(500)
+  bannerPosition   Int           @default(50) @map("banner_position")
+  status           ComicStatus   @default(DRAFT)
+  contentRating    ContentRating @default(EVERYONE) @map("content_rating")
+  originalLanguage String        @default("vi") @map("original_language") @db.VarChar(10)
+
+  // Aggregated stats (denormalized)
+  totalViews    Int     @default(0) @map("total_views")
+  totalChapters Int     @default(0) @map("total_chapters")
+  avgRating     Decimal @default(0) @map("avg_rating") @db.Decimal(3, 2)
+  totalRatings  Int     @default(0) @map("total_ratings")
+  totalBookmarks Int    @default(0) @map("total_bookmarks")
+  totalComments Int     @default(0) @map("total_comments")
+
+  // Metadata
+  metadata Json @default("{}") @db.JsonB
+
+  // Timestamps
+  publishedAt   DateTime? @map("published_at")
+  lastChapterAt DateTime? @map("last_chapter_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  // Relations
+  author    User          @relation(fields: [authorId], references: [id])
+  chapters  Chapter[]
+  genres    ComicGenre[]
+  bookmarks Bookmark[]
+  ratings   Rating[]
+
+  @@index([authorId])
+  @@index([slug])
+  @@index([status])
+  @@index([contentRating])
+  @@index([publishedAt(sort: Desc)])
+  @@index([totalViews(sort: Desc)])
+  @@index([lastChapterAt(sort: Desc)])
+  @@map("comics")
+}
+
+model Chapter {
+  id         String  @id @default(uuid()) @db.Uuid
+  comicId    String  @map("comic_id") @db.Uuid
+  number     Decimal @db.Decimal(10, 1)
+  title      String? @db.VarChar(255)
+  totalPages Int     @default(0) @map("total_pages")
+  isPremium  Boolean @default(false) @map("is_premium")
+  priceCoins Int     @default(0) @map("price_coins")
+  views      Int     @default(0)
+  orderIndex Int     @map("order_index")
+
+  // Timestamps
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Relations
+  comic          Comic            @relation(fields: [comicId], references: [id], onDelete: Cascade)
+  pages          Page[]
+  comments       Comment[]
+  readingHistory ReadingHistory[]
+
+  @@unique([comicId, number])
+  @@index([comicId, orderIndex])
+  @@index([publishedAt(sort: Desc)])
+  @@map("chapters")
+}
+
+model Page {
+  id          String  @id @default(uuid()) @db.Uuid
+  chapterId   String  @map("chapter_id") @db.Uuid
+  pageNumber  Int     @map("page_number")
+  imageUrl    String  @map("image_url") @db.VarChar(500)
+  imageUrlWebp String? @map("image_url_webp") @db.VarChar(500)
+  imageUrlAvif String? @map("image_url_avif") @db.VarChar(500)
+  thumbnailUrl String? @map("thumbnail_url") @db.VarChar(500)
+  width       Int?
+  height      Int?
+  fileSize    Int?    @map("file_size")
+  blurhash    String? @db.VarChar(100)
+  textRegions Json    @default("[]") @map("text_regions") @db.JsonB
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([chapterId, pageNumber])
+  @@index([chapterId, pageNumber])
+  @@map("pages")
+}
+
+model Genre {
+  id           String  @id @default(uuid()) @db.Uuid
+  name         String  @unique @db.VarChar(100)
+  slug         String  @unique @db.VarChar(100)
+  description  String?
+  icon         String? @db.VarChar(50)
+  comicCount   Int     @default(0) @map("comic_count")
+  displayOrder Int     @default(0) @map("display_order")
+  isActive     Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  comics ComicGenre[]
+
+  @@map("genres")
+}
+
+model ComicGenre {
+  comicId String @map("comic_id") @db.Uuid
+  genreId String @map("genre_id") @db.Uuid
+
+  comic Comic @relation(fields: [comicId], references: [id], onDelete: Cascade)
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([comicId, genreId])
+  @@index([genreId])
+  @@map("comic_genres")
+}
+
+model Bookmark {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  comicId       String   @map("comic_id") @db.Uuid
+  lastChapterId String?  @map("last_chapter_id") @db.Uuid
+  lastPage      Int?     @map("last_page")
+  isFavorite    Boolean  @default(false) @map("is_favorite")
+  notifyUpdate  Boolean  @default(true) @map("notify_update")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comic Comic @relation(fields: [comicId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, comicId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([comicId])
+  @@map("bookmarks")
+}
+
+model ReadingHistory {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  comicId     String   @map("comic_id") @db.Uuid
+  chapterId   String   @map("chapter_id") @db.Uuid
+  lastPage    Int      @default(1) @map("last_page")
+  isCompleted Boolean  @default(false) @map("is_completed")
+  readingTime Int      @default(0) @map("reading_time")
+  readAt      DateTime @default(now()) @map("read_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id])
+
+  @@unique([userId, chapterId])
+  @@index([userId, readAt(sort: Desc)])
+  @@index([chapterId])
+  @@map("reading_history")
+}
+
+model Comment {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  chapterId  String    @map("chapter_id") @db.Uuid
+  parentId   String?   @map("parent_id") @db.Uuid
+  content    String
+  likesCount Int       @default(0) @map("likes_count")
+  isPinned   Boolean   @default(false) @map("is_pinned")
+  isSpoiler  Boolean   @default(false) @map("is_spoiler")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  user    User      @relation(fields: [userId], references: [id])
+  chapter Chapter   @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([chapterId, createdAt(sort: Desc)])
+  @@index([userId])
+  @@index([parentId])
+  @@map("comments")
+}
+
+model Rating {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  comicId      String   @map("comic_id") @db.Uuid
+  score        Int      @db.SmallInt
+  review       String?
+  helpfulCount Int      @default(0) @map("helpful_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user  User  @relation(fields: [userId], references: [id])
+  comic Comic @relation(fields: [comicId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, comicId])
+  @@index([comicId, score])
+  @@index([comicId, helpfulCount(sort: Desc)])
+  @@map("ratings")
+}
+
+model Follow {
+  followerId  String   @map("follower_id") @db.Uuid
+  followingId String   @map("following_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  content   String?
+  data      Json             @default("{}") @db.JsonB
+  isRead    Boolean          @default(false) @map("is_read")
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model Report {
+  id             String       @id @default(uuid()) @db.Uuid
+  reporterId     String       @map("reporter_id") @db.Uuid
+  targetType     String       @map("target_type") @db.VarChar(50)
+  targetId       String       @map("target_id") @db.Uuid
+  reason         ReportReason
+  description    String?
+  status         String       @default("PENDING") @db.VarChar(20)
+  resolvedBy     String?      @map("resolved_by") @db.Uuid
+  resolvedAt     DateTime?    @map("resolved_at")
+  resolutionNote String?      @map("resolution_note")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  reporter User  @relation("reporter", fields: [reporterId], references: [id])
+  resolver User? @relation("resolver", fields: [resolvedBy], references: [id])
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+  @@map("reports")
+}

@@ -1,0 +1,21 @@
+{
+  "name": "comic-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean",
+    "db:migrate": "pnpm --filter api prisma migrate dev",
+    "db:push": "pnpm --filter api prisma db push",
+    "db:seed": "pnpm --filter api prisma db seed",
+    "db:studio": "pnpm --filter api prisma studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.0",
+    "prettier": "^3.5.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

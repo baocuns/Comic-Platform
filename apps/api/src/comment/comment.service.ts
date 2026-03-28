@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { GamificationService } from '../gamification/gamification.service';
 
 @Injectable()
 export class CommentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gamification: GamificationService,
+  ) {}
 
   async create(userId: string, chapterId: string, content: string, parentId?: string) {
     const comment = await this.prisma.comment.create({
@@ -16,6 +20,9 @@ export class CommentService {
     if (chapter) {
       await this.prisma.comic.update({ where: { id: chapter.comicId }, data: { totalComments: { increment: 1 } } });
     }
+
+    // Award XP
+    this.gamification.awardComment(userId, comment.id).catch(() => {});
 
     return comment;
   }

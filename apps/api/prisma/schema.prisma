@@ -75,9 +75,11 @@ model User {
   oauthId       String? @map("oauth_id") @db.VarChar(255)
 
   // Gamification
-  coins      Int @default(0)
-  experience Int @default(0)
-  level      Int @default(1)
+  coins          Int       @default(0)
+  experience     Int       @default(0)
+  level          Int       @default(1)
+  loginStreak    Int       @default(0) @map("login_streak")
+  lastStreakDate DateTime? @map("last_streak_date")
 
   // Timestamps
   lastLoginAt DateTime? @map("last_login_at")
@@ -96,6 +98,7 @@ model User {
   notifications  Notification[]
   reports        Report[]       @relation("reporter")
   resolvedReports Report[]      @relation("resolver")
+  rewardTransactions RewardTransaction[]
 
   @@index([email])
   @@index([username])
@@ -366,4 +369,32 @@ model Report {
   @@index([status, createdAt])
   @@index([targetType, targetId])
   @@map("reports")
+}
+
+// ── Gamification ──
+
+model RewardTransaction {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  type         String   @db.VarChar(20) // "XP" | "COIN"
+  amount       Int
+  source       String   @db.VarChar(50) // "daily_login" | "read_chapter" | "comment" | "rate" | "bookmark" | "level_up" | "streak_bonus"
+  sourceId     String?  @map("source_id") @db.VarChar(255)
+  balanceAfter Int      @map("balance_after")
+  note         String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([userId, source, sourceId])
+  @@map("reward_transactions")
+}
+
+model GamificationConfig {
+  key       String   @id @db.VarChar(100)
+  value     Int
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("gamification_config")
 }

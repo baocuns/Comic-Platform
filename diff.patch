@@ -1,0 +1,385 @@
+﻿diff --git a/apps/api/prisma/schema.prisma b/apps/api/prisma/schema.prisma
+index 424246e..f450ec5 100644
+--- a/apps/api/prisma/schema.prisma
++++ b/apps/api/prisma/schema.prisma
+@@ -75,9 +75,11 @@ model User {
+   oauthId       String? @map("oauth_id") @db.VarChar(255)
+ 
+   // Gamification
+-  coins      Int @default(0)
+-  experience Int @default(0)
+-  level      Int @default(1)
++  coins          Int       @default(0)
++  experience     Int       @default(0)
++  level          Int       @default(1)
++  loginStreak    Int       @default(0) @map("login_streak")
++  lastStreakDate DateTime? @map("last_streak_date")
+ 
+   // Timestamps
+   lastLoginAt DateTime? @map("last_login_at")
+@@ -96,6 +98,7 @@ model User {
+   notifications  Notification[]
+   reports        Report[]       @relation("reporter")
+   resolvedReports Report[]      @relation("resolver")
++  rewardTransactions RewardTransaction[]
+ 
+   @@index([email])
+   @@index([username])
+@@ -367,3 +370,31 @@ model Report {
+   @@index([targetType, targetId])
+   @@map("reports")
+ }
++
++// â”€â”€ Gamification â”€â”€
++
++model RewardTransaction {
++  id           String   @id @default(uuid()) @db.Uuid
++  userId       String   @map("user_id") @db.Uuid
++  type         String   @db.VarChar(20) // "XP" | "COIN"
++  amount       Int
++  source       String   @db.VarChar(50) // "daily_login" | "read_chapter" | "comment" | "rate" | "bookmark" | "level_up" | "streak_bonus"
++  sourceId     String?  @map("source_id") @db.VarChar(255)
++  balanceAfter Int      @map("balance_after")
++  note         String?
++  createdAt    DateTime @default(now()) @map("created_at")
++
++  user User @relation(fields: [userId], references: [id])
++
++  @@index([userId, createdAt])
++  @@index([userId, source, sourceId])
++  @@map("reward_transactions")
++}
++
++model GamificationConfig {
++  key       String   @id @db.VarChar(100)
++  value     Int
++  updatedAt DateTime @updatedAt @map("updated_at")
++
++  @@map("gamification_config")
++}
+diff --git a/apps/api/src/app.module.ts b/apps/api/src/app.module.ts
+index 97d9140..29ebab8 100644
+--- a/apps/api/src/app.module.ts
++++ b/apps/api/src/app.module.ts
+@@ -13,6 +13,7 @@ import { HistoryModule } from './history/history.module';
+ import { CommentModule } from './comment/comment.module';
+ import { RatingModule } from './rating/rating.module';
+ import { UserModule } from './user/user.module';
++import { GamificationModule } from './gamification/gamification.module';
+ 
+ @Module({
+   imports: [
+@@ -23,6 +24,7 @@ import { UserModule } from './user/user.module';
+     PrismaModule,
+     StorageModule,
+     RedisModule,
++    GamificationModule,
+     AuthModule,
+     ComicModule,
+     ChapterModule,
+diff --git a/apps/api/src/auth/auth.service.ts b/apps/api/src/auth/auth.service.ts
+index 79b10b3..a1730cc 100644
+--- a/apps/api/src/auth/auth.service.ts
++++ b/apps/api/src/auth/auth.service.ts
+@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
+ import { RedisService } from '../redis/redis.service';
+ import { RegisterDto, LoginDto } from './dto/auth.dto';
+ import { UserRole } from '@prisma/client';
++import { GamificationService } from '../gamification/gamification.service';
+ 
+ interface TokenPayload {
+   sub: string;
+@@ -28,6 +29,7 @@ export class AuthService {
+     private readonly jwt: JwtService,
+     private readonly config: ConfigService,
+     private readonly redis: RedisService,
++    private readonly gamification: GamificationService,
+   ) {}
+ 
+   // â”€â”€ Register â”€â”€
+@@ -98,6 +100,11 @@ export class AuthService {
+ 
+     this.logger.log(`User logged in: ${user.email}`);
+ 
++    // Award daily login (fire-and-forget)
++    this.gamification.awardDailyLogin(user.id).catch((e) =>
++      this.logger.warn(`Daily login reward failed for ${user.id}: ${e.message}`),
++    );
++
+     return {
+       user: this.sanitizeUser(user),
+       ...tokens,
+@@ -255,6 +262,7 @@ export class AuthService {
+       coins: user.coins,
+       experience: user.experience,
+       level: user.level,
++      loginStreak: user.loginStreak,
+       createdAt: user.createdAt,
+     };
+   }
+diff --git a/apps/api/src/bookmark/bookmark.service.ts b/apps/api/src/bookmark/bookmark.service.ts
+index 3d780f2..116cfd0 100644
+--- a/apps/api/src/bookmark/bookmark.service.ts
++++ b/apps/api/src/bookmark/bookmark.service.ts
+@@ -1,6 +1,7 @@
+ import { Injectable, Logger, ConflictException, NotFoundException } from '@nestjs/common';
+ import { PrismaService } from '../prisma/prisma.service';
+ import { RedisService } from '../redis/redis.service';
++import { GamificationService } from '../gamification/gamification.service';
+ 
+ @Injectable()
+ export class BookmarkService {
+@@ -9,6 +10,7 @@ export class BookmarkService {
+   constructor(
+     private readonly prisma: PrismaService,
+     private readonly redis: RedisService,
++    private readonly gamification: GamificationService,
+   ) {}
+ 
+   async toggle(userId: string, comicId: string) {
+@@ -24,6 +26,10 @@ export class BookmarkService {
+ 
+     await this.prisma.bookmark.create({ data: { userId, comicId } });
+     await this.prisma.comic.update({ where: { id: comicId }, data: { totalBookmarks: { increment: 1 } } });
++
++    // Award XP on add
++    this.gamification.awardBookmark(userId, comicId).catch(() => {});
++
+     return { bookmarked: true };
+   }
+ 
+diff --git a/apps/api/src/comment/comment.service.ts b/apps/api/src/comment/comment.service.ts
+index 4dac217..dc33795 100644
+--- a/apps/api/src/comment/comment.service.ts
++++ b/apps/api/src/comment/comment.service.ts
+@@ -1,9 +1,13 @@
+ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+ import { PrismaService } from '../prisma/prisma.service';
++import { GamificationService } from '../gamification/gamification.service';
+ 
+ @Injectable()
+ export class CommentService {
+-  constructor(private readonly prisma: PrismaService) {}
++  constructor(
++    private readonly prisma: PrismaService,
++    private readonly gamification: GamificationService,
++  ) {}
+ 
+   async create(userId: string, chapterId: string, content: string, parentId?: string) {
+     const comment = await this.prisma.comment.create({
+@@ -17,6 +21,9 @@ export class CommentService {
+       await this.prisma.comic.update({ where: { id: chapter.comicId }, data: { totalComments: { increment: 1 } } });
+     }
+ 
++    // Award XP
++    this.gamification.awardComment(userId, comment.id).catch(() => {});
++
+     return comment;
+   }
+ 
+diff --git a/apps/api/src/history/history.service.ts b/apps/api/src/history/history.service.ts
+index 47d2293..805d4df 100644
+--- a/apps/api/src/history/history.service.ts
++++ b/apps/api/src/history/history.service.ts
+@@ -1,16 +1,32 @@
+ import { Injectable } from '@nestjs/common';
+ import { PrismaService } from '../prisma/prisma.service';
++import { GamificationService } from '../gamification/gamification.service';
+ 
+ @Injectable()
+ export class HistoryService {
+-  constructor(private readonly prisma: PrismaService) {}
++  constructor(
++    private readonly prisma: PrismaService,
++    private readonly gamification: GamificationService,
++  ) {}
+ 
+   async upsert(userId: string, comicId: string, chapterId: string, lastPage: number) {
+-    return this.prisma.readingHistory.upsert({
++    // Check if this is a first read (for XP)
++    const existing = await this.prisma.readingHistory.findUnique({
++      where: { userId_chapterId: { userId, chapterId } },
++    });
++
++    const result = await this.prisma.readingHistory.upsert({
+       where: { userId_chapterId: { userId, chapterId } },
+       update: { lastPage, readAt: new Date() },
+       create: { userId, comicId, chapterId, lastPage },
+     });
++
++    // Award XP only on first read
++    if (!existing) {
++      this.gamification.awardReadChapter(userId, chapterId).catch(() => {});
++    }
++
++    return result;
+   }
+ 
+   async getUserHistory(userId: string, page = 1, limit = 20) {
+diff --git a/apps/api/src/rating/rating.service.ts b/apps/api/src/rating/rating.service.ts
+index 969905c..2a26e41 100644
+--- a/apps/api/src/rating/rating.service.ts
++++ b/apps/api/src/rating/rating.service.ts
+@@ -1,10 +1,14 @@
+ import { Injectable, ConflictException } from '@nestjs/common';
+ import { PrismaService } from '../prisma/prisma.service';
+ import { Decimal } from '@prisma/client/runtime/library';
++import { GamificationService } from '../gamification/gamification.service';
+ 
+ @Injectable()
+ export class RatingService {
+-  constructor(private readonly prisma: PrismaService) {}
++  constructor(
++    private readonly prisma: PrismaService,
++    private readonly gamification: GamificationService,
++  ) {}
+ 
+   async rate(userId: string, comicId: string, score: number, review?: string) {
+     const existing = await this.prisma.rating.findUnique({
+@@ -12,6 +16,8 @@ export class RatingService {
+     });
+ 
+     let rating;
++    const isFirstRating = !existing;
++
+     if (existing) {
+       rating = await this.prisma.rating.update({
+         where: { id: existing.id },
+@@ -41,6 +47,11 @@ export class RatingService {
+       data: { avgRating: new Decimal(agg._avg.score || 0) },
+     });
+ 
++    // Award XP on first rating only
++    if (isFirstRating) {
++      this.gamification.awardRate(userId, comicId).catch(() => {});
++    }
++
+     return rating;
+   }
+ 
+diff --git a/apps/web/src/app/user/[username]/page.tsx b/apps/web/src/app/user/[username]/page.tsx
+index 9b22ec5..46af125 100644
+--- a/apps/web/src/app/user/[username]/page.tsx
++++ b/apps/web/src/app/user/[username]/page.tsx
+@@ -108,12 +108,12 @@ export default function UserProfilePage() {
+     if (activeTab === 'bookmarks') {
+       api.get<{ data: BookmarkItem[] }>('/bookmarks', { token: accessToken })
+         .then((r) => setBookmarks(r.data))
+-        .catch(() => {})
++        .catch(() => { })
+         .finally(() => setLoadingTab(false));
+     } else {
+       api.get<{ data: HistoryItem[] }>('/history', { token: accessToken })
+         .then((r) => setHistory(r.data))
+-        .catch(() => {})
++        .catch(() => { })
+         .finally(() => setLoadingTab(false));
+     }
+   }, [accessToken, activeTab, profile?.isOwnProfile]);
+@@ -166,7 +166,7 @@ export default function UserProfilePage() {
+       const res = await api.upload<{ data: { url: string } }>('/upload/users/avatar', formData, { token: accessToken });
+       updateUser({ avatarUrl: res.data.url });
+       setProfile((p) => p ? { ...p, user: { ...p.user, avatarUrl: res.data.url } } : p);
+-    } catch {}
++    } catch { }
+     setUploadingAvatar(false);
+   };
+ 
+@@ -185,7 +185,7 @@ export default function UserProfilePage() {
+         await api.post(`/users/${profileUser.id}/follow`, undefined, { token: accessToken });
+         setProfile((p) => p ? { ...p, isFollowing: true, stats: { ...p.stats, followerCount: p.stats.followerCount + 1 } } : p);
+       }
+-    } catch {}
++    } catch { }
+     setFollowLoading(false);
+   };
+ 
+@@ -201,8 +201,8 @@ export default function UserProfilePage() {
+     ADMIN: { color: 'bg-red-500/20 text-red-300', label: 'Admin' },
+   };
+ 
+-  const xpForNextLevel = (profileUser as any).level * 100;
+-  const xpProgress = isOwnProfile ? Math.min(((profileUser as any).experience / xpForNextLevel) * 100, 100) : 0;
++  const xpForNextLevel = Math.floor(100 * Math.pow(1.5, (currentUser?.level ?? 1) - 1));
++  const xpProgress = isOwnProfile && currentUser ? Math.min((currentUser.experience / xpForNextLevel) * 100, 100) : 0;
+ 
+   return (
+     <>
+@@ -276,11 +276,10 @@ export default function UserProfilePage() {
+                 <button
+                   onClick={handleFollowToggle}
+                   disabled={followLoading}
+-                  className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
+-                    isFollowing
+-                      ? 'border border-white/10 bg-white/5 text-zinc-300 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400'
+-                      : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:brightness-110'
+-                  }`}
++                  className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${isFollowing
++                    ? 'border border-white/10 bg-white/5 text-zinc-300 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400'
++                    : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:brightness-110'
++                    }`}
+                 >
+                   {followLoading ? '...' : isFollowing ? 'Äang theo dĂµi' : 'Theo dĂµi'}
+                 </button>
+@@ -312,13 +311,27 @@ export default function UserProfilePage() {
+                   <p className="text-xs text-zinc-500">{currentUser.experience} / {xpForNextLevel} XP</p>
+                 </div>
+               </div>
+-              <div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1.5">
+-                <span className="text-sm">đŸª™</span>
+-                <span className="text-sm font-semibold text-amber-400">{currentUser.coins} xu</span>
++              <div className="flex items-center gap-3">
++                {currentUser.loginStreak > 0 && (
++                  <div className="flex items-center gap-1.5 rounded-full bg-orange-500/10 px-3 py-1.5">
++                    <span className="text-sm">đŸ”¥</span>
++                    <span className="text-sm font-semibold text-orange-400">{currentUser.loginStreak} ngĂ y</span>
++                  </div>
++                )}
++                <div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1.5">
++                  <span className="text-sm">đŸª™</span>
++                  <span className="text-sm font-semibold text-amber-400">{currentUser.coins} xu</span>
++                </div>
+               </div>
+             </div>
+             <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5">
+-              <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500" style={{ width: `${xpProgress}%` }} />
++              <div
++                className="h-full rounded-full transition-all duration-500"
++                style={{
++                  width: `${xpProgress}%`,
++                  background: 'linear-gradient(to right, #f59e0b, #f97316)',
++                }}
++              />
+             </div>
+           </div>
+         )}
+@@ -344,7 +357,7 @@ export default function UserProfilePage() {
+               )}
+               {profileUser.socialLinks.facebook && (
+                 <a href={profileUser.socialLinks.facebook.startsWith('http') ? profileUser.socialLinks.facebook : `https://facebook.com/${profileUser.socialLinks.facebook}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-white/10 hover:text-white">
+-                  đŸ“˜ Facebook
++                  â“• Facebook
+                 </a>
+               )}
+             </div>
+@@ -353,7 +366,7 @@ export default function UserProfilePage() {
+ 
+         {/* â”€â”€â”€â”€ Stats Grid â”€â”€â”€â”€ */}
+         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+-          <StatCard icon="đŸ“" label="ÄĂ£ lÆ°u" value={stats.bookmarkCount} />
++          <StatCard icon="đŸ”–" label="ÄĂ£ lÆ°u" value={stats.bookmarkCount} />
+           <StatCard icon="đŸ’¬" label="BĂ¬nh luáº­n" value={stats.commentCount} />
+           <StatCard icon="â­" label="ÄĂ¡nh giĂ¡" value={stats.ratingCount} />
+           <StatCard
+diff --git a/apps/web/src/stores/auth-store.ts b/apps/web/src/stores/auth-store.ts
+index 60eb804..3286033 100644
+--- a/apps/web/src/stores/auth-store.ts
++++ b/apps/web/src/stores/auth-store.ts
+@@ -21,6 +21,7 @@ interface User {
+   coins: number;
+   experience: number;
+   level: number;
++  loginStreak: number;
+   createdAt: string;
+ }
+ 

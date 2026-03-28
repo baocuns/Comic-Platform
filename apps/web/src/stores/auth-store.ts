@@ -21,6 +21,7 @@ interface User {
   coins: number;
   experience: number;
   level: number;
+  loginStreak: number;
   createdAt: string;
 }
 

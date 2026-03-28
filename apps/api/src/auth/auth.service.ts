@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
 import { UserRole } from '@prisma/client';
+import { GamificationService } from '../gamification/gamification.service';
 
 interface TokenPayload {
   sub: string;
@@ -28,6 +29,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly redis: RedisService,
+    private readonly gamification: GamificationService,
   ) {}
 
   // ── Register ──
@@ -97,6 +99,11 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.role);
 
     this.logger.log(`User logged in: ${user.email}`);
+
+    // Award daily login (fire-and-forget)
+    this.gamification.awardDailyLogin(user.id).catch((e) =>
+      this.logger.warn(`Daily login reward failed for ${user.id}: ${e.message}`),
+    );
 
     return {
       user: this.sanitizeUser(user),
@@ -255,6 +262,7 @@ export class AuthService {
       coins: user.coins,
       experience: user.experience,
       level: user.level,
+      loginStreak: user.loginStreak,
       createdAt: user.createdAt,
     };
   }

@@ -1,16 +1,32 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { GamificationService } from '../gamification/gamification.service';
 
 @Injectable()
 export class HistoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gamification: GamificationService,
+  ) {}
 
   async upsert(userId: string, comicId: string, chapterId: string, lastPage: number) {
-    return this.prisma.readingHistory.upsert({
+    // Check if this is a first read (for XP)
+    const existing = await this.prisma.readingHistory.findUnique({
+      where: { userId_chapterId: { userId, chapterId } },
+    });
+
+    const result = await this.prisma.readingHistory.upsert({
       where: { userId_chapterId: { userId, chapterId } },
       update: { lastPage, readAt: new Date() },
       create: { userId, comicId, chapterId, lastPage },
     });
+
+    // Award XP only on first read
+    if (!existing) {
+      this.gamification.awardReadChapter(userId, chapterId).catch(() => {});
+    }
+
+    return result;
   }
 
   async getUserHistory(userId: string, page = 1, limit = 20) {

@@ -1,10 +1,14 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import { GamificationService } from '../gamification/gamification.service';
 
 @Injectable()
 export class RatingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gamification: GamificationService,
+  ) {}
 
   async rate(userId: string, comicId: string, score: number, review?: string) {
     const existing = await this.prisma.rating.findUnique({
@@ -12,6 +16,8 @@ export class RatingService {
     });
 
     let rating;
+    const isFirstRating = !existing;
+
     if (existing) {
       rating = await this.prisma.rating.update({
         where: { id: existing.id },
@@ -40,6 +46,11 @@ export class RatingService {
       where: { id: comicId },
       data: { avgRating: new Decimal(agg._avg.score || 0) },
     });
+
+    // Award XP on first rating only
+    if (isFirstRating) {
+      this.gamification.awardRate(userId, comicId).catch(() => {});
+    }
 
     return rating;
   }

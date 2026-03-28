@@ -108,12 +108,12 @@ export default function UserProfilePage() {
     if (activeTab === 'bookmarks') {
       api.get<{ data: BookmarkItem[] }>('/bookmarks', { token: accessToken })
         .then((r) => setBookmarks(r.data))
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => setLoadingTab(false));
     } else {
       api.get<{ data: HistoryItem[] }>('/history', { token: accessToken })
         .then((r) => setHistory(r.data))
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => setLoadingTab(false));
     }
   }, [accessToken, activeTab, profile?.isOwnProfile]);
@@ -166,7 +166,7 @@ export default function UserProfilePage() {
       const res = await api.upload<{ data: { url: string } }>('/upload/users/avatar', formData, { token: accessToken });
       updateUser({ avatarUrl: res.data.url });
       setProfile((p) => p ? { ...p, user: { ...p.user, avatarUrl: res.data.url } } : p);
-    } catch {}
+    } catch { }
     setUploadingAvatar(false);
   };
 
@@ -185,7 +185,7 @@ export default function UserProfilePage() {
         await api.post(`/users/${profileUser.id}/follow`, undefined, { token: accessToken });
         setProfile((p) => p ? { ...p, isFollowing: true, stats: { ...p.stats, followerCount: p.stats.followerCount + 1 } } : p);
       }
-    } catch {}
+    } catch { }
     setFollowLoading(false);
   };
 
@@ -201,8 +201,8 @@ export default function UserProfilePage() {
     ADMIN: { color: 'bg-red-500/20 text-red-300', label: 'Admin' },
   };
 
-  const xpForNextLevel = (profileUser as any).level * 100;
-  const xpProgress = isOwnProfile ? Math.min(((profileUser as any).experience / xpForNextLevel) * 100, 100) : 0;
+  const xpForNextLevel = Math.floor(100 * Math.pow(1.5, (currentUser?.level ?? 1) - 1));
+  const xpProgress = isOwnProfile && currentUser ? Math.min((currentUser.experience / xpForNextLevel) * 100, 100) : 0;
 
   return (
     <>
@@ -276,11 +276,10 @@ export default function UserProfilePage() {
                 <button
                   onClick={handleFollowToggle}
                   disabled={followLoading}
-                  className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
-                    isFollowing
-                      ? 'border border-white/10 bg-white/5 text-zinc-300 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400'
-                      : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:brightness-110'
-                  }`}
+                  className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${isFollowing
+                    ? 'border border-white/10 bg-white/5 text-zinc-300 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400'
+                    : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:brightness-110'
+                    }`}
                 >
                   {followLoading ? '...' : isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
                 </button>
@@ -312,13 +311,27 @@ export default function UserProfilePage() {
                   <p className="text-xs text-zinc-500">{currentUser.experience} / {xpForNextLevel} XP</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1.5">
-                <span className="text-sm">🪙</span>
-                <span className="text-sm font-semibold text-amber-400">{currentUser.coins} xu</span>
+              <div className="flex items-center gap-3">
+                {currentUser.loginStreak > 0 && (
+                  <div className="flex items-center gap-1.5 rounded-full bg-orange-500/10 px-3 py-1.5">
+                    <span className="text-sm">🔥</span>
+                    <span className="text-sm font-semibold text-orange-400">{currentUser.loginStreak} ngày</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1.5">
+                  <span className="text-sm">🪙</span>
+                  <span className="text-sm font-semibold text-amber-400">{currentUser.coins} xu</span>
+                </div>
               </div>
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5">
-              <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500" style={{ width: `${xpProgress}%` }} />
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${xpProgress}%`,
+                  background: 'linear-gradient(to right, #f59e0b, #f97316)',
+                }}
+              />
             </div>
           </div>
         )}
@@ -344,7 +357,7 @@ export default function UserProfilePage() {
               )}
               {profileUser.socialLinks.facebook && (
                 <a href={profileUser.socialLinks.facebook.startsWith('http') ? profileUser.socialLinks.facebook : `https://facebook.com/${profileUser.socialLinks.facebook}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-white/10 hover:text-white">
-                  📘 Facebook
+                  ⓕ Facebook
                 </a>
               )}
             </div>
@@ -353,7 +366,7 @@ export default function UserProfilePage() {
 
         {/* ──── Stats Grid ──── */}
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard icon="📚" label="Đã lưu" value={stats.bookmarkCount} />
+          <StatCard icon="🔖" label="Đã lưu" value={stats.bookmarkCount} />
           <StatCard icon="💬" label="Bình luận" value={stats.commentCount} />
           <StatCard icon="⭐" label="Đánh giá" value={stats.ratingCount} />
           <StatCard

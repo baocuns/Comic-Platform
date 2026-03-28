@@ -13,6 +13,7 @@ import { HistoryModule } from './history/history.module';
 import { CommentModule } from './comment/comment.module';
 import { RatingModule } from './rating/rating.module';
 import { UserModule } from './user/user.module';
+import { GamificationModule } from './gamification/gamification.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { UserModule } from './user/user.module';
     PrismaModule,
     StorageModule,
     RedisModule,
+    GamificationModule,
     AuthModule,
     ComicModule,
     ChapterModule,

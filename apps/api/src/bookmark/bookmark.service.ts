@@ -1,6 +1,7 @@
 import { Injectable, Logger, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { GamificationService } from '../gamification/gamification.service';
 
 @Injectable()
 export class BookmarkService {
@@ -9,6 +10,7 @@ export class BookmarkService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly gamification: GamificationService,
   ) {}
 
   async toggle(userId: string, comicId: string) {
@@ -24,6 +26,10 @@ export class BookmarkService {
 
     await this.prisma.bookmark.create({ data: { userId, comicId } });
     await this.prisma.comic.update({ where: { id: comicId }, data: { totalBookmarks: { increment: 1 } } });
+
+    // Award XP on add
+    this.gamification.awardBookmark(userId, comicId).catch(() => {});
+
     return { bookmarked: true };
   }
 

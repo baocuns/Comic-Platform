@@ -33,9 +33,51 @@ export default function Home() {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [search, setSearch] = useState('');
 
+  // Typewriter effect variables and states
+  const words = [
+    'mọi lúc, mọi nơi',
+    'mới nhất mỗi ngày',
+    'hoàn toàn miễn phí',
+    'sắc nét, mượt mà'
+  ];
+  const [wordIndex, setWordIndex] = useState(0);
+  const [displayedText, setDisplayedText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
-    api.get<{ data: HomepageData }>('/comics/homepage').then((r) => setData(r.data)).catch(() => {});
-    api.get<{ data: Genre[] }>('/comics/genres').then((r) => setGenres(r.data)).catch(() => {});
+    let timer: NodeJS.Timeout;
+
+    const handleTyping = () => {
+      const activeWord = words[wordIndex];
+      if (!isDeleting) {
+        if (displayedText === activeWord) {
+          timer = setTimeout(() => setIsDeleting(true), 1500);
+        } else {
+          timer = setTimeout(() => {
+            setDisplayedText(activeWord.substring(0, displayedText.length + 1));
+          }, 100 + Math.random() * 50);
+        }
+      } else {
+        if (displayedText === '') {
+          timer = setTimeout(() => {
+            setIsDeleting(false);
+            setWordIndex((prev) => (prev + 1) % words.length);
+          }, 300);
+        } else {
+          timer = setTimeout(() => {
+            setDisplayedText(activeWord.substring(0, displayedText.length - 1));
+          }, 50);
+        }
+      }
+    };
+
+    handleTyping();
+    return () => clearTimeout(timer);
+  }, [displayedText, isDeleting, wordIndex]);
+
+  useEffect(() => {
+    api.get<{ data: HomepageData }>('/comics/homepage').then((r) => setData(r.data)).catch(() => { });
+    api.get<{ data: Genre[] }>('/comics/genres').then((r) => setGenres(r.data)).catch(() => { });
   }, []);
 
   return (
@@ -50,15 +92,18 @@ export default function Home() {
       <section className="relative mx-auto max-w-6xl px-4 pb-12 pt-16 text-center">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-4 py-1.5 text-sm text-violet-300">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400" />
-          Comic Platform — Phase 1 MVP
+          Comic Platform — Top 1 Việt Nam
         </div>
         <h1 className="mb-4 text-4xl font-bold leading-tight sm:text-5xl">
           Đọc truyện tranh{' '}
-          <span className="bg-gradient-to-r from-violet-400 via-fuchsia-400 to-pink-400 bg-clip-text text-transparent">
-            mọi lúc, mọi nơi
+          <span className="relative inline-block">
+            <span className="bg-gradient-to-r from-violet-400 via-fuchsia-400 to-pink-400 bg-clip-text text-transparent">
+              {displayedText}
+            </span>
+            <span className="ml-1 inline-block w-[3px] h-[0.9em] bg-pink-400 animate-cursor-blink align-middle" />
           </span>
         </h1>
-        <p className="mb-8 text-lg text-zinc-400">Nền tảng đọc truyện tranh online hỗ trợ tác giả Việt Nam</p>
+        {/* <p className="mb-8 text-lg text-zinc-400">Nền tảng đọc truyện tranh online hỗ trợ tác giả Việt Nam</p> */}
 
         {/* Search */}
         <div className="mx-auto max-w-xl">

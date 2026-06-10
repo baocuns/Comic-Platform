@@ -19,10 +19,10 @@ export function Header() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-lg font-bold text-white shadow-lg shadow-violet-500/25">
-            C
+            O
           </div>
           <span className="text-lg font-semibold tracking-tight text-white">
-            Comic<span className="text-violet-400">Platform</span>
+            OW<span className="text-violet-400">OC</span>
           </span>
         </Link>
 
@@ -42,8 +42,8 @@ export function Header() {
               <Link href="/history" className="text-sm text-zinc-400 transition-colors hover:text-white">
                 📖 Lịch sử
               </Link>
-              <Link href="/dashboard" className="text-sm text-zinc-400 transition-colors hover:text-white">
-                ✏️ Dashboard
+              <Link href="/studio" className="text-sm text-zinc-400 transition-colors hover:text-white">
+                ✏️ Studio
               </Link>
             </>
           )}

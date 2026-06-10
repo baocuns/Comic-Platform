@@ -46,10 +46,10 @@ export default function RootLayout({
                 <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
                   <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-bold text-white">C</div>
-                      <span className="text-sm text-zinc-500">Comic<span className="text-zinc-400">Platform</span></span>
+                      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-bold text-white">O</div>
+                      <span className="text-sm text-zinc-500">OW<span className="text-zinc-400">OC</span></span>
                     </div>
-                    <p className="text-xs text-zinc-600">© 2026 Comic Platform. Hỗ trợ tác giả Việt Nam 🇻🇳</p>
+                    <p className="text-xs text-zinc-600">© 2026 OWOC. Hỗ trợ tác giả Việt Nam 🇻🇳</p>
                   </div>
                 </div>
               </footer>

@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { ChapterService } from './chapter.service';
 import { CreateChapterDto, UpdateChapterDto } from './dto/chapter.dto';
+import { ReorderPagesDto } from './dto/reorder-pages.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -64,5 +65,29 @@ export class ChapterController {
   async remove(@Param('id') id: string, @CurrentUser('sub') userId: string) {
     await this.chapterService.remove(id, userId);
     return { success: true, data: { message: 'Chapter deleted' } };
+  }
+
+  // ── Page Management ──
+
+  @Put('chapters/:id/pages/reorder')
+  @UseGuards(JwtAuthGuard)
+  async reorderPages(
+    @Param('id') id: string,
+    @CurrentUser('sub') userId: string,
+    @Body() dto: ReorderPagesDto,
+  ) {
+    await this.chapterService.reorderPages(id, userId, dto.orders);
+    return { success: true, data: { message: 'Pages reordered' } };
+  }
+
+  @Delete('chapters/:chapterId/pages/:pageId')
+  @UseGuards(JwtAuthGuard)
+  async removePage(
+    @Param('chapterId') chapterId: string,
+    @Param('pageId') pageId: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    await this.chapterService.removePage(chapterId, pageId, userId);
+    return { success: true, data: { message: 'Page deleted' } };
   }
 }

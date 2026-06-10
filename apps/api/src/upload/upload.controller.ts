@@ -58,6 +58,22 @@ export class UploadController {
     return { success: true, data: { urls, count: urls.length } };
   }
 
+  @Post('chapters/:chapterId/pages/append')
+  @UseInterceptors(FilesInterceptor('files', 100))
+  async appendPages(
+    @Param('chapterId') chapterId: string,
+    @CurrentUser('sub') userId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    const uploadedFiles = files.map((f) => ({
+      buffer: f.buffer,
+      originalname: f.originalname,
+      mimetype: f.mimetype,
+    }));
+    const urls = await this.uploadService.appendPages(chapterId, userId, uploadedFiles);
+    return { success: true, data: { urls, count: urls.length } };
+  }
+
   @Post('users/avatar')
   @UseInterceptors(FileInterceptor('file'))
   async uploadUserAvatar(

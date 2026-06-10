@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { StorageService } from '../storage/storage.service';
 import { CreateChapterDto, UpdateChapterDto } from './dto/chapter.dto';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -11,6 +12,7 @@ export class ChapterService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly storage: StorageService,
   ) {}
 
   // ── Create Chapter ──
@@ -185,5 +187,103 @@ export class ChapterService {
     });
 
     await this.redis.del(`comic:${chapter.comic.slug}`);
+  }
+
+  // ── Reorder Pages ──
+
+  async reorderPages(chapterId: string, userId: string, orders: { pageId: string; newOrder: number }[]) {
+    const chapter = await this.prisma.chapter.findUnique({
+      where: { id: chapterId },
+      include: { comic: { select: { authorId: true, slug: true } } },
+    });
+    if (!chapter) throw new NotFoundException('Chapter not found');
+    if (chapter.comic.authorId !== userId) throw new ForbiddenException('Not the author');
+
+    // Two-phase update to avoid unique constraint [chapterId, pageNumber] conflicts:
+    // Phase 1: Set all to negative temporary values
+    // Phase 2: Set to correct positive values
+    await this.prisma.$transaction([
+      // Phase 1: offset to negative temporaries
+      ...orders.map((o, i) =>
+        this.prisma.page.update({
+          where: { id: o.pageId },
+          data: { pageNumber: -(i + 1) },
+        }),
+      ),
+      // Phase 2: set correct values
+      ...orders.map((o) =>
+        this.prisma.page.update({
+          where: { id: o.pageId },
+          data: { pageNumber: o.newOrder },
+        }),
+      ),
+    ]);
+
+    await this.redis.del(`comic:${chapter.comic.slug}`);
+    this.logger.log(`Pages reordered for chapter ${chapterId}`);
+  }
+
+  // ── Remove Single Page ──
+
+  async removePage(chapterId: string, pageId: string, userId: string) {
+    const chapter = await this.prisma.chapter.findUnique({
+      where: { id: chapterId },
+      include: { comic: { select: { authorId: true, slug: true } } },
+    });
+    if (!chapter) throw new NotFoundException('Chapter not found');
+    if (chapter.comic.authorId !== userId) throw new ForbiddenException('Not the author');
+
+    const page = await this.prisma.page.findUnique({ where: { id: pageId } });
+    if (!page || page.chapterId !== chapterId) throw new NotFoundException('Page not found');
+
+    // Delete image from R2 storage
+    try {
+      const key = this.extractStorageKey(page.imageUrl);
+      await this.storage.delete(key);
+      this.logger.log(`Deleted R2 object: ${key}`);
+    } catch (err) {
+      this.logger.warn(`Failed to delete R2 object for page ${pageId}: ${err}`);
+    }
+
+    // Delete the page record
+    await this.prisma.page.delete({ where: { id: pageId } });
+
+    // Reindex remaining pages
+    const remainingPages = await this.prisma.page.findMany({
+      where: { chapterId },
+      orderBy: { pageNumber: 'asc' },
+    });
+
+    await this.prisma.$transaction(
+      remainingPages.map((p, i) =>
+        this.prisma.page.update({
+          where: { id: p.id },
+          data: { pageNumber: i + 1 },
+        }),
+      ),
+    );
+
+    // Update chapter page count
+    await this.prisma.chapter.update({
+      where: { id: chapterId },
+      data: { totalPages: remainingPages.length },
+    });
+
+    await this.redis.del(`comic:${chapter.comic.slug}`);
+    this.logger.log(`Page ${pageId} removed from chapter ${chapterId}`);
+  }
+
+  // ── Helper: extract R2 key from public URL ──
+
+  private extractStorageKey(imageUrl: string): string {
+    // imageUrl format: https://pub-xxx.r2.dev/pages/chapterId/001.webp
+    // We need to extract: pages/chapterId/001.webp
+    try {
+      const url = new URL(imageUrl);
+      return url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
+    } catch {
+      // Fallback: extract last 3 segments (e.g. pages/chapterId/001.webp)
+      return imageUrl.split('/').slice(-3).join('/');
+    }
   }
 }

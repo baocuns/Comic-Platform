@@ -135,6 +135,59 @@ export class UploadService {
     return urls;
   }
 
+  // ── Append Pages (add without deleting existing) ──
+
+  async appendPages(chapterId: string, userId: string, files: UploadedFile[]): Promise<string[]> {
+    if (!files.length) throw new BadRequestException('No files provided');
+
+    const chapter = await this.prisma.chapter.findUnique({
+      where: { id: chapterId },
+      include: { comic: { select: { authorId: true } } },
+    });
+    if (!chapter) throw new NotFoundException('Chapter not found');
+    if (chapter.comic.authorId !== userId) throw new ForbiddenException('Not the author');
+
+    // Get current max page number
+    const existingPages = await this.prisma.page.findMany({
+      where: { chapterId },
+      orderBy: { pageNumber: 'desc' },
+      take: 1,
+    });
+    const startNumber = existingPages.length > 0 ? existingPages[0].pageNumber + 1 : 1;
+
+    const urls: string[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      this.validateFile(files[i]);
+
+      const pageNum = startNumber + i;
+      const processed = await this.processImage(files[i].buffer, { width: 1200 });
+      const key = `pages/${chapterId}/${String(pageNum).padStart(3, '0')}.webp`;
+      const url = await this.storage.upload(key, processed.webp, 'image/webp');
+      urls.push(url);
+
+      await this.prisma.page.create({
+        data: {
+          chapterId,
+          pageNumber: pageNum,
+          imageUrl: url,
+          width: processed.width,
+          height: processed.height,
+        },
+      });
+    }
+
+    // Update chapter page count
+    const totalPages = await this.prisma.page.count({ where: { chapterId } });
+    await this.prisma.chapter.update({
+      where: { id: chapterId },
+      data: { totalPages },
+    });
+
+    this.logger.log(`${files.length} pages appended to chapter ${chapterId} (starting at page ${startNumber})`);
+    return urls;
+  }
+
   // ── Upload User Avatar ──
 
   async uploadUserAvatar(userId: string, file: UploadedFile): Promise<string> {

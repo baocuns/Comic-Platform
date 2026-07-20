@@ -51,27 +51,42 @@ interface Comment {
   _count?: { replies: number };
 }
 
+interface ChapterItemData {
+  chapter: Chapter;
+  nav: Navigation;
+  comments: Comment[];
+  commentTotal: number;
+  commentPage: number;
+  commentHasNext: boolean;
+  loadingMoreComments?: boolean;
+}
+
 export default function ReaderPage() {
   const params = useParams();
   const router = useRouter();
   const { user, accessToken } = useAuthStore();
-  const [chapter, setChapter] = useState<Chapter | null>(null);
-  const [nav, setNav] = useState<Navigation | null>(null);
+
+  // Loaded chapters list for infinite scroll
+  const [loadedChapters, setLoadedChapters] = useState<ChapterItemData[]>([]);
+  const [activeChapterId, setActiveChapterId] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [loadingNextChapter, setLoadingNextChapter] = useState(false);
+
+  // Settings state
   const [readMode, setReadMode] = useState<'scroll' | 'page'>('scroll');
+  const [autoLoadNext, setAutoLoadNext] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [readerWidth, setReaderWidth] = useState<'max-w-xl' | 'max-w-2xl' | 'max-w-3xl' | 'max-w-4xl' | 'max-w-full'>('max-w-3xl');
+  const [pageGap, setPageGap] = useState<string>('gap-0');
+  const [bgColor, setBgColor] = useState<string>('bg-black');
   const [currentPage, setCurrentPage] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Comment state
-  const [comments, setComments] = useState<Comment[]>([]);
+  // Comment input state
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState('');
-  const [commentPage, setCommentPage] = useState(1);
-  const [commentHasNext, setCommentHasNext] = useState(false);
-  const [commentTotal, setCommentTotal] = useState(0);
-  const [loadingMoreComments, setLoadingMoreComments] = useState(false);
 
   // Chapter list modal
   const [showChapterList, setShowChapterList] = useState(false);
@@ -79,56 +94,165 @@ export default function ReaderPage() {
   const [chapterSearch, setChapterSearch] = useState('');
   const chapterGridRef = useRef<HTMLDivElement>(null);
 
+  // Active chapter object
+  const activeItem = loadedChapters.find((item) => item.chapter.id === activeChapterId) || loadedChapters[0];
+  const activeChapter = activeItem?.chapter || null;
+
+  const handleOpenChapterList = useCallback(async () => {
+    setShowChapterList(true);
+    if (allChapters.length === 0 && activeChapter) {
+      try {
+        const r = await api.get<{ data: ChapterListItem[] }>(`/comics/${activeChapter.comic.id}/chapters`);
+        setAllChapters(r.data);
+      } catch { }
+    }
+  }, [allChapters.length, activeChapter]);
+
+  // Scroll direction detection for header hide/show
+  const [showHeader, setShowHeader] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY <= 50) {
+        setShowHeader(true);
+      } else if (currentScrollY > lastScrollY.current + 10) {
+        setShowHeader(false);
+      } else if (currentScrollY < lastScrollY.current - 10) {
+        setShowHeader(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Initial chapter load
+  useEffect(() => {
+    if (!params.chapterId) return;
+    const chId = params.chapterId as string;
+    setLoading(true);
+    Promise.all([
+      api.get<{ data: Chapter }>(`/chapters/${chId}`),
+      api.get<{ data: Navigation }>(`/chapters/${chId}/navigation`),
+      api.get<{ data: Comment[]; meta: { total: number; hasNext: boolean } }>(`/comments/chapter/${chId}?page=1`).catch(() => ({ data: [], meta: { total: 0, hasNext: false } })),
+    ])
+      .then(([chRes, navRes, comRes]) => {
+        const item: ChapterItemData = {
+          chapter: chRes.data,
+          nav: navRes.data,
+          comments: comRes.data || [],
+          commentTotal: comRes.meta?.total || 0,
+          commentPage: 1,
+          commentHasNext: comRes.meta?.hasNext || false,
+        };
+        setLoadedChapters([item]);
+        setActiveChapterId(chRes.data.id);
+        setCurrentPage(0);
+      })
+      .catch(() => { })
+      .finally(() => setLoading(false));
+  }, [params.chapterId]);
+
+  // Infinite scroll: auto load next chapter
+  const loadNextChapter = useCallback(async () => {
+    if (loadingNextChapter || !autoLoadNext || loadedChapters.length === 0) return;
+    const lastItem = loadedChapters[loadedChapters.length - 1];
+    if (!lastItem?.nav?.next) return;
+
+    const nextId = lastItem.nav.next.id;
+    if (loadedChapters.some((item) => item.chapter.id === nextId)) return;
+
+    setLoadingNextChapter(true);
+    try {
+      const [chRes, navRes, comRes] = await Promise.all([
+        api.get<{ data: Chapter }>(`/chapters/${nextId}`),
+        api.get<{ data: Navigation }>(`/chapters/${nextId}/navigation`),
+        api.get<{ data: Comment[]; meta: { total: number; hasNext: boolean } }>(`/comments/chapter/${nextId}?page=1`).catch(() => ({ data: [], meta: { total: 0, hasNext: false } })),
+      ]);
+
+      const newItem: ChapterItemData = {
+        chapter: chRes.data,
+        nav: navRes.data,
+        comments: comRes.data || [],
+        commentTotal: comRes.meta?.total || 0,
+        commentPage: 1,
+        commentHasNext: comRes.meta?.hasNext || false,
+      };
+
+      setLoadedChapters((prev) => [...prev, newItem]);
+    } catch { }
+    setLoadingNextChapter(false);
+  }, [loadingNextChapter, autoLoadNext, loadedChapters]);
+
+  // Trigger auto load next chapter when scrolling near bottom
+  useEffect(() => {
+    if (readMode !== 'scroll' || !autoLoadNext || loadingNextChapter) return;
+
+    const handleScrollForNext = () => {
+      const scrollPosition = window.scrollY + window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      if (documentHeight - scrollPosition < 800) {
+        loadNextChapter();
+      }
+    };
+
+    window.addEventListener('scroll', handleScrollForNext, { passive: true });
+    return () => window.removeEventListener('scroll', handleScrollForNext);
+  }, [readMode, autoLoadNext, loadingNextChapter, loadNextChapter]);
+
+  // Track active chapter block and update URL seamlessly
+  useEffect(() => {
+    if (readMode !== 'scroll' || loadedChapters.length <= 1) return;
+
+    const handleScrollActive = () => {
+      const blocks = document.querySelectorAll('[data-chapter-block-id]');
+      let currentId = activeChapterId;
+
+      blocks.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= window.innerHeight * 0.4 && rect.bottom >= 100) {
+          const id = el.getAttribute('data-chapter-block-id');
+          if (id) currentId = id;
+        }
+      });
+
+      if (currentId && currentId !== activeChapterId) {
+        setActiveChapterId(currentId);
+        window.history.replaceState(null, '', `/read/${currentId}`);
+      }
+    };
+
+    window.addEventListener('scroll', handleScrollActive, { passive: true });
+    return () => window.removeEventListener('scroll', handleScrollActive);
+  }, [readMode, loadedChapters, activeChapterId]);
+
   // History tracking
   const lastSavedPage = useRef(0);
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (!params.chapterId) return;
-    setLoading(true);
-    Promise.all([
-      api.get<{ data: Chapter }>(`/chapters/${params.chapterId}`),
-      api.get<{ data: Navigation }>(`/chapters/${params.chapterId}/navigation`),
-    ])
-      .then(([chRes, navRes]) => {
-        setChapter(chRes.data);
-        setNav(navRes.data);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-
-    // Load comments (page 1)
-    api.get<{ data: Comment[]; meta: { total: number; hasNext: boolean } }>(`/comments/chapter/${params.chapterId}?page=1`)
-      .then((r) => {
-        setComments(r.data);
-        setCommentHasNext(r.meta.hasNext);
-        setCommentTotal(r.meta.total);
-        setCommentPage(1);
-      })
-      .catch(() => {});
-  }, [params.chapterId]);
-
-  // Save reading history (debounced)
-  const saveHistory = useCallback((pageNum: number) => {
-    if (!accessToken || !chapter || pageNum === lastSavedPage.current) return;
+  const saveHistory = useCallback((chapterObj: Chapter, pageNum: number) => {
+    if (!accessToken || !chapterObj || pageNum === lastSavedPage.current) return;
     lastSavedPage.current = pageNum;
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       api.post('/history', {
-        comicId: chapter.comic.id,
-        chapterId: chapter.id,
+        comicId: chapterObj.comic.id,
+        chapterId: chapterObj.id,
         lastPage: pageNum,
-      }, { token: accessToken }).catch(() => {});
+      }, { token: accessToken }).catch(() => { });
     }, 2000);
-  }, [accessToken, chapter]);
+  }, [accessToken]);
 
-  // Track scroll position for history in scroll mode
+  // Track page numbers for history in scroll mode
   useEffect(() => {
-    if (readMode !== 'scroll' || !chapter || !chapter.pages.length) return;
+    if (readMode !== 'scroll' || !activeChapter || !activeChapter.pages.length) return;
 
-    const handleScroll = () => {
-      const pages = document.querySelectorAll('[data-page-number]');
+    const handleScrollPage = () => {
+      const pages = document.querySelectorAll(`[data-chapter-id="${activeChapter.id}"][data-page-number]`);
       let visiblePage = 1;
       pages.forEach((el) => {
         const rect = el.getBoundingClientRect();
@@ -136,33 +260,32 @@ export default function ReaderPage() {
           visiblePage = Number(el.getAttribute('data-page-number') || 1);
         }
       });
-      saveHistory(visiblePage);
+      saveHistory(activeChapter, visiblePage);
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    // Save first page on mount
-    saveHistory(1);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [readMode, chapter, saveHistory]);
+    window.addEventListener('scroll', handleScrollPage, { passive: true });
+    saveHistory(activeChapter, 1);
+    return () => window.removeEventListener('scroll', handleScrollPage);
+  }, [readMode, activeChapter, saveHistory]);
 
   // Track page changes in page mode
   useEffect(() => {
-    if (readMode === 'page' && chapter) {
-      saveHistory(currentPage + 1);
+    if (readMode === 'page' && activeChapter) {
+      saveHistory(activeChapter, currentPage + 1);
     }
-  }, [currentPage, readMode, chapter, saveHistory]);
+  }, [currentPage, readMode, activeChapter, saveHistory]);
 
-  // Keyboard navigation
+  // Keyboard navigation for page mode
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (readMode !== 'page' || !chapter) return;
+    if (readMode !== 'page' || !activeChapter) return;
     if (e.key === 'ArrowRight' || e.key === ' ') {
       e.preventDefault();
-      setCurrentPage((p) => Math.min(p + 1, chapter.pages.length - 1));
+      setCurrentPage((p) => Math.min(p + 1, activeChapter.pages.length - 1));
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
       setCurrentPage((p) => Math.max(p - 1, 0));
     }
-  }, [readMode, chapter]);
+  }, [readMode, activeChapter]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -170,321 +293,567 @@ export default function ReaderPage() {
   }, [handleKeyDown]);
 
   // Comment actions
-  const postComment = async (parentId?: string) => {
-    if (!accessToken || !chapter) return;
+  const postComment = async (targetChapterId: string, parentId?: string) => {
+    if (!accessToken) return;
     const content = parentId ? replyContent : newComment;
     if (!content.trim()) return;
 
     setSubmittingComment(true);
     try {
       const res = await api.post<{ data: Comment }>(
-        `/comments/chapter/${chapter.id}`,
+        `/comments/chapter/${targetChapterId}`,
         { content: content.trim(), parentId },
         { token: accessToken },
       );
 
+      setLoadedChapters((prev) =>
+        prev.map((item) => {
+          if (item.chapter.id !== targetChapterId) return item;
+          if (parentId) {
+            return {
+              ...item,
+              comments: item.comments.map((c) =>
+                c.id === parentId
+                  ? { ...c, replies: [...(c.replies || []), res.data], _count: { replies: (c._count?.replies || 0) + 1 } }
+                  : c
+              ),
+            };
+          } else {
+            return {
+              ...item,
+              comments: [{ ...res.data, replies: [], _count: { replies: 0 } }, ...item.comments],
+              commentTotal: item.commentTotal + 1,
+            };
+          }
+        })
+      );
+
       if (parentId) {
-        // Add reply to parent
-        setComments((prev) =>
-          prev.map((c) =>
-            c.id === parentId
-              ? { ...c, replies: [...(c.replies || []), res.data], _count: { replies: (c._count?.replies || 0) + 1 } }
-              : c,
-          ),
-        );
         setReplyingTo(null);
         setReplyContent('');
       } else {
-        // Add as new top-level comment
-        setComments((prev) => [{ ...res.data, replies: [], _count: { replies: 0 } }, ...prev]);
         setNewComment('');
       }
-    } catch {}
+    } catch { }
     setSubmittingComment(false);
   };
 
-  const deleteComment = async (commentId: string, parentId?: string | null) => {
+  const deleteComment = async (commentId: string, targetChapterId: string, parentId?: string | null) => {
     if (!accessToken || !confirm('Xóa bình luận này?')) return;
     try {
       await api.delete(`/comments/${commentId}`, { token: accessToken });
-      if (parentId) {
-        setComments((prev) =>
-          prev.map((c) =>
-            c.id === parentId
-              ? { ...c, replies: (c.replies || []).filter((r) => r.id !== commentId) }
-              : c,
-          ),
-        );
-      } else {
-        setComments((prev) => prev.filter((c) => c.id !== commentId));
-      }
-    } catch {}
+      setLoadedChapters((prev) =>
+        prev.map((item) => {
+          if (item.chapter.id !== targetChapterId) return item;
+          if (parentId) {
+            return {
+              ...item,
+              comments: item.comments.map((c) =>
+                c.id === parentId
+                  ? { ...c, replies: (c.replies || []).filter((r) => r.id !== commentId) }
+                  : c
+              ),
+            };
+          } else {
+            return {
+              ...item,
+              comments: item.comments.filter((c) => c.id !== commentId),
+              commentTotal: Math.max(0, item.commentTotal - 1),
+            };
+          }
+        })
+      );
+    } catch { }
   };
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" /></div>;
-  if (!chapter) return <div className="flex min-h-screen items-center justify-center text-zinc-500">Chương không tồn tại</div>;
+  const loadMoreComments = async (targetChapterId: string) => {
+    const item = loadedChapters.find((i) => i.chapter.id === targetChapterId);
+    if (!item || item.loadingMoreComments || !item.commentHasNext) return;
+
+    setLoadedChapters((prev) =>
+      prev.map((i) => (i.chapter.id === targetChapterId ? { ...i, loadingMoreComments: true } : i))
+    );
+
+    try {
+      const nextPage = item.commentPage + 1;
+      const r = await api.get<{ data: Comment[]; meta: { total: number; hasNext: boolean } }>(
+        `/comments/chapter/${targetChapterId}?page=${nextPage}`
+      );
+      setLoadedChapters((prev) =>
+        prev.map((i) =>
+          i.chapter.id === targetChapterId
+            ? {
+              ...i,
+              comments: [...i.comments, ...r.data],
+              commentHasNext: r.meta.hasNext,
+              commentPage: nextPage,
+              loadingMoreComments: false,
+            }
+            : i
+        )
+      );
+    } catch {
+      setLoadedChapters((prev) =>
+        prev.map((i) => (i.chapter.id === targetChapterId ? { ...i, loadingMoreComments: false } : i))
+      );
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" />
+      </div>
+    );
+  }
+
+  if (loadedChapters.length === 0 || !activeChapter) {
+    return <div className="flex min-h-screen items-center justify-center bg-black text-zinc-500">Chương không tồn tại</div>;
+  }
+
+  const lastItem = loadedChapters[loadedChapters.length - 1];
 
   return (
     <>
-    <div className="min-h-screen bg-black">
-      {/* Reader Header */}
-      <div className="sticky top-0 z-50 border-b border-white/10 bg-black/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-4">
-          <Link href={`/comics/${chapter.comic.slug}`} className="text-sm text-zinc-400 hover:text-white">
-            ← {chapter.comic.title}
-          </Link>
-          <span className="text-sm font-medium text-white">
-            Chương {chapter.number}{chapter.title ? ` — ${chapter.title}` : ''}
-          </span>
-          <div className="flex items-center gap-2">
+      <div className={`min-h-screen ${bgColor} transition-colors duration-300`}>
+        {/* Reader Header */}
+        <div className={`sticky top-0 z-50 border-b border-white/10 bg-black/90 backdrop-blur-xl transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}>
+          <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-4">
+            <Link href={`/comics/${activeChapter.comic.slug}`} className="text-sm text-zinc-400 hover:text-white">
+              ← {activeChapter.comic.title}
+            </Link>
             <button
-              onClick={() => setReadMode(readMode === 'scroll' ? 'page' : 'scroll')}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-400 hover:text-white"
-            >
-              {readMode === 'scroll' ? '📜 Cuộn' : '📄 Trang'}
+              onClick={handleOpenChapterList}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-medium text-white transition-colors hover:bg-white/10 hover:text-violet-300">
+              <span>Chương {activeChapter.number}{activeChapter.title ? ` — ${activeChapter.title}` : ''}</span>
+              <span className="text-xs text-zinc-400">▾</span>
             </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowSettings(true)}
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
+                title="Cài đặt trình đọc">
+                <i className="fa-regular fa-gear text-sm" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Pages */}
-      <div ref={containerRef} className="mx-auto max-w-3xl">
-        {readMode === 'scroll' ? (
-          <div className="flex flex-col">
-            {chapter.pages.map((page) => (
-              <img
-                key={page.id}
-                data-page-number={page.pageNumber}
-                src={page.imageUrl}
-                alt={`Trang ${page.pageNumber}`}
-                className="w-full"
-                loading="lazy"
-                style={{ aspectRatio: page.width && page.height ? `${page.width}/${page.height}` : undefined }}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center p-4">
-            {chapter.pages[currentPage] && (
-              <>
-                <img
-                  src={chapter.pages[currentPage].imageUrl}
-                  alt={`Trang ${currentPage + 1}`}
-                  className="max-h-[85vh] w-auto object-contain"
-                />
-                <div className="mt-4 flex items-center gap-4">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 0))}
-                    disabled={currentPage === 0}
-                    className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-400 disabled:opacity-30"
-                  >
-                    ← Trang trước
-                  </button>
-                  <span className="text-sm text-zinc-500">
-                    {currentPage + 1} / {chapter.pages.length}
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.min(p + 1, chapter.pages.length - 1))}
-                    disabled={currentPage === chapter.pages.length - 1}
-                    className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-400 disabled:opacity-30"
-                  >
-                    Trang sau →
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Comments Section */}
-      <div className="border-t border-white/10 bg-[#0a0a0a]">
-          <div className="mx-auto max-w-3xl px-4 py-6">
-            <h3 className="mb-4 text-lg font-semibold text-white">💬 Bình luận ({commentTotal})</h3>
-
-            {/* New Comment Form */}
-            {user ? (
-              <div className="mb-6">
-                <div className="flex gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600/20 text-sm font-bold text-violet-300">
-                    {user.displayName?.[0] || '?'}
+        {/* Reader Content Area */}
+        <div ref={containerRef} className={`mx-auto ${readerWidth} transition-all duration-200`}>
+          {readMode === 'scroll' ? (
+            /* Scroll Mode (Multi-Chapter Infinite Scroll) */
+            <div className="flex flex-col">
+              {loadedChapters.map((chItem, idx) => (
+                <div key={chItem.chapter.id} data-chapter-block-id={chItem.chapter.id} className="chapter-block">
+                  {/* Chapter Pages */}
+                  <div className={`flex flex-col ${pageGap}`}>
+                    {chItem.chapter.pages.map((page) => (
+                      <img
+                        key={page.id}
+                        data-chapter-id={chItem.chapter.id}
+                        data-page-number={page.pageNumber}
+                        src={page.imageUrl}
+                        alt={`Chương ${chItem.chapter.number} - Trang ${page.pageNumber}`}
+                        className="w-full"
+                        loading="lazy"
+                        style={{ aspectRatio: page.width && page.height ? `${page.width}/${page.height}` : undefined }}
+                      />
+                    ))}
                   </div>
-                  <div className="flex-1">
-                    <textarea
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Viết bình luận..."
-                      rows={2}
-                      className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
-                    />
-                    <div className="mt-2 flex justify-end">
-                      <button
-                        onClick={() => postComment()}
-                        disabled={!newComment.trim() || submittingComment}
-                        className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
-                      >
-                        {submittingComment ? 'Đang gửi...' : 'Gửi'}
-                      </button>
+
+                  {/* Chapter End & Separator */}
+                  <div className="my-10 rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-center backdrop-blur-xl">
+                    <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-4 py-1 text-xs font-semibold text-violet-300">
+                      🎉 Hết Chương {chItem.chapter.number}
+                    </div>
+                    {chItem.nav.next ? (
+                      <p className="text-xs text-zinc-400">
+                        Đoạn kế tiếp: <span className="font-semibold text-white">Chương {chItem.nav.next.number}</span>
+                      </p>
+                    ) : (
+                      <p className="text-xs text-zinc-500">Bạn đã đọc đến chương mới nhất của bộ truyện!</p>
+                    )}
+                  </div>
+
+                  {/* Comments for this chapter */}
+                  <div className="border-t border-white/10 bg-[#0a0a0a]/50 my-6 rounded-2xl p-4 sm:p-6">
+                    <h3 className="mb-4 text-base font-semibold text-white">
+                      💬 Bình luận Chương {chItem.chapter.number} ({chItem.commentTotal})
+                    </h3>
+
+                    {/* New Comment Form */}
+                    {user ? (
+                      <div className="mb-6">
+                        <div className="flex gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600/20 text-sm font-bold text-violet-300">
+                            {user.displayName[0]}
+                          </div>
+                          <div className="flex-1">
+                            <textarea
+                              value={activeChapterId === chItem.chapter.id ? newComment : ''}
+                              onChange={(e) => {
+                                setActiveChapterId(chItem.chapter.id);
+                                setNewComment(e.target.value);
+                              }}
+                              placeholder={`Viết bình luận cho Chương ${chItem.chapter.number}...`}
+                              rows={2}
+                              className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500/50"
+                            />
+                            <div className="mt-2 flex justify-end">
+                              <button
+                                onClick={() => postComment(chItem.chapter.id)}
+                                disabled={!newComment.trim() || submittingComment}
+                                className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2 text-xs font-medium text-white shadow-lg shadow-violet-500/25 disabled:opacity-50"
+                              >
+                                {submittingComment ? 'Đang gửi...' : 'Bình luận'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mb-6 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-center text-sm text-zinc-500">
+                        <Link href="/login" className="text-violet-400 hover:underline">Đăng nhập</Link> để bình luận
+                      </div>
+                    )}
+
+                    {/* Comments List */}
+                    <div className="space-y-4">
+                      {chItem.comments.map((comment) => (
+                        <CommentItem
+                          key={comment.id}
+                          comment={comment}
+                          currentUserId={user?.id}
+                          replyingTo={replyingTo}
+                          replyContent={replyContent}
+                          submitting={submittingComment}
+                          onReply={(id) => setReplyingTo(replyingTo === id ? null : id)}
+                          onReplyContentChange={setReplyContent}
+                          onPostReply={(parentId) => postComment(chItem.chapter.id, parentId)}
+                          onDelete={(id, parentId) => deleteComment(id, chItem.chapter.id, parentId)}
+                        />
+                      ))}
+                      {chItem.comments.length === 0 && (
+                        <p className="py-4 text-center text-xs text-zinc-600">Chưa có bình luận nào cho chương này</p>
+                      )}
+                      {chItem.commentHasNext && (
+                        <div className="text-center pt-2">
+                          <button
+                            onClick={() => loadMoreComments(chItem.chapter.id)}
+                            disabled={chItem.loadingMoreComments}
+                            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs text-zinc-400 hover:text-white disabled:opacity-50"
+                          >
+                            {chItem.loadingMoreComments ? 'Đang tải...' : 'Xem thêm bình luận'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
+
+                  {idx < loadedChapters.length - 1 && (
+                    <div className="my-12 h-px w-full bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
+                  )}
                 </div>
-              </div>
-            ) : (
-              <div className="mb-6 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-center text-sm text-zinc-500">
-                <Link href="/login" className="text-violet-400 hover:underline">Đăng nhập</Link> để bình luận
-              </div>
-            )}
+              ))}
 
-            {/* Comments List */}
-            {comments.length === 0 ? (
-              <p className="text-sm text-zinc-500">Chưa có bình luận nào. Hãy là người đầu tiên!</p>
-            ) : (
-              <div className="space-y-4">
-                {comments.map((comment) => (
-                  <CommentItem
-                    key={comment.id}
-                    comment={comment}
-                    currentUserId={user?.id}
-                    replyingTo={replyingTo}
-                    replyContent={replyContent}
-                    submitting={submittingComment}
-                    onReply={(id) => { setReplyingTo(replyingTo === id ? null : id); setReplyContent(''); }}
-                    onReplyContentChange={setReplyContent}
-                    onPostReply={(parentId) => postComment(parentId)}
-                    onDelete={deleteComment}
+              {/* Loading Indicator for Next Chapter */}
+              {loadingNextChapter && (
+                <div className="my-8 flex items-center justify-center gap-3 py-6 text-sm text-violet-300">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" />
+                  <span>Đang tải chương tiếp theo...</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Page Mode (Single Page Step-by-Step) */
+            <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center p-4">
+              {activeChapter.pages[currentPage] && (
+                <>
+                  <img
+                    src={activeChapter.pages[currentPage].imageUrl}
+                    alt={`Trang ${currentPage + 1}`}
+                    className="max-h-[85vh] w-auto object-contain"
                   />
-                ))}
-              </div>
-            )}
-
-            {/* Load More */}
-            {commentHasNext && (
-              <button
-                onClick={async () => {
-                  if (!chapter || loadingMoreComments) return;
-                  setLoadingMoreComments(true);
-                  const nextPage = commentPage + 1;
-                  try {
-                    const r = await api.get<{ data: Comment[]; meta: { hasNext: boolean } }>(`/comments/chapter/${chapter.id}?page=${nextPage}`);
-                    setComments((prev) => [...prev, ...r.data]);
-                    setCommentHasNext(r.meta.hasNext);
-                    setCommentPage(nextPage);
-                  } catch {}
-                  setLoadingMoreComments(false);
-                }}
-                disabled={loadingMoreComments}
-                className="mt-4 w-full rounded-lg border border-white/10 bg-white/5 py-2.5 text-sm text-zinc-400 hover:border-violet-500/30 hover:text-white disabled:opacity-50"
-              >
-                {loadingMoreComments ? 'Đang tải...' : 'Xem thêm bình luận'}
-              </button>
-            )}
-          </div>
+                  <div className="mt-4 flex items-center gap-4">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(p - 1, 0))}
+                      disabled={currentPage === 0}
+                      className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-400 disabled:opacity-30"
+                    >
+                      ← Trang trước
+                    </button>
+                    <span className="text-sm text-zinc-500">
+                      {currentPage + 1} / {activeChapter.pages.length}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(p + 1, activeChapter.pages.length - 1))}
+                      disabled={currentPage === activeChapter.pages.length - 1}
+                      className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-400 disabled:opacity-30"
+                    >
+                      Trang sau →
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-      {/* Navigation Footer */}
-      <div className="border-t border-white/10 bg-black/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-          {nav?.prev ? (
-            <Link
-              href={`/read/${nav.prev.id}`}
-              className="flex items-center gap-2 rounded-lg bg-white/5 px-4 py-2 text-sm text-zinc-400 hover:bg-white/10 hover:text-white"
-            >
-              ← Ch.{nav.prev.number}
-            </Link>
-          ) : <div />}
+        {/* Navigation Footer */}
+        <div className="border-t border-white/10 bg-black/90 backdrop-blur-xl">
+          <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
+            {activeItem?.nav?.prev ? (
+              <Link
+                href={`/read/${activeItem.nav.prev.id}`}
+                className="flex items-center gap-2 rounded-lg bg-white/5 px-4 py-2 text-sm text-zinc-400 hover:bg-white/10 hover:text-white"
+              >
+                ← Ch.{activeItem.nav.prev.number}
+              </Link>
+            ) : <div />}
 
-          <button
-            onClick={async () => {
-              setShowChapterList(true);
-              if (allChapters.length === 0 && chapter) {
-                try {
-                  const r = await api.get<{ data: ChapterListItem[] }>(`/comics/${chapter.comic.id}/chapters`);
-                  setAllChapters(r.data);
-                } catch {}
-              }
-            }}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-400 hover:text-white"
-          >
-            📋 Danh sách chương
-          </button>
-
-          {nav?.next ? (
-            <Link
-              href={`/read/${nav.next.id}`}
-              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2 text-sm font-medium text-white"
+            <button
+              onClick={handleOpenChapterList}
+              className="rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-400 hover:text-white"
             >
-              Ch.{nav.next.number} →
-            </Link>
-          ) : <div />}
+              📋 Danh sách chương
+            </button>
+
+            {lastItem?.nav?.next ? (
+              <Link
+                href={`/read/${lastItem.nav.next.id}`}
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2 text-sm font-medium text-white"
+              >
+                Ch.{lastItem.nav.next.number} →
+              </Link>
+            ) : <div />}
+          </div>
         </div>
       </div>
-    </div>
 
-    {/* Chapter List Modal */}
-    {showChapterList && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowChapterList(false)}>
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="mx-4 flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-            <h3 className="text-lg font-semibold text-white">📋 Danh sách chương</h3>
-            <button onClick={() => setShowChapterList(false)} className="text-zinc-500 hover:text-white text-xl leading-none">&times;</button>
-          </div>
+      {/* Chapter List Modal */}
+      {showChapterList && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowChapterList(false)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="mx-4 flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <h3 className="text-lg font-semibold text-white">📋 Danh sách chương</h3>
+              <button onClick={() => setShowChapterList(false)} className="text-zinc-500 hover:text-white text-xl leading-none">&times;</button>
+            </div>
 
-          {/* Search */}
-          <div className="border-b border-white/10 px-5 py-3">
-            <input
-              value={chapterSearch}
-              onChange={(e) => {
-                setChapterSearch(e.target.value);
-                const num = e.target.value.trim();
-                if (num && chapterGridRef.current) {
-                  const el = chapterGridRef.current.querySelector(`[data-ch="${num}"]`);
-                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-              }}
-              placeholder="Nhập số chương để tìm..."
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500/50"
-            />
-          </div>
+            {/* Search */}
+            <div className="border-b border-white/10 px-5 py-3">
+              <input
+                value={chapterSearch}
+                onChange={(e) => {
+                  setChapterSearch(e.target.value);
+                  const num = e.target.value.trim();
+                  if (num && chapterGridRef.current) {
+                    const el = chapterGridRef.current.querySelector(`[data-ch="${num}"]`);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }}
+                placeholder="Nhập số chương để tìm..."
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500/50"
+              />
+            </div>
 
-          {/* Chapter Grid */}
-          <div ref={chapterGridRef} className="flex-1 overflow-y-auto p-5">
-            {allChapters.length === 0 ? (
-              <div className="flex justify-center py-8"><div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" /></div>
-            ) : (
-              <div className="grid grid-cols-5 gap-2 sm:grid-cols-6 md:grid-cols-8">
-                {allChapters.map((ch) => {
-                  const isCurrent = ch.id === params.chapterId;
-                  const matchSearch = chapterSearch && ch.number.toString() === chapterSearch.trim();
-                  return (
-                    <Link
-                      key={ch.id}
-                      href={`/read/${ch.id}`}
-                      data-ch={ch.number}
-                      onClick={() => setShowChapterList(false)}
-                      className={`flex items-center justify-center rounded-lg border px-2 py-3 text-sm font-medium transition-all ${
-                        isCurrent
+            {/* Chapter Grid */}
+            <div ref={chapterGridRef} className="flex-1 overflow-y-auto p-5">
+              {allChapters.length === 0 ? (
+                <div className="flex justify-center py-8"><div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" /></div>
+              ) : (
+                <div className="grid grid-cols-5 gap-2 sm:grid-cols-6 md:grid-cols-8">
+                  {allChapters.map((ch) => {
+                    const isCurrent = ch.id === activeChapterId;
+                    const matchSearch = chapterSearch && ch.number.toString() === chapterSearch.trim();
+                    return (
+                      <Link
+                        key={ch.id}
+                        href={`/read/${ch.id}`}
+                        data-ch={ch.number}
+                        onClick={() => setShowChapterList(false)}
+                        className={`flex items-center justify-center rounded-lg border px-2 py-3 text-sm font-medium transition-all ${isCurrent
                           ? 'border-violet-500 bg-violet-600/20 text-violet-300'
                           : matchSearch
                             ? 'border-amber-500/50 bg-amber-500/10 text-amber-300'
                             : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:border-violet-500/30 hover:text-white'
-                      }`}
-                      title={ch.title ? `Ch.${ch.number}: ${ch.title}` : `Chương ${ch.number}`}
-                    >
-                      {ch.number}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+                          }`}
+                        title={ch.title ? `Ch.${ch.number}: ${ch.title}` : `Chương ${ch.number}`}
+                      >
+                        {ch.number}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    )}
-  </>
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="mx-4 flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <div className="flex items-center gap-2.5">
+                <i className="fa-regular fa-gear text-base text-violet-400" />
+                <h3 className="text-base font-semibold text-white">Cài đặt trình đọc</h3>
+              </div>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-xl leading-none text-zinc-400 hover:bg-white/10 hover:text-white"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="space-y-6 overflow-y-auto p-5 text-sm">
+              {/* Tự động tải chương tiếp theo */}
+              <div>
+                <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  Cuộn đọc vô tận
+                </label>
+                <button
+                  onClick={() => setAutoLoadNext(!autoLoadNext)}
+                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 font-medium transition-all ${autoLoadNext
+                    ? 'border-violet-500 bg-violet-500/15 text-violet-300'
+                    : 'border-white/10 bg-white/5 text-zinc-400'
+                    }`}
+                >
+                  <div className="flex items-center gap-2 text-xs font-semibold">
+                    <span>⚡ Tự động tải chương tiếp theo</span>
+                  </div>
+                  <div className={`h-5 w-9 rounded-full p-0.5 transition-colors ${autoLoadNext ? 'bg-violet-600' : 'bg-zinc-700'}`}>
+                    <div className={`h-4 w-4 rounded-full bg-white transition-transform ${autoLoadNext ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
+                </button>
+              </div>
+
+              {/* Chế độ đọc */}
+              <div>
+                <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  Chế độ hiển thị
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setReadMode('scroll')}
+                    className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all ${readMode === 'scroll'
+                      ? 'border-violet-500 bg-violet-500/15 text-violet-300'
+                      : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:text-white'
+                      }`}
+                  >
+                    📜 Cuộn liên tục
+                  </button>
+                  <button
+                    onClick={() => setReadMode('page')}
+                    className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all ${readMode === 'page'
+                      ? 'border-violet-500 bg-violet-500/15 text-violet-300'
+                      : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:text-white'
+                      }`}
+                  >
+                    📄 Theo từng trang
+                  </button>
+                </div>
+              </div>
+
+              {/* Chiều rộng khung đọc */}
+              <div>
+                <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  Chiều rộng khung đọc
+                </label>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {[
+                    { label: 'Nhỏ', value: 'max-w-xl' },
+                    { label: 'Vừa', value: 'max-w-2xl' },
+                    { label: 'Chuẩn', value: 'max-w-3xl' },
+                    { label: 'Rộng', value: 'max-w-4xl' },
+                    { label: 'Toàn màn', value: 'max-w-full' },
+                  ].map((item) => (
+                    <button
+                      key={item.value}
+                      onClick={() => setReaderWidth(item.value as any)}
+                      className={`rounded-xl border py-2 text-xs font-medium transition-all ${readerWidth === item.value
+                        ? 'border-violet-500 bg-violet-500/15 text-violet-300'
+                        : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:text-white'
+                        }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Khoảng cách trang (chế độ cuộn) */}
+              {readMode === 'scroll' && (
+                <div>
+                  <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                    Khoảng cách giữa các trang
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { label: '0px', value: 'gap-0' },
+                      { label: '8px', value: 'gap-2' },
+                      { label: '16px', value: 'gap-4' },
+                      { label: '24px', value: 'gap-6' },
+                    ].map((item) => (
+                      <button
+                        key={item.value}
+                        onClick={() => setPageGap(item.value)}
+                        className={`rounded-xl border py-2 text-xs font-medium transition-all ${pageGap === item.value
+                          ? 'border-violet-500 bg-violet-500/15 text-violet-300'
+                          : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:text-white'
+                          }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Màu nền */}
+              <div>
+                <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  Màu nền trình đọc
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'Đen tuyền', value: 'bg-black' },
+                    { label: 'Đen xám', value: 'bg-zinc-950' },
+                    { label: 'Xám tối', value: 'bg-zinc-900' },
+                  ].map((item) => (
+                    <button
+                      key={item.value}
+                      onClick={() => setBgColor(item.value)}
+                      className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-medium transition-all ${bgColor === item.value
+                        ? 'border-violet-500 bg-violet-500/15 text-violet-300'
+                        : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:text-white'
+                        }`}
+                    >
+                      <span className={`h-3 w-3 rounded-full border border-white/20 ${item.value}`} />
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

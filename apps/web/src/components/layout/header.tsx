@@ -2,11 +2,16 @@
 
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/auth-store';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 export function Header() {
   const { user, logout } = useAuthStore();
   const router = useRouter();
+  const pathname = usePathname();
+
+  if (pathname?.startsWith('/read/')) {
+    return null;
+  }
 
   const handleLogout = async () => {
     await logout();

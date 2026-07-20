@@ -94,7 +94,7 @@ export default function Home() {
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400" />
           Comic Platform — Top 1 Việt Nam
         </div>
-        <h1 className="mb-4 text-4xl font-bold leading-tight sm:text-5xl">
+        <h1 className="mb-4 text-4xl font-bold leading-tight sm:text-5xl hidden">
           Đọc truyện tranh{' '}
           <span className="relative inline-block">
             <span className="bg-gradient-to-r from-violet-400 via-fuchsia-400 to-pink-400 bg-clip-text text-transparent">

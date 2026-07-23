@@ -45,9 +45,9 @@ NEXT_PUBLIC_API_URL=http://localhost:4000/v1
 
 ### Backend → Railway
 1. Create Railway project, link GitHub repo
-2. Set root directory: `apps/api`
+2. Set root directory: `/` (the root of the repository)
 3. Build: `pnpm install && pnpm --filter api build`
-4. Start: `node apps/api/dist/main.js`
+4. Start: `node apps/api/dist/src/main.js`
 5. Add all env vars from above
 
 ### Frontend → Vercel

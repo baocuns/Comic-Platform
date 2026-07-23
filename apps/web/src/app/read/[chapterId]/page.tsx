@@ -420,13 +420,12 @@ export default function ReaderPage() {
         <div className={`sticky top-0 z-50 border-b border-white/10 bg-black/90 backdrop-blur-xl transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}>
           <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-4">
             <Link href={`/comics/${activeChapter.comic.slug}`} className="text-sm text-zinc-400 hover:text-white">
-              ← {activeChapter.comic.title}
+              <i className="fa-light fa-arrow-left-long"></i> {activeChapter.comic.title}
             </Link>
             <button
               onClick={handleOpenChapterList}
               className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-medium text-white transition-colors hover:bg-white/10 hover:text-violet-300">
               <span>Chương {activeChapter.number}{activeChapter.title ? ` — ${activeChapter.title}` : ''}</span>
-              <span className="text-xs text-zinc-400">▾</span>
             </button>
             <div className="flex items-center gap-2">
               <button
@@ -479,7 +478,7 @@ export default function ReaderPage() {
                   {/* Comments for this chapter */}
                   <div className="border-t border-white/10 bg-[#0a0a0a]/50 my-6 rounded-2xl p-4 sm:p-6">
                     <h3 className="mb-4 text-base font-semibold text-white">
-                      💬 Bình luận Chương {chItem.chapter.number} ({chItem.commentTotal})
+                      <i className="fa-light fa-comments"></i> Bình luận Chương {chItem.chapter.number} ({chItem.commentTotal})
                     </h3>
 
                     {/* New Comment Form */}
@@ -616,7 +615,7 @@ export default function ReaderPage() {
               onClick={handleOpenChapterList}
               className="rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-400 hover:text-white"
             >
-              📋 Danh sách chương
+              Danh sách chương
             </button>
 
             {lastItem?.nav?.next ? (
@@ -632,160 +631,191 @@ export default function ReaderPage() {
       </div>
 
       {/* Chapter List Modal */}
-      {showChapterList && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowChapterList(false)}>
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="mx-4 flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-              <h3 className="text-lg font-semibold text-white">📋 Danh sách chương</h3>
-              <button onClick={() => setShowChapterList(false)} className="text-zinc-500 hover:text-white text-xl leading-none">&times;</button>
-            </div>
+      <div
+        className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-md transition-all duration-300 ${showChapterList ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+        onClick={() => setShowChapterList(false)}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className={`mx-4 flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl transition-all duration-300 ${showChapterList ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
+            }`}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <h3 className="text-lg font-semibold text-white">📋 Danh sách chương</h3>
+            <button onClick={() => setShowChapterList(false)} className="text-zinc-500 hover:text-white text-xl leading-none">&times;</button>
+          </div>
 
-            {/* Search */}
-            <div className="border-b border-white/10 px-5 py-3">
-              <input
-                value={chapterSearch}
-                onChange={(e) => {
-                  setChapterSearch(e.target.value);
-                  const num = e.target.value.trim();
-                  if (num && chapterGridRef.current) {
-                    const el = chapterGridRef.current.querySelector(`[data-ch="${num}"]`);
-                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }
-                }}
-                placeholder="Nhập số chương để tìm..."
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500/50"
-              />
-            </div>
+          {/* Search */}
+          <div className="border-b border-white/10 px-5 py-3">
+            <input
+              value={chapterSearch}
+              onChange={(e) => {
+                setChapterSearch(e.target.value);
+                const num = e.target.value.trim();
+                if (num && chapterGridRef.current) {
+                  const el = chapterGridRef.current.querySelector(`[data-ch="${num}"]`);
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }}
+              placeholder="Nhập số chương để tìm..."
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500/50"
+            />
+          </div>
 
-            {/* Chapter Grid */}
-            <div ref={chapterGridRef} className="flex-1 overflow-y-auto p-5">
-              {allChapters.length === 0 ? (
-                <div className="flex justify-center py-8"><div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" /></div>
-              ) : (
-                <div className="grid grid-cols-5 gap-2 sm:grid-cols-6 md:grid-cols-8">
-                  {allChapters.map((ch) => {
-                    const isCurrent = ch.id === activeChapterId;
-                    const matchSearch = chapterSearch && ch.number.toString() === chapterSearch.trim();
-                    return (
-                      <Link
-                        key={ch.id}
-                        href={`/read/${ch.id}`}
-                        data-ch={ch.number}
-                        onClick={() => setShowChapterList(false)}
-                        className={`flex items-center justify-center rounded-lg border px-2 py-3 text-sm font-medium transition-all ${isCurrent
-                          ? 'border-violet-500 bg-violet-600/20 text-violet-300'
-                          : matchSearch
-                            ? 'border-amber-500/50 bg-amber-500/10 text-amber-300'
-                            : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:border-violet-500/30 hover:text-white'
-                          }`}
-                        title={ch.title ? `Ch.${ch.number}: ${ch.title}` : `Chương ${ch.number}`}
-                      >
-                        {ch.number}
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+          {/* Chapter Grid */}
+          <div ref={chapterGridRef} className="flex-1 overflow-y-auto p-5">
+            {allChapters.length === 0 ? (
+              <div className="flex justify-center py-8"><div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" /></div>
+            ) : (
+              <div className="grid grid-cols-5 gap-2 sm:grid-cols-6 md:grid-cols-8">
+                {allChapters.map((ch) => {
+                  const isCurrent = ch.id === activeChapterId;
+                  const matchSearch = chapterSearch && ch.number.toString() === chapterSearch.trim();
+                  return (
+                    <Link
+                      key={ch.id}
+                      href={`/read/${ch.id}`}
+                      data-ch={ch.number}
+                      onClick={() => setShowChapterList(false)}
+                      className={`flex items-center justify-center rounded-lg border px-2 py-3 text-sm font-medium transition-all ${isCurrent
+                        ? 'border-violet-500 bg-violet-600/20 text-violet-300'
+                        : matchSearch
+                          ? 'border-amber-500/50 bg-amber-500/10 text-amber-300'
+                          : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:border-violet-500/30 hover:text-white'
+                        }`}
+                      title={ch.title ? `Ch.${ch.number}: ${ch.title}` : `Chương ${ch.number}`}
+                    >
+                      {ch.number}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Settings Modal */}
-      {showSettings && (
+      <div
+        className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-md transition-all duration-300 ${showSettings ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+        onClick={() => setShowSettings(false)}
+      >
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
-          onClick={() => setShowSettings(false)}
+          onClick={(e) => e.stopPropagation()}
+          className={`mx-4 flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl transition-all duration-300 ${showSettings ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
+            }`}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="mx-4 flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-              <div className="flex items-center gap-2.5">
-                <i className="fa-regular fa-gear text-base text-violet-400" />
-                <h3 className="text-base font-semibold text-white">Cài đặt trình đọc</h3>
-              </div>
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <div className="flex items-center gap-2.5">
+              <i className="fa-regular fa-gear text-base text-violet-400" />
+              <h3 className="text-base font-semibold text-white">Cài đặt trình đọc</h3>
+            </div>
+            <button
+              onClick={() => setShowSettings(false)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-xl leading-none text-zinc-400 hover:bg-white/10 hover:text-white"
+            >
+              &times;
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="space-y-6 overflow-y-auto p-5 text-sm">
+            {/* Tự động tải chương tiếp theo */}
+            <div>
+              <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                Cuộn đọc vô tận
+              </label>
               <button
-                onClick={() => setShowSettings(false)}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-xl leading-none text-zinc-400 hover:bg-white/10 hover:text-white"
+                onClick={() => setAutoLoadNext(!autoLoadNext)}
+                className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 font-medium transition-all ${autoLoadNext
+                  ? 'border-violet-500 bg-violet-500/15 text-violet-300'
+                  : 'border-white/10 bg-white/5 text-zinc-400'
+                  }`}
               >
-                &times;
+                <div className="flex items-center gap-2 text-xs font-semibold">
+                  <span>⚡ Tự động tải chương tiếp theo</span>
+                </div>
+                <div className={`h-5 w-9 rounded-full p-0.5 transition-colors ${autoLoadNext ? 'bg-violet-600' : 'bg-zinc-700'}`}>
+                  <div className={`h-4 w-4 rounded-full bg-white transition-transform ${autoLoadNext ? 'translate-x-4' : 'translate-x-0'}`} />
+                </div>
               </button>
             </div>
 
-            {/* Content */}
-            <div className="space-y-6 overflow-y-auto p-5 text-sm">
-              {/* Tự động tải chương tiếp theo */}
-              <div>
-                <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                  Cuộn đọc vô tận
-                </label>
+            {/* Chế độ đọc */}
+            <div>
+              <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                Chế độ hiển thị
+              </label>
+              <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => setAutoLoadNext(!autoLoadNext)}
-                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 font-medium transition-all ${autoLoadNext
+                  onClick={() => setReadMode('scroll')}
+                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all ${readMode === 'scroll'
                     ? 'border-violet-500 bg-violet-500/15 text-violet-300'
-                    : 'border-white/10 bg-white/5 text-zinc-400'
+                    : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:text-white'
                     }`}
                 >
-                  <div className="flex items-center gap-2 text-xs font-semibold">
-                    <span>⚡ Tự động tải chương tiếp theo</span>
-                  </div>
-                  <div className={`h-5 w-9 rounded-full p-0.5 transition-colors ${autoLoadNext ? 'bg-violet-600' : 'bg-zinc-700'}`}>
-                    <div className={`h-4 w-4 rounded-full bg-white transition-transform ${autoLoadNext ? 'translate-x-4' : 'translate-x-0'}`} />
-                  </div>
+                  📜 Cuộn liên tục
+                </button>
+                <button
+                  onClick={() => setReadMode('page')}
+                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all ${readMode === 'page'
+                    ? 'border-violet-500 bg-violet-500/15 text-violet-300'
+                    : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:text-white'
+                    }`}
+                >
+                  📄 Theo từng trang
                 </button>
               </div>
+            </div>
 
-              {/* Chế độ đọc */}
-              <div>
-                <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                  Chế độ hiển thị
-                </label>
-                <div className="grid grid-cols-2 gap-2">
+            {/* Chiều rộng khung đọc */}
+            <div>
+              <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                Chiều rộng khung đọc
+              </label>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {[
+                  { label: 'Nhỏ', value: 'max-w-xl' },
+                  { label: 'Vừa', value: 'max-w-2xl' },
+                  { label: 'Chuẩn', value: 'max-w-3xl' },
+                  { label: 'Rộng', value: 'max-w-4xl' },
+                  { label: 'Toàn màn', value: 'max-w-full' },
+                ].map((item) => (
                   <button
-                    onClick={() => setReadMode('scroll')}
-                    className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all ${readMode === 'scroll'
+                    key={item.value}
+                    onClick={() => setReaderWidth(item.value as any)}
+                    className={`rounded-xl border py-2 text-xs font-medium transition-all ${readerWidth === item.value
                       ? 'border-violet-500 bg-violet-500/15 text-violet-300'
                       : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:text-white'
                       }`}
                   >
-                    📜 Cuộn liên tục
+                    {item.label}
                   </button>
-                  <button
-                    onClick={() => setReadMode('page')}
-                    className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all ${readMode === 'page'
-                      ? 'border-violet-500 bg-violet-500/15 text-violet-300'
-                      : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:text-white'
-                      }`}
-                  >
-                    📄 Theo từng trang
-                  </button>
-                </div>
+                ))}
               </div>
+            </div>
 
-              {/* Chiều rộng khung đọc */}
+            {/* Khoảng cách trang (chế độ cuộn) */}
+            {readMode === 'scroll' && (
               <div>
                 <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                  Chiều rộng khung đọc
+                  Khoảng cách giữa các trang
                 </label>
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                <div className="grid grid-cols-4 gap-2">
                   {[
-                    { label: 'Nhỏ', value: 'max-w-xl' },
-                    { label: 'Vừa', value: 'max-w-2xl' },
-                    { label: 'Chuẩn', value: 'max-w-3xl' },
-                    { label: 'Rộng', value: 'max-w-4xl' },
-                    { label: 'Toàn màn', value: 'max-w-full' },
+                    { label: 'Không', value: 'gap-0' },
+                    { label: 'Nhỏ', value: 'gap-2' },
+                    { label: 'Vừa', value: 'gap-4' },
+                    { label: 'Lớn', value: 'gap-6' },
                   ].map((item) => (
                     <button
                       key={item.value}
-                      onClick={() => setReaderWidth(item.value as any)}
-                      className={`rounded-xl border py-2 text-xs font-medium transition-all ${readerWidth === item.value
+                      onClick={() => setPageGap(item.value)}
+                      className={`rounded-xl border py-2 text-xs font-medium transition-all ${pageGap === item.value
                         ? 'border-violet-500 bg-violet-500/15 text-violet-300'
                         : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:text-white'
                         }`}
@@ -795,64 +825,36 @@ export default function ReaderPage() {
                   ))}
                 </div>
               </div>
+            )}
 
-              {/* Khoảng cách trang (chế độ cuộn) */}
-              {readMode === 'scroll' && (
-                <div>
-                  <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                    Khoảng cách giữa các trang
-                  </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { label: '0px', value: 'gap-0' },
-                      { label: '8px', value: 'gap-2' },
-                      { label: '16px', value: 'gap-4' },
-                      { label: '24px', value: 'gap-6' },
-                    ].map((item) => (
-                      <button
-                        key={item.value}
-                        onClick={() => setPageGap(item.value)}
-                        className={`rounded-xl border py-2 text-xs font-medium transition-all ${pageGap === item.value
-                          ? 'border-violet-500 bg-violet-500/15 text-violet-300'
-                          : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:text-white'
-                          }`}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Màu nền */}
-              <div>
-                <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                  Màu nền trình đọc
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Đen tuyền', value: 'bg-black' },
-                    { label: 'Đen xám', value: 'bg-zinc-950' },
-                    { label: 'Xám tối', value: 'bg-zinc-900' },
-                  ].map((item) => (
-                    <button
-                      key={item.value}
-                      onClick={() => setBgColor(item.value)}
-                      className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-medium transition-all ${bgColor === item.value
-                        ? 'border-violet-500 bg-violet-500/15 text-violet-300'
-                        : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:text-white'
-                        }`}
-                    >
-                      <span className={`h-3 w-3 rounded-full border border-white/20 ${item.value}`} />
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
+            {/* Màu nền */}
+            <div>
+              <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                Màu nền trình đọc
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: 'Đen tuyền', value: 'bg-black' },
+                  { label: 'Đen xám', value: 'bg-zinc-950' },
+                  { label: 'Xám tối', value: 'bg-zinc-900' },
+                ].map((item) => (
+                  <button
+                    key={item.value}
+                    onClick={() => setBgColor(item.value)}
+                    className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-medium transition-all ${bgColor === item.value
+                      ? 'border-violet-500 bg-violet-500/15 text-violet-300'
+                      : 'border-white/10 bg-white/5 text-zinc-400 hover:border-white/20 hover:text-white'
+                      }`}
+                  >
+                    <span className={`h-3 w-3 rounded-full border border-white/20 ${item.value}`} />
+                    {item.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </>
   );
 }

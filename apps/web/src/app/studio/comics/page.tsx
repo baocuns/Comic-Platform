@@ -243,56 +243,61 @@ export default function StudioComicsPage() {
       )}
 
       {/* Create Modal */}
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowCreate(false)}>
-          <div
-            className="w-full max-w-lg rounded-2xl border border-white/[0.08] bg-[#111114] p-6 shadow-2xl animate-slide-up"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="mb-1 text-lg font-bold text-white">Tạo truyện mới</h2>
-            <p className="mb-6 text-sm text-zinc-500">Bắt đầu câu chuyện mới của bạn</p>
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-300 ${
+          showCreate ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={() => setShowCreate(false)}
+      >
+        <div
+          className={`w-full max-w-lg rounded-2xl border border-white/[0.08] bg-[#111114] p-6 shadow-2xl transition-all duration-300 ${
+            showCreate ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 className="mb-1 text-lg font-bold text-white">Tạo truyện mới</h2>
+          <p className="mb-6 text-sm text-zinc-500">Bắt đầu câu chuyện mới của bạn</p>
 
-            <div className="space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-zinc-300">Tên truyện *</label>
-                <input
-                  value={newComic.title}
-                  onChange={(e) => setNewComic((p) => ({ ...p, title: e.target.value }))}
-                  placeholder="Nhập tên truyện"
-                  autoFocus
-                  className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-zinc-300">Mô tả</label>
-                <textarea
-                  value={newComic.description}
-                  onChange={(e) => setNewComic((p) => ({ ...p, description: e.target.value }))}
-                  placeholder="Mô tả nội dung truyện..."
-                  rows={4}
-                  className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10"
-                />
-              </div>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-zinc-300">Tên truyện *</label>
+              <input
+                value={newComic.title}
+                onChange={(e) => setNewComic((p) => ({ ...p, title: e.target.value }))}
+                placeholder="Nhập tên truyện"
+                autoFocus
+                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10"
+              />
             </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setShowCreate(false)}
-                className="rounded-lg px-4 py-2.5 text-sm text-zinc-400 transition-colors hover:text-white"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={creating || !newComic.title.trim()}
-                className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 disabled:opacity-50"
-              >
-                {creating ? 'Đang tạo...' : 'Tạo truyện'}
-              </button>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-zinc-300">Mô tả</label>
+              <textarea
+                value={newComic.description}
+                onChange={(e) => setNewComic((p) => ({ ...p, description: e.target.value }))}
+                placeholder="Mô tả nội dung truyện..."
+                rows={4}
+                className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10"
+              />
             </div>
           </div>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              onClick={() => setShowCreate(false)}
+              className="rounded-lg px-4 py-2.5 text-sm text-zinc-400 transition-colors hover:text-white"
+            >
+              Hủy
+            </button>
+            <button
+              onClick={handleCreate}
+              disabled={creating || !newComic.title.trim()}
+              className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 disabled:opacity-50"
+            >
+              {creating ? 'Đang tạo...' : 'Tạo truyện'}
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

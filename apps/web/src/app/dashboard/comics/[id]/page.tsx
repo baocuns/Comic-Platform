@@ -571,200 +571,208 @@ export default function ManageComicPage() {
       </div>
 
       {/* ── Edit Modal ── */}
-      {showEditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowEditModal(false)}>
-          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-[#141414] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-6 text-xl font-bold text-white">Chỉnh sửa truyện</h2>
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-300 ${
+          showEditModal ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={() => setShowEditModal(false)}
+      >
+        <div
+          className={`relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-[#141414] p-6 shadow-2xl transition-all duration-300 ${
+            showEditModal ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 className="mb-6 text-xl font-bold text-white">Chỉnh sửa truyện</h2>
 
-            <div className="space-y-5">
-              {/* Cover Image */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-zinc-300">Ảnh bìa</label>
-                <div className="flex items-start gap-4">
-                  <div
-                    onClick={() => coverInputRef.current?.click()}
-                    className="group relative h-40 w-28 shrink-0 cursor-pointer overflow-hidden rounded-lg border border-dashed border-white/20 bg-white/5 transition-colors hover:border-violet-500/40"
-                  >
-                    {coverPreview ? (
-                      <img src={coverPreview} alt="Cover" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full flex-col items-center justify-center text-zinc-600">
-                        <span className="text-2xl">📷</span>
-                        <span className="mt-1 text-[10px]">Chọn ảnh</span>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                      <span className="text-xs text-white">Đổi ảnh</span>
-                    </div>
-                    <input
-                      ref={coverInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleCoverSelected(e.target.files?.[0] || null)}
-                      className="hidden"
-                    />
-                  </div>
-                  <div className="text-xs text-zinc-500">
-                    <p>Tỉ lệ khuyến nghị: 3:4 (600×850px)</p>
-                    <p className="mt-1">Định dạng: JPEG, PNG, WebP</p>
-                    {coverFile && <p className="mt-2 text-emerald-400">✅ Đã chọn: {coverFile.name}</p>}
-                  </div>
-                </div>
-              </div>
-
-              {/* Banner Image */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-zinc-300">Ảnh banner</label>
+          <div className="space-y-5">
+            {/* Cover Image */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-zinc-300">Ảnh bìa</label>
+              <div className="flex items-start gap-4">
                 <div
-                  onClick={() => bannerInputRef.current?.click()}
-                  className="group relative h-32 w-full cursor-pointer overflow-hidden rounded-lg border border-dashed border-white/20 bg-white/5 transition-colors hover:border-violet-500/40"
+                  onClick={() => coverInputRef.current?.click()}
+                  className="group relative h-40 w-28 shrink-0 cursor-pointer overflow-hidden rounded-lg border border-dashed border-white/20 bg-white/5 transition-colors hover:border-violet-500/40"
                 >
-                  {bannerPreview ? (
-                    <img src={bannerPreview} alt="Banner" className="h-full w-full object-cover" style={{ objectPosition: `center ${editForm.bannerPosition}%` }} />
+                  {coverPreview ? (
+                    <img src={coverPreview} alt="Cover" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full flex-col items-center justify-center text-zinc-600">
-                      <span className="text-2xl">🖼️</span>
-                      <span className="mt-1 text-xs">Chọn ảnh banner</span>
+                      <span className="text-2xl">📷</span>
+                      <span className="mt-1 text-[10px]">Chọn ảnh</span>
                     </div>
                   )}
                   <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                    <span className="text-xs text-white">Đổi banner</span>
+                    <span className="text-xs text-white">Đổi ảnh</span>
                   </div>
                   <input
-                    ref={bannerInputRef}
+                    ref={coverInputRef}
                     type="file"
                     accept="image/*"
-                    onChange={(e) => handleBannerSelected(e.target.files?.[0] || null)}
+                    onChange={(e) => handleCoverSelected(e.target.files?.[0] || null)}
                     className="hidden"
                   />
                 </div>
-                <div className="mt-1.5 flex items-center gap-3 text-xs text-zinc-500">
-                  <span>Tỉ lệ khuyến nghị: 3:1 (1200×400px)</span>
-                  {bannerFile && <span className="text-emerald-400">✅ Đã chọn: {bannerFile.name}</span>}
+                <div className="text-xs text-zinc-500">
+                  <p>Tỉ lệ khuyến nghị: 3:4 (600×850px)</p>
+                  <p className="mt-1">Định dạng: JPEG, PNG, WebP</p>
+                  {coverFile && <p className="mt-2 text-emerald-400">✅ Đã chọn: {coverFile.name}</p>}
                 </div>
+              </div>
+            </div>
 
-                {/* Banner Position Slider - only when banner exists */}
-                {bannerPreview && (
-                  <div className="mt-3 rounded-lg border border-white/5 bg-white/[0.02] p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <label className="text-xs font-medium text-zinc-400">Vị trí hiển thị</label>
-                      <span className="text-xs text-zinc-500">{editForm.bannerPosition}%</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[10px] text-zinc-600">Trên</span>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={editForm.bannerPosition}
-                        onChange={(e) => setEditForm((f) => ({ ...f, bannerPosition: Number(e.target.value) }))}
-                        className="flex-1 accent-violet-500"
-                      />
-                      <span className="text-[10px] text-zinc-600">Dưới</span>
-                    </div>
+            {/* Banner Image */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-zinc-300">Ảnh banner</label>
+              <div
+                onClick={() => bannerInputRef.current?.click()}
+                className="group relative h-32 w-full cursor-pointer overflow-hidden rounded-lg border border-dashed border-white/20 bg-white/5 transition-colors hover:border-violet-500/40"
+              >
+                {bannerPreview ? (
+                  <img src={bannerPreview} alt="Banner" className="h-full w-full object-cover" style={{ objectPosition: `center ${editForm.bannerPosition}%` }} />
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center text-zinc-600">
+                    <span className="text-2xl">🖼️</span>
+                    <span className="mt-1 text-xs">Chọn ảnh banner</span>
                   </div>
                 )}
-              </div>
-
-              {/* Title */}
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-zinc-300">Tên truyện</label>
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className="text-xs text-white">Đổi banner</span>
+                </div>
                 <input
-                  value={editForm.title}
-                  onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
+                  ref={bannerInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleBannerSelected(e.target.files?.[0] || null)}
+                  className="hidden"
                 />
               </div>
-
-              {/* Description */}
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-zinc-300">Mô tả</label>
-                <textarea
-                  value={editForm.description}
-                  onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                  rows={4}
-                  placeholder="Mô tả nội dung truyện..."
-                  className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
-                />
+              <div className="mt-1.5 flex items-center gap-3 text-xs text-zinc-500">
+                <span>Tỉ lệ khuyến nghị: 3:1 (1200×400px)</span>
+                {bannerFile && <span className="text-emerald-400">✅ Đã chọn: {bannerFile.name}</span>}
               </div>
 
-              {/* Status + Content Rating row */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-zinc-300">Trạng thái</label>
-                  <select
-                    value={editForm.status}
-                    onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
-                    className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-violet-500/50 [&>option]:bg-[#1a1a1a] [&>option]:text-white"
-                  >
-                    <option value="DRAFT">📝 Nháp</option>
-                    <option value="ONGOING">🟢 Đang ra</option>
-                    <option value="COMPLETED">✅ Hoàn thành</option>
-                    <option value="HIATUS">⏸️ Tạm dừng</option>
-                  </select>
+              {/* Banner Position Slider - only when banner exists */}
+              {bannerPreview && (
+                <div className="mt-3 rounded-lg border border-white/5 bg-white/[0.02] p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className="text-xs font-medium text-zinc-400">Vị trí hiển thị</label>
+                    <span className="text-xs text-zinc-500">{editForm.bannerPosition}%</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] text-zinc-600">Trên</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={editForm.bannerPosition}
+                      onChange={(e) => setEditForm((f) => ({ ...f, bannerPosition: Number(e.target.value) }))}
+                      className="flex-1 accent-violet-500"
+                    />
+                    <span className="text-[10px] text-zinc-600">Dưới</span>
+                  </div>
                 </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-zinc-300">Đánh giá nội dung</label>
-                  <select
-                    value={editForm.contentRating}
-                    onChange={(e) => setEditForm((f) => ({ ...f, contentRating: e.target.value }))}
-                    className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-violet-500/50 [&>option]:bg-[#1a1a1a] [&>option]:text-white"
-                  >
-                    <option value="EVERYONE">🌐 Mọi người</option>
-                    <option value="TEEN">🔵 Thanh thiếu niên (13+)</option>
-                    <option value="MATURE">🔴 Người lớn (18+)</option>
-                  </select>
-                </div>
-              </div>
+              )}
+            </div>
 
-              {/* Genres */}
+            {/* Title */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-zinc-300">Tên truyện</label>
+              <input
+                value={editForm.title}
+                onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-zinc-300">Mô tả</label>
+              <textarea
+                value={editForm.description}
+                onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                rows={4}
+                placeholder="Mô tả nội dung truyện..."
+                className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
+              />
+            </div>
+
+            {/* Status + Content Rating row */}
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-2 block text-sm font-medium text-zinc-300">
-                  Thể loại {editForm.genreIds.length > 0 && <span className="text-xs text-zinc-500">({editForm.genreIds.length} đã chọn)</span>}
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {allGenres.map((genre) => {
-                    const selected = editForm.genreIds.includes(genre.id);
-                    return (
-                      <button
-                        key={genre.id}
-                        type="button"
-                        onClick={() => toggleGenre(genre.id)}
-                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-                          selected
-                            ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20'
-                            : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200'
-                        }`}
-                      >
-                        {genre.icon && <span className="mr-1">{genre.icon}</span>}
-                        {genre.name}
-                      </button>
-                    );
-                  })}
-                  {allGenres.length === 0 && <p className="text-xs text-zinc-600">Không có thể loại nào.</p>}
-                </div>
+                <label className="mb-1.5 block text-sm font-medium text-zinc-300">Trạng thái</label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-violet-500/50 [&>option]:bg-[#1a1a1a] [&>option]:text-white"
+                >
+                  <option value="DRAFT">📝 Nháp</option>
+                  <option value="ONGOING">🟢 Đang ra</option>
+                  <option value="COMPLETED">✅ Hoàn thành</option>
+                  <option value="HIATUS">⏸️ Tạm dừng</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-zinc-300">Đánh giá nội dung</label>
+                <select
+                  value={editForm.contentRating}
+                  onChange={(e) => setEditForm((f) => ({ ...f, contentRating: e.target.value }))}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-violet-500/50 [&>option]:bg-[#1a1a1a] [&>option]:text-white"
+                >
+                  <option value="EVERYONE">🌐 Mọi người</option>
+                  <option value="TEEN">🔵 Thanh thiếu niên (13+)</option>
+                  <option value="MATURE">🔴 Người lớn (18+)</option>
+                </select>
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="mt-8 flex justify-end gap-3 border-t border-white/5 pt-4">
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="rounded-lg px-5 py-2.5 text-sm text-zinc-400 hover:text-white transition-colors"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || !editForm.title.trim()}
-                className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 disabled:opacity-50 transition-all hover:shadow-violet-500/40"
-              >
-                {saving ? (uploadingCover ? 'Đang upload ảnh...' : 'Đang lưu...') : '💾 Lưu thay đổi'}
-              </button>
+            {/* Genres */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-zinc-300">
+                Thể loại {editForm.genreIds.length > 0 && <span className="text-xs text-zinc-500">({editForm.genreIds.length} đã chọn)</span>}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {allGenres.map((genre) => {
+                  const selected = editForm.genreIds.includes(genre.id);
+                  return (
+                    <button
+                      key={genre.id}
+                      type="button"
+                      onClick={() => toggleGenre(genre.id)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                        selected
+                          ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20'
+                          : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200'
+                      }`}
+                    >
+                      {genre.icon && <span className="mr-1">{genre.icon}</span>}
+                      {genre.name}
+                    </button>
+                  );
+                })}
+                {allGenres.length === 0 && <p className="text-xs text-zinc-600">Không có thể loại nào.</p>}
+              </div>
             </div>
           </div>
+
+          {/* Actions */}
+          <div className="mt-8 flex justify-end gap-3 border-t border-white/5 pt-4">
+            <button
+              onClick={() => setShowEditModal(false)}
+              className="rounded-lg px-5 py-2.5 text-sm text-zinc-400 hover:text-white transition-colors"
+            >
+              Hủy
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || !editForm.title.trim()}
+              className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 disabled:opacity-50 transition-all hover:shadow-violet-500/40"
+            >
+              {saving ? (uploadingCover ? 'Đang upload ảnh...' : 'Đang lưu...') : '💾 Lưu thay đổi'}
+            </button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

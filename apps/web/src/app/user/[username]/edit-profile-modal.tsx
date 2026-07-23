@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/auth-store';
 
 interface Props {
@@ -16,6 +16,16 @@ export default function EditProfileModal({ onClose }: Props) {
   const [facebook, setFacebook] = useState(user?.socialLinks?.facebook || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    setIsOpen(true);
+  }, []);
+
+  const handleClose = () => {
+    setIsOpen(false);
+    setTimeout(onClose, 200);
+  };
 
   const handleSave = async () => {
     if (!displayName.trim()) {
@@ -35,7 +45,7 @@ export default function EditProfileModal({ onClose }: Props) {
         bio: bio.trim() || undefined,
         socialLinks,
       });
-      onClose();
+      handleClose();
     } catch (err: any) {
       setError(err?.message || 'Có lỗi xảy ra');
     } finally {
@@ -44,9 +54,9 @@ export default function EditProfileModal({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-200 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+      <div className={`absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0'}`} onClick={handleClose} />
+      <div className={`relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl transition-all duration-200 ${isOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'}`}>
         <h2 className="mb-6 text-xl font-bold text-white">Chỉnh sửa hồ sơ</h2>
 
         {error && (
@@ -103,7 +113,7 @@ export default function EditProfileModal({ onClose }: Props) {
         </div>
 
         <div className="mt-6 flex gap-3">
-          <button onClick={onClose}
+          <button onClick={handleClose}
             className="flex-1 rounded-lg border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:bg-white/10 hover:text-white">
             Hủy
           </button>

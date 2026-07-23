@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 interface PageData {
   id: string;
@@ -19,24 +19,34 @@ interface PagePreviewModalProps {
 export function PagePreviewModal({ pages, initialIndex, onClose }: PagePreviewModalProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
+  const [isOpen, setIsOpen] = useState(false);
   const page = pages[currentIndex];
 
+  useEffect(() => {
+    setIsOpen(true);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setIsOpen(false);
+    setTimeout(onClose, 200);
+  }, [onClose]);
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') onClose();
+    if (e.key === 'Escape') handleClose();
     if (e.key === 'ArrowLeft' && currentIndex > 0) setCurrentIndex((i) => i - 1);
     if (e.key === 'ArrowRight' && currentIndex < pages.length - 1) setCurrentIndex((i) => i + 1);
-  }, [currentIndex, pages.length, onClose]);
+  }, [currentIndex, pages.length, handleClose]);
 
   if (!page) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md"
-      onClick={onClose}
+      className={`fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md transition-all duration-200 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+      onClick={handleClose}
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
-      <div className="relative flex h-full w-full flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className={`relative flex h-full w-full flex-col transition-all duration-200 ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} onClick={(e) => e.stopPropagation()}>
         {/* Top bar */}
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#0c0c0f]/90 px-4">
           <span className="text-sm text-zinc-400">
@@ -65,7 +75,7 @@ export function PagePreviewModal({ pages, initialIndex, onClose }: PagePreviewMo
             </button>
             <div className="mx-2 h-4 w-px bg-white/[0.06]" />
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="rounded-md bg-white/[0.06] px-2 py-1 text-xs text-zinc-400 hover:bg-red-500/20 hover:text-red-300"
             >
               ✕ Đóng

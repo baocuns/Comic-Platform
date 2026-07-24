@@ -35,7 +35,7 @@ export class ComicService {
         }),
       },
       include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true } },
+        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
         genres: { include: { genre: true } },
       },
     });
@@ -85,7 +85,7 @@ export class ComicService {
         skip,
         take: limit,
         include: {
-          author: { select: { id: true, displayName: true, avatarUrl: true } },
+          author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
           genres: { include: { genre: true } },
         },
       }),
@@ -108,7 +108,7 @@ export class ComicService {
     const comic = await this.prisma.comic.findUnique({
       where: { slug, deletedAt: null },
       include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true } },
+        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
         genres: { include: { genre: true } },
         chapters: {
           where: { deletedAt: null, publishedAt: { not: null } },
@@ -160,7 +160,7 @@ export class ComicService {
       where: { id: comicId },
       data,
       include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true } },
+        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
         genres: { include: { genre: true } },
       },
     });
@@ -198,7 +198,7 @@ export class ComicService {
       where: { id: comicId },
       data: { status: ComicStatus.ONGOING, publishedAt: comic.publishedAt || new Date() },
       include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true } },
+        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
         genres: { include: { genre: true } },
       },
     });
@@ -211,7 +211,7 @@ export class ComicService {
       where: { authorId, deletedAt: null },
       orderBy: { updatedAt: 'desc' },
       include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true } },
+        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
         genres: { include: { genre: true } },
       },
     });
@@ -227,7 +227,7 @@ export class ComicService {
     if (cached) return cached;
 
     const baseInclude = {
-      author: { select: { id: true, displayName: true, avatarUrl: true } },
+      author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
       genres: { include: { genre: true } },
     };
     const notDraft = ComicStatus.DRAFT;
@@ -288,7 +288,7 @@ export class ComicService {
         skip,
         take: limit,
         include: {
-          author: { select: { id: true, displayName: true, avatarUrl: true } },
+          author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
           genres: { include: { genre: true } },
         },
       }),

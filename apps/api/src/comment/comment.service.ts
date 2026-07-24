@@ -12,7 +12,7 @@ export class CommentService {
   async create(userId: string, chapterId: string, content: string, parentId?: string) {
     const comment = await this.prisma.comment.create({
       data: { userId, chapterId, content, parentId },
-      include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },
+      include: { user: { select: { id: true, displayName: true, avatarUrl: true, username: true } } },
     });
 
     // Update comic comment count
@@ -36,12 +36,12 @@ export class CommentService {
         skip,
         take: limit,
         include: {
-          user: { select: { id: true, displayName: true, avatarUrl: true } },
+          user: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
           replies: {
             where: { deletedAt: null },
             orderBy: { createdAt: 'asc' },
             take: 3,
-            include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },
+            include: { user: { select: { id: true, displayName: true, avatarUrl: true, username: true } } },
           },
           _count: { select: { replies: true } },
         },
@@ -67,13 +67,13 @@ export class CommentService {
         skip,
         take: limit,
         include: {
-          user: { select: { id: true, displayName: true, avatarUrl: true } },
+          user: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
           chapter: { select: { number: true, title: true } },
           replies: {
             where: { deletedAt: null },
             orderBy: { createdAt: 'asc' },
             take: 3,
-            include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },
+            include: { user: { select: { id: true, displayName: true, avatarUrl: true, username: true } } },
           },
           _count: { select: { replies: true } },
         },

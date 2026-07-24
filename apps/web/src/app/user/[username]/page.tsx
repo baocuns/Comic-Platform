@@ -206,20 +206,19 @@ export default function UserProfilePage() {
 
   return (
     <>
+      {/* ──── Banner ──── */}
+      <BannerEditor
+        banner={profileUser.banner}
+        isOwnProfile={isOwnProfile}
+        onBannerChange={(b) => setProfile((p) => p ? { ...p, user: { ...p.user, banner: b } } : p)}
+      />
       <div className="mx-auto max-w-4xl px-4 pb-12 pt-8">
-        {/* ──── Banner ──── */}
-        <BannerEditor
-          banner={profileUser.banner}
-          isOwnProfile={isOwnProfile}
-          onBannerChange={(b) => setProfile((p) => p ? { ...p, user: { ...p.user, banner: b } } : p)}
-        />
-
         {/* ──── Avatar + Info ──── */}
-        <div className="relative -mt-16 px-4 sm:px-6">
+        <div className="relative -mt-24 px-4 sm:px-6">
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end">
             {/* Avatar */}
             <div className="group relative">
-              <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl border-4 border-[#0a0a0a] bg-gradient-to-br from-violet-500 to-fuchsia-500 text-4xl font-bold text-white shadow-xl sm:h-32 sm:w-32">
+              <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl border-2 border-[#0a0a0a] bg-gradient-to-br from-violet-500 to-fuchsia-500 text-4xl font-bold text-white shadow-xl sm:h-32 sm:w-32">
                 {profileUser.avatarUrl ? (
                   <img src={profileUser.avatarUrl} alt={profileUser.displayName} className="h-full w-full object-cover" />
                 ) : (

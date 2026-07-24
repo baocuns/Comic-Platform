@@ -22,12 +22,12 @@ export class RatingService {
       rating = await this.prisma.rating.update({
         where: { id: existing.id },
         data: { score, review },
-        include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },
+        include: { user: { select: { id: true, displayName: true, avatarUrl: true, username: true } } },
       });
     } else {
       rating = await this.prisma.rating.create({
         data: { userId, comicId, score, review },
-        include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },
+        include: { user: { select: { id: true, displayName: true, avatarUrl: true, username: true } } },
       });
 
       await this.prisma.comic.update({
@@ -63,7 +63,7 @@ export class RatingService {
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
-        include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },
+        include: { user: { select: { id: true, displayName: true, avatarUrl: true, username: true } } },
       }),
       this.prisma.rating.count({ where: { comicId } }),
     ]);

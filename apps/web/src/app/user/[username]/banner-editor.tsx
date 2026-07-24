@@ -127,7 +127,10 @@ export default function BannerEditor({ banner, isOwnProfile, onBannerChange }: P
   return (
     <div
       ref={bannerRef}
-      className={`relative h-52 overflow-hidden rounded-2xl sm:h-64 ${repositioning ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
+      className={`relative -mt-16 h-52 overflow-hidden sm:h-64 transition-all duration-300 ${repositioning
+        ? `z-[51] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`
+        : '-z-1'
+        }`}
       onMouseDown={repositioning ? handleDragStart : undefined}
       onMouseMove={repositioning ? handleDrag : undefined}
       onTouchStart={repositioning ? handleDragStart : undefined}
@@ -184,7 +187,7 @@ export default function BannerEditor({ banner, isOwnProfile, onBannerChange }: P
 
       {/* Edit button (only for own profile) */}
       {isOwnProfile && !repositioning && (
-        <div className="absolute right-4 top-4" ref={menuRef}>
+        <div className="absolute right-4 top-20" ref={menuRef}>
           <button
             onClick={() => setShowMenu(!showMenu)}
             className="flex items-center gap-2 rounded-lg bg-black/50 px-3 py-2 text-xs font-medium text-white/80 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"

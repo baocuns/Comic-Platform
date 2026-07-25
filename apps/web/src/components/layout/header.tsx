@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/auth-store';
 import { usePathname, useRouter } from 'next/navigation';
+import { useSearchStore } from '@/stores/search-store';
 
 export function Header() {
   const { user, logout } = useAuthStore();
@@ -16,6 +17,7 @@ export function Header() {
 
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const openSearch = useSearchStore((state) => state.open);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -102,7 +104,16 @@ export function Header() {
         </div>
 
         {/* Auth Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-8">
+          {/* Search */}
+          <button
+            onClick={openSearch}
+            className="flex items-center gap-2 rounded-full bg-white/5 px-2 py-2 text-zinc-300 transition-colors hover:bg-white/10 hover:text-white cursor-pointer"
+          >
+            <i className="fa-light fa-magnifying-glass" />
+          </button>
+
+          {/* User */}
           {user ? (
             <div className="relative" ref={dropdownRef}>
               <button

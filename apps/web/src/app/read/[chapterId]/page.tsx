@@ -419,8 +419,9 @@ export default function ReaderPage() {
         {/* Reader Header */}
         <div className={`sticky top-0 z-50 border-b border-white/10 bg-black/90 backdrop-blur-xl transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'}`}>
           <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-4">
-            <Link href={`/comics/${activeChapter.comic.slug}`} className="text-sm text-zinc-400 hover:text-white">
-              <i className="fa-light fa-arrow-left-long"></i> {activeChapter.comic.title}
+            <Link href={`/comics/${activeChapter.comic.slug}`} className="text-sm text-zinc-400 hover:text-white flex items-center gap-1.5">
+              <i className="fa-light fa-arrow-left-long"></i>
+              <span className="hidden sm:inline">{activeChapter.comic.title}</span>
             </Link>
             <button
               onClick={handleOpenChapterList}

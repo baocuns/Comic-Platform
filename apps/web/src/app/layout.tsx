@@ -5,6 +5,7 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { ToastProvider } from "@/components/providers/toast-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Header } from "@/components/layout/header";
+import { SearchModal } from "@/components/layout/search-modal";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -78,6 +79,7 @@ export default function RootLayout({
           <ToastProvider>
             <AuthProvider>
               <Header />
+              <SearchModal />
               <main className="flex-1">{children}</main>
               {/* Footer */}
               <footer className="border-t border-white/5 bg-[#0a0a0a]">

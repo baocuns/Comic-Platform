@@ -63,10 +63,14 @@ export class ComicService {
 
     // Search
     if (query.search) {
-      where.OR = [
-        { title: { contains: query.search, mode: 'insensitive' } },
-        { description: { contains: query.search, mode: 'insensitive' } },
-      ];
+      const searchPattern = `%${query.search}%`;
+      const matchedComics = await this.prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM "comics"
+        WHERE (unaccent(title) ILIKE unaccent(${searchPattern}) OR unaccent(description) ILIKE unaccent(${searchPattern}))
+          AND "deleted_at" IS NULL
+      `;
+      const matchedIds = matchedComics.map((c) => c.id);
+      where.id = { in: matchedIds };
     }
 
     // Sort
@@ -272,30 +276,43 @@ export class ComicService {
 
     const limit = 20;
     const skip = (page - 1) * limit;
-    const where: Prisma.ComicWhereInput = {
-      deletedAt: null,
-      status: { not: ComicStatus.DRAFT },
-      OR: [
-        { title: { contains: query, mode: 'insensitive' } },
-        { description: { contains: query, mode: 'insensitive' } },
-      ],
+    const searchPattern = `%${query}%`;
+
+    const matchedComics = await this.prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM "comics"
+      WHERE (unaccent(title) ILIKE unaccent(${searchPattern}) OR unaccent(description) ILIKE unaccent(${searchPattern}))
+        AND "deleted_at" IS NULL
+        AND status::text != 'DRAFT'
+      ORDER BY "total_views" DESC
+    `;
+
+    const total = matchedComics.length;
+    if (total === 0) {
+      return { data: [], meta: { page, limit, total: 0, hasNext: false } };
+    }
+
+    const paginatedIds = matchedComics
+      .slice(skip, skip + limit)
+      .map((item) => item.id);
+
+    const comics = await this.prisma.comic.findMany({
+      where: {
+        id: { in: paginatedIds },
+      },
+      include: {
+        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+        genres: { include: { genre: true } },
+      },
+    });
+
+    const sortedComics = paginatedIds
+      .map((id) => comics.find((c) => c.id === id)!)
+      .filter(Boolean);
+
+    return {
+      data: sortedComics.map(this.formatComic.bind(this)),
+      meta: { page, limit, total, hasNext: skip + limit < total },
     };
-
-    const [comics, total] = await Promise.all([
-      this.prisma.comic.findMany({
-        where,
-        orderBy: { totalViews: 'desc' },
-        skip,
-        take: limit,
-        include: {
-          author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-          genres: { include: { genre: true } },
-        },
-      }),
-      this.prisma.comic.count({ where }),
-    ]);
-
-    return { data: comics.map(this.formatComic), meta: { page, limit, total, hasNext: skip + limit < total } };
   }
 
   // ── Get Genres ──

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Script from 'next/script';
 import { useAuthStore } from '@/stores/auth-store';
 import { ApiError } from '@/lib/api-client';
+import { useTheme } from '@/components/providers/theme-provider';
 
 declare global {
   interface Window {
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, googleLogin, isLoading } = useAuthStore();
+  const { theme } = useTheme();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,7 +56,7 @@ export default function LoginPage() {
       window.google.accounts.id.renderButton(
         document.getElementById('google-signin-button'),
         {
-          theme: 'filled_black',
+          theme: theme === 'dark' ? 'filled_black' : 'outline',
           size: 'large',
           text: 'signin_with',
           shape: 'rectangular',
@@ -69,7 +71,7 @@ export default function LoginPage() {
     if (typeof window !== 'undefined' && window.google) {
       initializeGoogleBtn();
     }
-  }, []);
+  }, [theme]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -79,7 +81,7 @@ export default function LoginPage() {
         window.google.accounts.id.renderButton(
           document.getElementById('google-signin-button'),
           {
-            theme: 'filled_black',
+            theme: theme === 'dark' ? 'filled_black' : 'outline',
             size: 'large',
             text: 'signin_with',
             shape: 'rectangular',
@@ -91,7 +93,7 @@ export default function LoginPage() {
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [googleInitialized]);
+  }, [googleInitialized, theme]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,14 +121,14 @@ export default function LoginPage() {
 
       <div className="relative w-full max-w-md">
         {/* Card */}
-        <div id="google-card-container" className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 shadow-2xl backdrop-blur-xl">
+        <div id="google-card-container" className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-white/[0.03] p-8 shadow-2xl backdrop-blur-xl">
           {/* Header */}
           <div className="mb-8 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-2xl font-bold text-white shadow-lg shadow-violet-500/30">
               C
             </div>
-            <h1 className="text-2xl font-bold text-white">Chào mừng trở lại</h1>
-            <p className="mt-2 text-sm text-zinc-400">
+            <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Chào mừng trở lại</h1>
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
               Đăng nhập để tiếp tục đọc truyện
             </p>
           </div>
@@ -141,7 +143,7 @@ export default function LoginPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-zinc-300">
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Email
               </label>
               <input
@@ -151,12 +153,12 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="your@email.com"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-zinc-300">
+              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Mật khẩu
               </label>
               <div className="relative">
@@ -167,7 +169,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   placeholder="••••••••"
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 pr-12 text-sm text-white placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 pr-12 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
                 />
                 <button
                   type="button"
@@ -197,9 +199,9 @@ export default function LoginPage() {
 
           {/* Divider */}
           <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/10" />
+            <div className="h-px flex-1 bg-zinc-200 dark:bg-white/10" />
             <span className="text-xs text-zinc-500">HOẶC</span>
-            <div className="h-px flex-1 bg-white/10" />
+            <div className="h-px flex-1 bg-zinc-200 dark:bg-white/10" />
           </div>
 
           {/* Google Login */}
@@ -210,7 +212,7 @@ export default function LoginPage() {
                 }`}
             />
             {!googleInitialized && (
-              <div className="flex w-full items-center justify-center gap-3 rounded-lg border border-white/10 bg-white/5 py-3 text-sm font-medium text-zinc-500">
+              <div className="flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 py-3 text-sm font-medium text-zinc-500">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-500/30 border-t-zinc-500" />
                 Đang tải Google Sign-In...
               </div>
@@ -220,7 +222,7 @@ export default function LoginPage() {
           {/* Footer */}
           <p className="mt-6 text-center text-sm text-zinc-500">
             Chưa có tài khoản?{' '}
-            <Link href="/register" className="font-medium text-violet-400 hover:text-violet-300">
+            <Link href="/register" className="font-medium text-violet-600 dark:text-violet-450 hover:text-violet-500 dark:hover:text-violet-300">
               Đăng ký ngay
             </Link>
           </p>

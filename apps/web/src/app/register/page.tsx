@@ -77,14 +77,14 @@ export default function RegisterPage() {
       </div>
 
       <div className="relative w-full max-w-md">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 shadow-2xl backdrop-blur-xl">
+        <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-white/[0.03] p-8 shadow-2xl backdrop-blur-xl">
           {/* Header */}
           <div className="mb-8 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-2xl font-bold text-white shadow-lg shadow-violet-500/30">
               C
             </div>
-            <h1 className="text-2xl font-bold text-white">Tạo tài khoản</h1>
-            <p className="mt-2 text-sm text-zinc-400">
+            <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Tạo tài khoản</h1>
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
               Tham gia cộng đồng đọc truyện tranh
             </p>
           </div>
@@ -99,7 +99,7 @@ export default function RegisterPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="displayName" className="mb-1.5 block text-sm font-medium text-zinc-300">
+              <label htmlFor="displayName" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Tên hiển thị
               </label>
               <input
@@ -109,12 +109,12 @@ export default function RegisterPage() {
                 onChange={(e) => updateField('displayName', e.target.value)}
                 required
                 placeholder="Tên bạn muốn hiển thị"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
               />
             </div>
 
             <div>
-              <label htmlFor="username" className="mb-1.5 block text-sm font-medium text-zinc-300">
+              <label htmlFor="username" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Username
               </label>
               <input
@@ -127,13 +127,13 @@ export default function RegisterPage() {
                 pattern="^[a-zA-Z0-9_]+$"
                 minLength={3}
                 maxLength={50}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
               />
-              <p className="mt-1 text-xs text-zinc-600">Chỉ chữ, số và dấu gạch dưới</p>
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-650">Chỉ chữ, số và dấu gạch dưới</p>
             </div>
 
             <div>
-              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-zinc-300">
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Email
               </label>
               <input
@@ -143,12 +143,12 @@ export default function RegisterPage() {
                 onChange={(e) => updateField('email', e.target.value)}
                 required
                 placeholder="your@email.com"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-zinc-300">
+              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Mật khẩu
               </label>
               <div className="relative">
@@ -160,7 +160,7 @@ export default function RegisterPage() {
                   required
                   minLength={8}
                   placeholder="Tối thiểu 8 ký tự"
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 pr-12 text-sm text-white placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 pr-12 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
                 />
                 <button
                   type="button"
@@ -178,18 +178,18 @@ export default function RegisterPage() {
                       <div
                         key={i}
                         className={`h-1 flex-1 rounded-full transition-all ${
-                          i <= strength.score ? strength.color : 'bg-white/10'
+                          i <= strength.score ? strength.color : 'bg-zinc-200 dark:bg-white/10'
                         }`}
                       />
                     ))}
                   </div>
-                  <span className="text-xs text-zinc-500">{strength.label}</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">{strength.label}</span>
                 </div>
               )}
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-zinc-300">
+              <label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Xác nhận mật khẩu
               </label>
               <input
@@ -199,7 +199,7 @@ export default function RegisterPage() {
                 onChange={(e) => updateField('confirmPassword', e.target.value)}
                 required
                 placeholder="Nhập lại mật khẩu"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
               />
             </div>
 

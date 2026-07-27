@@ -1,6 +1,11 @@
 @import "tailwindcss";
 
 :root {
+  --background: #ffffff;
+  --foreground: #09090b;
+}
+
+.dark {
   --background: #0a0a0a;
   --foreground: #ededed;
 }
@@ -17,8 +22,8 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-/* Force dark mode */
-@variant dark (&);
+/* Class-based dark mode variant for Tailwind CSS v4 */
+@variant dark (&:where(.dark, .dark *));
 
 /* Custom animations */
 @keyframes slide-up {

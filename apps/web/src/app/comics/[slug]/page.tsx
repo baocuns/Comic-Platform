@@ -170,12 +170,12 @@ export default function ComicDetailPage() {
               className="h-full w-full object-cover"
               style={{ objectPosition: `center ${comic.bannerPosition ?? 50}%` }}
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#0a0a0a]" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-white dark:to-[#0a0a0a]" />
           </>
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-violet-600/20 via-fuchsia-600/10 to-indigo-600/10" />
         )}
-        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0a0a0a] to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-[#0a0a0a] to-transparent" />
       </div>
 
       <div className="mx-auto max-w-5xl px-4 py-8 relative z-20">
@@ -183,11 +183,11 @@ export default function ComicDetailPage() {
         <div className="relative mb-8 -mt-36 overflow-hidden sm:-mt-48">
           <div className="relative flex flex-col gap-6 p-6 sm:flex-row sm:p-8">
             {/* Cover */}
-            <div className="mx-auto h-72 w-48 flex-shrink-0 overflow-hidden rounded-xl border border-white/10 bg-zinc-800 shadow-2xl sm:mx-0">
+            <div className="mx-auto h-72 w-48 flex-shrink-0 overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 shadow-2xl sm:mx-0">
               {comic.coverUrl ? (
                 <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full items-center justify-center text-4xl font-bold text-zinc-600">{comic.title[0]}</div>
+                <div className="flex h-full items-center justify-center text-4xl font-bold text-zinc-400 dark:text-zinc-600">{comic.title[0]}</div>
               )}
             </div>
 
@@ -199,15 +199,15 @@ export default function ComicDetailPage() {
                 </span>
                 <span className="text-xs text-zinc-500">{comic.contentRating}</span>
               </div>
-              <h1 className="mb-2 text-2xl font-bold text-white sm:text-3xl">{comic.title}</h1>
-              <p className="mb-3 text-sm text-zinc-400">
-                bởi <Link href={`/@${comic.author.username}`} className="text-violet-400 hover:underline">{comic.author.displayName}</Link>
+              <h1 className="mb-2 text-2xl font-bold text-zinc-900 dark:text-white sm:text-3xl">{comic.title}</h1>
+              <p className="mb-3 text-sm text-zinc-500 dark:text-zinc-400">
+                bởi <Link href={`/@${comic.author.username}`} className="text-violet-600 dark:text-violet-400 hover:underline">{comic.author.displayName}</Link>
               </p>
 
               {/* Genres */}
               <div className="mb-4 flex flex-wrap gap-2">
                 {comic.genres.map((g) => (
-                  <span key={g.id} className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-zinc-300">
+                  <span key={g.id} className="rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-2.5 py-1 text-xs text-zinc-600 dark:text-zinc-300">
                     {g.icon} {g.name}
                   </span>
                 ))}
@@ -215,7 +215,7 @@ export default function ComicDetailPage() {
 
               {/* Stats + Bookmark */}
               <div className="mt-auto flex items-center gap-3">
-                <div className="flex-1 grid grid-cols-4 gap-4 rounded-xl bg-white/[0.03] p-3">
+                <div className="flex-1 grid grid-cols-4 gap-4 rounded-xl bg-zinc-100/50 dark:bg-white/[0.03] p-3">
                   <StatItem icon="👁️" value={comic.stats.totalViews} label="Lượt đọc" />
                   <StatItem icon="⭐" value={comic.stats.avgRating.toFixed(1)} label="Đánh giá" />
                   <StatItem icon="📖" value={comic.stats.totalChapters} label="Chương" />
@@ -228,8 +228,8 @@ export default function ComicDetailPage() {
                     onClick={toggleBookmark}
                     disabled={togglingBookmark}
                     className={`flex h-full flex-col items-center justify-center rounded-xl px-4 py-3 text-sm transition-all ${isBookmarked
-                      ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30'
-                      : 'bg-white/[0.03] text-zinc-400 border border-white/10 hover:border-violet-500/30 hover:text-violet-300'
+                      ? 'bg-violet-600/20 text-violet-600 dark:text-violet-300 border border-violet-500/30'
+                      : 'bg-zinc-100/50 dark:bg-white/[0.03] text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 hover:border-violet-500/30 hover:text-violet-600 dark:hover:text-violet-300'
                       }`}
                   >
                     <span className="text-lg">{isBookmarked ? '🔖' : '📑'}</span>
@@ -243,20 +243,20 @@ export default function ComicDetailPage() {
 
         {/* Description */}
         {comic.description && (
-          <div className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-6">
-            <h2 className="mb-3 text-lg font-semibold text-white">Giới thiệu</h2>
-            <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-400">{comic.description}</p>
+          <div className="mb-8 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-6">
+            <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-white">Giới thiệu</h2>
+            <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{comic.description}</p>
           </div>
         )}
 
         {/* Rating Section */}
-        <div className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="mb-8 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
               ⭐ Đánh giá ({comic.stats.totalRatings})
               {comic.stats.avgRating > 0 && (
-                <span className="ml-2 text-sm font-normal text-zinc-400">
-                  Trung bình: <span className="text-amber-400 font-medium">{comic.stats.avgRating.toFixed(1)}/5</span>
+                <span className="ml-2 text-sm font-normal text-zinc-500 dark:text-zinc-400">
+                  Trung bình: <span className="text-amber-500 dark:text-amber-400 font-medium">{comic.stats.avgRating.toFixed(1)}/5</span>
                 </span>
               )}
             </h2>
@@ -303,7 +303,7 @@ export default function ComicDetailPage() {
                 onChange={(e) => setMyReview(e.target.value)}
                 placeholder="Viết nhận xét (tùy chọn)..."
                 rows={3}
-                className="mb-3 w-full resize-none rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
+                className="mb-3 w-full resize-none rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
               />
 
               <div className="flex gap-2">
@@ -325,11 +325,11 @@ export default function ComicDetailPage() {
           {ratings.length > 0 ? (
             <div className="space-y-3">
               {ratings.map((r) => (
-                <div key={r.id} className="rounded-lg border border-white/5 bg-white/[0.02] p-4">
+                <div key={r.id} className="rounded-lg border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-4">
                   <div className="flex items-center gap-3">
                     <Link
                       href={`/@${r.user.username}`}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600/20 text-sm font-bold text-violet-300 transition-opacity hover:opacity-85"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600/20 text-sm font-bold text-violet-600 dark:text-violet-300 transition-opacity hover:opacity-85"
                     >
                       {r.user.avatarUrl ? (
                         <img src={r.user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
@@ -341,16 +341,16 @@ export default function ComicDetailPage() {
                       <div className="flex items-center gap-2">
                         <Link
                           href={`/@${r.user.username}`}
-                          className="text-sm font-medium text-white hover:text-violet-400 hover:underline transition-colors"
+                          className="text-sm font-medium text-zinc-800 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 hover:underline transition-colors"
                         >
                           {r.user.displayName}
                         </Link>
                         <span className="text-xs text-amber-400">{'⭐'.repeat(r.score)}</span>
                       </div>
-                      <span className="text-xs text-zinc-600">{new Date(r.createdAt).toLocaleDateString('vi-VN')}</span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-600">{new Date(r.createdAt).toLocaleDateString('vi-VN')}</span>
                     </div>
                   </div>
-                  {r.review && <p className="mt-2 text-sm text-zinc-400">{r.review}</p>}
+                  {r.review && <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{r.review}</p>}
                 </div>
               ))}
             </div>
@@ -360,8 +360,8 @@ export default function ComicDetailPage() {
         </div>
 
         {/* Chapter List */}
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-6">
-          <h2 className="mb-4 text-lg font-semibold text-white">
+        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-6">
+          <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-white">
             Danh sách chương ({comic.chapters?.length || 0})
           </h2>
           {comic.chapters && comic.chapters.length > 0 ? (
@@ -370,13 +370,13 @@ export default function ComicDetailPage() {
                 <Link
                   key={ch.id}
                   href={`/read/${ch.id}`}
-                  className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3 transition-all hover:border-violet-500/30 hover:bg-violet-500/5"
+                  className="flex items-center justify-between rounded-lg border border-zinc-100 dark:border-white/5 bg-white dark:bg-white/[0.02] px-4 py-3 transition-all hover:border-violet-500/30 hover:bg-violet-500/5"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-white">Chương {ch.number}</span>
-                    {ch.title && <span className="text-sm text-zinc-500">— {ch.title}</span>}
+                    <span className="text-sm font-medium text-zinc-800 dark:text-white">Chương {ch.number}</span>
+                    {ch.title && <span className="text-sm text-zinc-500 dark:text-zinc-400">— {ch.title}</span>}
                   </div>
-                  <span className="text-xs text-zinc-600">
+                  <span className="text-xs text-zinc-500 dark:text-zinc-600">
                     {ch.publishedAt ? new Date(ch.publishedAt).toLocaleDateString('vi-VN') : 'Chưa phát hành'}
                   </span>
                 </Link>
@@ -388,20 +388,20 @@ export default function ComicDetailPage() {
         </div>
 
         {/* Comments Section */}
-        <div className="mt-8 rounded-xl border border-white/10 bg-white/[0.03] p-6">
-          <h2 className="mb-4 text-lg font-semibold text-white">💬 Bình luận ({commentTotal})</h2>
-          <p className="mb-4 text-xs text-zinc-500">Bình luận được hiển thị từ tất cả các chương. Để bình luận, hãy đọc chương và bình luận tại đó.</p>
+        <div className="mt-8 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-6">
+          <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-white">💬 Bình luận ({commentTotal})</h2>
+          <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">Bình luận được hiển thị từ tất cả các chương. Để bình luận, hãy đọc chương và bình luận tại đó.</p>
 
           {comicComments.length === 0 ? (
             <p className="text-sm text-zinc-500">Chưa có bình luận nào.</p>
           ) : (
             <div className="space-y-3">
               {comicComments.map((comment) => (
-                <div key={comment.id} className="rounded-lg border border-white/5 bg-white/[0.02] p-4">
+                <div key={comment.id} className="rounded-lg border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-4">
                   <div className="flex gap-3">
                     <Link
                       href={`/@${comment.user.username}`}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600/20 text-sm font-bold text-violet-300 transition-opacity hover:opacity-85"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600/20 text-sm font-bold text-violet-600 dark:text-violet-300 transition-opacity hover:opacity-85"
                     >
                       {comment.user.avatarUrl ? (
                         <img src={comment.user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
@@ -413,24 +413,24 @@ export default function ComicDetailPage() {
                       <div className="flex items-center gap-2">
                         <Link
                           href={`/@${comment.user.username}`}
-                          className="text-sm font-medium text-white hover:text-violet-400 hover:underline transition-colors"
+                          className="text-sm font-medium text-zinc-800 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 hover:underline transition-colors"
                         >
                           {comment.user.displayName}
                         </Link>
                         {comment.chapter && (
-                          <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-500">
+                          <span className="rounded bg-zinc-100 dark:bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
                             Ch.{comment.chapter.number}
                           </span>
                         )}
-                        <span className="text-xs text-zinc-600">{new Date(comment.createdAt).toLocaleDateString('vi-VN')}</span>
+                        <span className="text-xs text-zinc-500 dark:text-zinc-600">{new Date(comment.createdAt).toLocaleDateString('vi-VN')}</span>
                       </div>
-                      <p className="mt-1 text-sm text-zinc-400 whitespace-pre-line">{comment.content}</p>
+                      <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-400 whitespace-pre-line">{comment.content}</p>
                     </div>
                   </div>
 
                   {/* Replies */}
                   {comment.replies && comment.replies.length > 0 && (
-                    <div className="mt-3 ml-11 space-y-2 border-l border-white/5 pl-4">
+                    <div className="mt-3 ml-11 space-y-2 border-l border-zinc-200 dark:border-white/5 pl-4">
                       {comment.replies.map((reply) => (
                         <div key={reply.id} className="flex gap-2">
                           <Link
@@ -447,13 +447,13 @@ export default function ComicDetailPage() {
                             <div className="flex items-center gap-2">
                               <Link
                                 href={`/@${reply.user.username}`}
-                                className="text-xs font-medium text-white hover:text-violet-400 hover:underline transition-colors"
+                                className="text-xs font-medium text-zinc-800 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 hover:underline transition-colors"
                               >
                                 {reply.user.displayName}
                               </Link>
-                              <span className="text-[10px] text-zinc-600">{new Date(reply.createdAt).toLocaleDateString('vi-VN')}</span>
+                              <span className="text-[10px] text-zinc-500 dark:text-zinc-600">{new Date(reply.createdAt).toLocaleDateString('vi-VN')}</span>
                             </div>
-                            <p className="mt-0.5 text-sm text-zinc-400">{reply.content}</p>
+                            <p className="mt-0.5 text-sm text-zinc-700 dark:text-zinc-400">{reply.content}</p>
                           </div>
                         </div>
                       ))}
@@ -480,7 +480,7 @@ export default function ComicDetailPage() {
                 setLoadingMoreComments(false);
               }}
               disabled={loadingMoreComments}
-              className="mt-4 w-full rounded-lg border border-white/10 bg-white/5 py-2.5 text-sm text-zinc-400 hover:border-violet-500/30 hover:text-white disabled:opacity-50"
+              className="mt-4 w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 py-2.5 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white disabled:opacity-50"
             >
               {loadingMoreComments ? 'Đang tải...' : 'Xem thêm bình luận'}
             </button>
@@ -495,8 +495,8 @@ function StatItem({ icon, value, label }: { icon: string; value: string | number
   return (
     <div className="text-center">
       <div className="text-sm">{icon}</div>
-      <div className="text-sm font-semibold text-white">{value}</div>
-      <div className="text-xs text-zinc-500">{label}</div>
+      <div className="text-sm font-semibold text-zinc-900 dark:text-white">{value}</div>
+      <div className="text-xs text-zinc-500 dark:text-zinc-400">{label}</div>
     </div>
   );
 }

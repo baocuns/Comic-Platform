@@ -75,6 +75,48 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [displayedText, isDeleting, wordIndex]);
 
+  // Search placeholder typewriter effect
+  const searchPlaceholders = [
+    'Người trên vạn người',
+    'Đại quản gia là ma hoàng',
+    'Đấu la đại lục',
+    'Chàng rể mạnh nhất lịch sử'
+  ];
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [displayedPlaceholder, setDisplayedPlaceholder] = useState('');
+  const [isPlaceholderDeleting, setIsPlaceholderDeleting] = useState(false);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+
+    const handleTyping = () => {
+      const activeWord = searchPlaceholders[placeholderIndex];
+      if (!isPlaceholderDeleting) {
+        if (displayedPlaceholder === activeWord) {
+          timer = setTimeout(() => setIsPlaceholderDeleting(true), 2000);
+        } else {
+          timer = setTimeout(() => {
+            setDisplayedPlaceholder(activeWord.substring(0, displayedPlaceholder.length + 1));
+          }, 80 + Math.random() * 40);
+        }
+      } else {
+        if (displayedPlaceholder === '') {
+          timer = setTimeout(() => {
+            setIsPlaceholderDeleting(false);
+            setPlaceholderIndex((prev) => (prev + 1) % searchPlaceholders.length);
+          }, 300);
+        } else {
+          timer = setTimeout(() => {
+            setDisplayedPlaceholder(activeWord.substring(0, displayedPlaceholder.length - 1));
+          }, 40);
+        }
+      }
+    };
+
+    handleTyping();
+    return () => clearTimeout(timer);
+  }, [displayedPlaceholder, isPlaceholderDeleting, placeholderIndex]);
+
   useEffect(() => {
     api.get<{ data: HomepageData }>('/comics/homepage').then((r) => setData(r.data)).catch(() => { });
     api.get<{ data: Genre[] }>('/comics/genres').then((r) => setGenres(r.data)).catch(() => { });
@@ -90,9 +132,9 @@ export default function Home() {
 
       {/* Hero */}
       <section className="relative mx-auto max-w-6xl px-4 pb-12 pt-16 text-center">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/10 px-4 py-1.5 text-sm text-violet-600 dark:text-violet-300">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-500 dark:bg-violet-400" />
-          Comic Platform — Top 1 Việt Nam
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-green-500/20 bg-green-500/5 dark:bg-green-500/10 px-4 py-1.5 text-sm text-green-600 dark:text-green-300">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500 dark:bg-green-400" />
+          O W O C — Beta 1.0
         </div>
         <h1 className="mb-4 text-4xl font-bold leading-tight sm:text-5xl hidden">
           Đọc truyện tranh{' '}
@@ -109,17 +151,22 @@ export default function Home() {
         <div className="mx-auto max-w-xl">
           <form
             onSubmit={(e) => { e.preventDefault(); if (search.trim()) window.location.href = `/comics?search=${encodeURIComponent(search)}`; }}
-            className="flex gap-2"
+            className="relative flex items-center"
           >
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm kiếm truyện..."
-              className="flex-1 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-5 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
-            />
-            <button type="submit" className="rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-500/25">
-              Tìm kiếm
-            </button>
+            <div className="relative flex-1">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={displayedPlaceholder}
+                className="w-full rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 pl-5 pr-14 py-3.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20"
+              />
+              <button
+                type="submit"
+                className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center text-zinc-600 dark:text-zinc-400 cursor-pointer"
+              >
+                <i className="fa-light fa-magnifying-glass text-base" />
+              </button>
+            </div>
           </form>
         </div>
       </section>
@@ -151,8 +198,8 @@ export default function Home() {
             <a className="hidden lg:block" href="/comics">
               <div className="flex items-center gap-1 px-4 py-2 rounded shadow font-bold uppercase hover:bg-gray-100 transition duration-500 ease-in-out hover:scale-110 dark:shadow-gray-700 dark:hover:bg-gray-700 dark:text-white">
                 <p>see more</p>
-                <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"
-                  stroke-linejoin="round" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
+                <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round"
+                  strokeLinejoin="round" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
                   <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
               </div>
@@ -227,7 +274,7 @@ export default function Home() {
             <div className="pt-6 flex justify-center"><a className="lg:hidden" href="/comics">
               <div className="flex items-center gap-1 px-4 py-2 rounded shadow font-bold uppercase hover:bg-gray-100 transition duration-500 ease-in-out hover:scale-110 dark:shadow-gray-700 dark:hover:bg-gray-700 dark:text-white">
                 <p>see more</p>
-                <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
+                <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
                   <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
               </div>

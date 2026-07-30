@@ -18,6 +18,11 @@ export const metadata: Metadata = {
     default: "OWOC — Đọc Truyện Tranh Online",
     template: "%s | OWOC",
   },
+  icons: {
+    icon: "/owoc_logo.png",
+    shortcut: "/owoc_logo.png",
+    apple: "/owoc_logo.png",
+  },
   description: "Nền tảng đọc truyện tranh online miễn phí, hỗ trợ tác giả Việt Nam. Đọc Manga, Manhwa, Manhua, Webtoon chất lượng cao.",
   keywords: ["truyện tranh", "manga", "manhwa", "webtoon", "đọc truyện", "comic", "online"],
   openGraph: {
@@ -101,14 +106,14 @@ export default function RootLayout({
                 <SearchModal />
                 <main className="flex-1">{children}</main>
                 {/* Footer */}
-                <footer className="border-t border-zinc-200 dark:border-white/5 bg-zinc-50 dark:bg-[#0a0a0a]">
-                  <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+                <footer className="bg-gradient-to-t from-green-300/40 via-green-100/10 to-background dark:from-green-700/20 dark:via-green-700/5 dark:to-background pt-12">
+                  <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
                     <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-bold text-white">O</div>
-                        <span className="text-sm text-zinc-500">OW<span className="text-zinc-400">OC</span></span>
+                        <img src="/owoc_banner_black.png" className="h-36 w-auto dark:hidden" alt="Owoc Logo" />
+                        <img src="/owoc_banner_white.png" className="h-36 w-auto hidden dark:block" alt="Owoc Logo" />
                       </div>
-                      <p className="text-xs text-zinc-600">© 2026 OWOC. Hỗ trợ tác giả Việt Nam 🇻🇳</p>
+                      <p className="text-sm text-zinc-600">© 2026 OWOC. One word one civilization!</p>
                     </div>
                   </div>
                 </footer>

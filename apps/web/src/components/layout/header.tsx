@@ -74,20 +74,16 @@ export function Header() {
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-lg font-bold text-white shadow-lg shadow-violet-500/25">
-            O
-          </div>
-          <span className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-white">
-            OW<span className="text-violet-400">OC</span>
-          </span>
+          <img src="/owoc_banner_black.png" className="h-14 w-auto dark:hidden" alt="Owoc Logo" />
+          <img src="/owoc_banner_white.png" className="h-14 w-auto hidden dark:block" alt="Owoc Logo" />
         </Link>
 
         {/* Navigation Links */}
         <div className="hidden items-center gap-6 md:flex">
-          <Link href="/" className="text-sm text-zinc-500 dark:text-zinc-400 transition-colors hover:text-zinc-900 hover:dark:text-white">
+          <Link href="/" className="text-base font-medium text-zinc-500 dark:text-zinc-400 transition-colors hover:text-zinc-900 hover:dark:text-white">
             Trang chủ
           </Link>
-          <Link href="/comics" className="text-sm text-zinc-500 dark:text-zinc-400 transition-colors hover:text-zinc-900 hover:dark:text-white">
+          <Link href="/comics" className="text-base font-medium text-zinc-500 dark:text-zinc-400 transition-colors hover:text-zinc-900 hover:dark:text-white">
             Khám phá
           </Link>
           {/* {user && (
@@ -106,7 +102,7 @@ export function Header() {
         </div>
 
         {/* Auth Actions */}
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-2 md:gap-8">
           {/* Search */}
           <button
             onClick={openSearch}
@@ -207,7 +203,7 @@ export function Header() {
                       className="flex items-center justify-between px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer select-none"
                     >
                       <div className="flex items-center gap-3">
-                        <i className={`fa-light ${theme === 'dark' ? 'fa-moon' : 'fa-sun-brightness'} w-4 text-center text-zinc-400 text-base`} />
+                        <i className={`fa-light ${theme === 'dark' ? 'fa-moon' : 'fa-sun-bright'} w-4 text-center text-zinc-400 text-base`} />
                         <span>Giao diện: {theme === 'dark' ? 'Tối' : 'Sáng'}</span>
                       </div>
                       <span className={`h-1.5 w-1.5 rounded-full ${theme === 'dark' ? 'bg-indigo-500 shadow-indigo-500/50' : 'bg-amber-500 shadow-amber-500/50'} shadow-sm`} />

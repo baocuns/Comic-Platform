@@ -28,52 +28,29 @@ interface Genre {
   icon: string;
 }
 
+interface FeaturedNews {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  coverUrl: string | null;
+  category: string;
+  publishedAt: string;
+  author: { displayName: string; avatarUrl: string | null };
+}
+
+interface FeaturedNewsData {
+  featured: FeaturedNews | null;
+  latest: FeaturedNews[];
+}
+
 export default function Home() {
   const [data, setData] = useState<HomepageData | null>(null);
   const [genres, setGenres] = useState<Genre[]>([]);
+  const [isLoadingGenres, setIsLoadingGenres] = useState(true);
   const [search, setSearch] = useState('');
-
-  // Typewriter effect variables and states
-  const words = [
-    'mọi lúc, mọi nơi',
-    'mới nhất mỗi ngày',
-    'hoàn toàn miễn phí',
-    'sắc nét, mượt mà'
-  ];
-  const [wordIndex, setWordIndex] = useState(0);
-  const [displayedText, setDisplayedText] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-
-    const handleTyping = () => {
-      const activeWord = words[wordIndex];
-      if (!isDeleting) {
-        if (displayedText === activeWord) {
-          timer = setTimeout(() => setIsDeleting(true), 1500);
-        } else {
-          timer = setTimeout(() => {
-            setDisplayedText(activeWord.substring(0, displayedText.length + 1));
-          }, 100 + Math.random() * 50);
-        }
-      } else {
-        if (displayedText === '') {
-          timer = setTimeout(() => {
-            setIsDeleting(false);
-            setWordIndex((prev) => (prev + 1) % words.length);
-          }, 300);
-        } else {
-          timer = setTimeout(() => {
-            setDisplayedText(activeWord.substring(0, displayedText.length - 1));
-          }, 50);
-        }
-      }
-    };
-
-    handleTyping();
-    return () => clearTimeout(timer);
-  }, [displayedText, isDeleting, wordIndex]);
+  const [newsData, setNewsData] = useState<FeaturedNewsData | null>(null);
+  const [isLoadingNews, setIsLoadingNews] = useState(true);
 
   // Search placeholder typewriter effect
   const searchPlaceholders = [
@@ -119,7 +96,14 @@ export default function Home() {
 
   useEffect(() => {
     api.get<{ data: HomepageData }>('/comics/homepage').then((r) => setData(r.data)).catch(() => { });
-    api.get<{ data: Genre[] }>('/comics/genres').then((r) => setGenres(r.data)).catch(() => { });
+    api.get<{ data: Genre[] }>('/comics/genres')
+      .then((r) => setGenres(r.data))
+      .catch(() => { })
+      .finally(() => setIsLoadingGenres(false));
+    api.get<{ data: FeaturedNewsData }>('/news/featured')
+      .then((r) => setNewsData(r.data))
+      .catch(() => { })
+      .finally(() => setIsLoadingNews(false));
   }, []);
 
   return (
@@ -136,16 +120,6 @@ export default function Home() {
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500 dark:bg-green-400" />
           O W O C — Beta 1.0
         </div>
-        <h1 className="mb-4 text-4xl font-bold leading-tight sm:text-5xl hidden">
-          Đọc truyện tranh{' '}
-          <span className="relative inline-block">
-            <span className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-500 dark:from-violet-400 dark:via-fuchsia-400 dark:to-pink-400 bg-clip-text text-transparent">
-              {displayedText}
-            </span>
-            <span className="ml-1 inline-block w-[3px] h-[0.9em] bg-pink-400 animate-cursor-blink align-middle" />
-          </span>
-        </h1>
-        {/* <p className="mb-8 text-lg text-zinc-400">Nền tảng đọc truyện tranh online hỗ trợ tác giả Việt Nam</p> */}
 
         {/* Search */}
         <div className="mx-auto max-w-xl">
@@ -172,18 +146,26 @@ export default function Home() {
       </section>
 
       {/* Genre Pills */}
-      {genres.length > 0 && (
+      {(isLoadingGenres || genres.length > 0) && (
         <section className="mx-auto max-w-6xl px-4 pb-8">
           <div className="flex flex-wrap justify-center gap-2">
-            {genres.map((g) => (
-              <Link
-                key={g.id}
-                href={`/comics?genre=${g.slug}`}
-                className="rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-all hover:border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-300"
-              >
-                {g.icon} {g.name}
-              </Link>
-            ))}
+            {isLoadingGenres
+              ? Array.from({ length: 10 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`h-7 rounded-full bg-zinc-200/60 dark:bg-zinc-800/60 animate-pulse border border-zinc-200/30 dark:border-white/5 ${i % 5 === 0 ? 'w-20' : i % 5 === 1 ? 'w-28' : i % 5 === 2 ? 'w-24' : i % 5 === 3 ? 'w-32' : 'w-16'
+                    }`}
+                />
+              ))
+              : genres.map((g) => (
+                <Link
+                  key={g.id}
+                  href={`/comics?genre=${g.slug}`}
+                  className="rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-all hover:border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-300"
+                >
+                  {g.icon} {g.name}
+                </Link>
+              ))}
           </div>
         </section>
       )}
@@ -195,7 +177,7 @@ export default function Home() {
             <h2 className="text-3xl lg:text-5xl font-bold dark:text-white">
               Chuyện gì đang xảy ra vậy?
             </h2>
-            <a className="hidden lg:block" href="/comics">
+            <Link className="hidden lg:block" href="/news">
               <div className="flex items-center gap-1 px-4 py-2 rounded shadow font-bold uppercase hover:bg-gray-100 transition duration-500 ease-in-out hover:scale-110 dark:shadow-gray-700 dark:hover:bg-gray-700 dark:text-white">
                 <p>see more</p>
                 <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round"
@@ -203,82 +185,84 @@ export default function Home() {
                   <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
               </div>
-            </a>
+            </Link>
           </div>
           <div className="py-6">
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-              <div className="md:col-span-3 relative transition duration-500 ease-in-out hover:scale-105 z-10">
-                <div className="w-full h-full"><img
-                  src="https://vnw-img-cdn.popsww.com/api/v2/containers/file2/cms_assets/thumb_1920x1080__notext_-74b733a15710-1677820176303-e0UF4omJ.jpg?v=0&amp;maxW=1400&amp;format=webp"
-                  alt="" className="h-full w-full rounded" /></div>
-                <a href="/comics"><span aria-hidden="true" className="absolute inset-0"></span>
-                  <div className="absolute bottom-0 w-full bg-gradient-to-t from-black to-transparent px-6 md:px-12 py-5 md:py-10 rounded-b">
-                    <p className="text-white font-bold text-sm md:text-3xl">Prime Gaming and Riot Games Run it
-                      Back</p></div>
-                </a></div>
-              <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-none md:grid-rows-4 gap-4">
-                <div className="grid grid-cols-3 gap-4 relative transition duration-500 ease-in-out hover:scale-105 shadow rounded dark:shadow-gray-700">
-                  <div className="" style={{ clipPath: "polygon(0 0,100% 0,85% 100%,0 100%)" }}><img
-                    src="https://popsimg.akamaized.net/api/v2/containers/file2/cms_assets/kl2023_thumb_1920x1080__notext_-d5822577b9ea-1678181211902-7CHfDw6A.jpg?v=0&amp;maxW=1400&amp;format=webp"
-                    alt="" className="h-full w-full rounded-l" /></div>
-                  <div className="col-span-2 p-2"><a href="/comics"><span aria-hidden="true" className="absolute inset-0"></span>
-                    <p className="font-bold line-clamp-1 md:line-clamp-2 dark:text-white">From Duck Hunt to Riot
-                      Games, Maye Mac-Swiney’s Gaming</p></a>
-                    <div><p className="line-clamp-2 font-light dark:text-white">Lorem ipsum dolor sit amet conse
-                      ctetur adipi sicing elit. Aliquid, excepturi amet? Praesentium asperiores eligendi
-                      aperiam doloremque autem odit voluptatum alias, rem necessitatibus deleniti natus sunt
-                      vel quasi reprehenderit voluptatibus quidem.</p></div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4 relative transition duration-500 ease-in-out hover:scale-105 shadow rounded dark:shadow-gray-700">
-                  <div className="" style={{ clipPath: "polygon(0 0,100% 0,85% 100%,0 100%)" }}><img
-                    src="https://vnw-img-cdn.popsww.com/api/v2/containers/file2/cms_assets/1920x1080_slider-fa8d5ffe9079-1678420976314-jrZwTXtE.jpg?v=0&amp;maxW=1400&amp;format=webp"
-                    alt="" className="h-full w-full rounded-l" /></div>
-                  <div className="col-span-2 p-2"><a href="/comics"><span aria-hidden="true" className="absolute inset-0"></span>
-                    <p className="font-bold line-clamp-1 md:line-clamp-2 dark:text-white">From Duck Hunt to Riot
-                      Games, Maye Mac-Swiney’s Gaming</p></a>
-                    <div><p className="line-clamp-2 font-light dark:text-white">Lorem ipsum dolor sit amet conse
-                      ctetur adipi sicing elit. Aliquid, excepturi amet? Praesentium asperiores eligendi
-                      aperiam doloremque autem odit voluptatum alias, rem necessitatibus deleniti natus sunt
-                      vel quasi reprehenderit voluptatibus quidem.</p></div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4 relative transition duration-500 ease-in-out hover:scale-105 shadow rounded dark:shadow-gray-700">
-                  <div className="" style={{ clipPath: "polygon(0 0,100% 0,85% 100%,0 100%)" }}><img
-                    src="https://vnw-img-cdn.popsww.com/api/v2/containers/file2/cms_assets/copy_of_sepcho_thumb_1280x720__notext_-22886463a9cf-1663317472391-IOnOQU4X.jpeg?v=0&amp;maxW=1400&amp;format=webp"
-                    alt="" className="h-full w-full rounded-l" /></div>
-                  <div className="col-span-2 p-2"><a href="/comics"><span aria-hidden="true" className="absolute inset-0"></span>
-                    <p className="font-bold line-clamp-1 md:line-clamp-2 dark:text-white">From Duck Hunt to Riot
-                      Games, Maye Mac-Swiney’s Gaming</p></a>
-                    <div><p className="line-clamp-2 font-light dark:text-white">Lorem ipsum dolor sit amet conse
-                      ctetur adipi sicing elit. Aliquid, excepturi amet? Praesentium asperiores eligendi
-                      aperiam doloremque autem odit voluptatum alias, rem necessitatibus deleniti natus sunt
-                      vel quasi reprehenderit voluptatibus quidem.</p></div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4 relative transition duration-500 ease-in-out hover:scale-105 shadow rounded dark:shadow-gray-700">
-                  <div className="" style={{ clipPath: "polygon(0 0,100% 0,85% 100%,0 100%)" }}><img
-                    src="https://vnw-img-cdn.popsww.com/api/v2/containers/file2/cms_assets/copy_of_kvpex_thumb_1920x1080__notext_-f2a1eb0c96dd-1669023034755-WPjcwavK.jpg?v=0&amp;maxW=1400&amp;format=webp"
-                    alt="" className="h-full w-full rounded-l" /></div>
-                  <div className="col-span-2 p-2"><a href="/comics"><span aria-hidden="true" className="absolute inset-0"></span>
-                    <p className="font-bold line-clamp-1 md:line-clamp-2 dark:text-white">From Duck Hunt to Riot
-                      Games, Maye Mac-Swiney’s Gaming</p></a>
-                    <div><p className="line-clamp-2 font-light dark:text-white">Lorem ipsum dolor sit amet conse
-                      ctetur adipi sicing elit. Aliquid, excepturi amet? Praesentium asperiores eligendi
-                      aperiam doloremque autem odit voluptatum alias, rem necessitatibus deleniti natus sunt
-                      vel quasi reprehenderit voluptatibus quidem.</p></div>
-                  </div>
+            {isLoadingNews ? (
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                <div className="md:col-span-3 aspect-[4/3] lg:aspect-auto rounded bg-zinc-200/60 dark:bg-zinc-800/60 animate-pulse" />
+                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-none md:grid-rows-4 gap-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-24 rounded bg-zinc-200/60 dark:bg-zinc-800/60 animate-pulse" />
+                  ))}
                 </div>
               </div>
+            ) : newsData && (newsData.featured || newsData.latest.length > 0) ? (
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                {/* Featured large card */}
+                {newsData.featured && (
+                  <div className="md:col-span-3 relative transition duration-500 ease-in-out hover:scale-105 z-10">
+                    <div className="w-full h-full">
+                      {newsData.featured.coverUrl ? (
+                        <img src={newsData.featured.coverUrl} alt={newsData.featured.title} className="h-full w-full rounded object-cover" />
+                      ) : (
+                        <div className="h-full w-full rounded bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center min-h-[300px]">
+                          <i className="fa-light fa-newspaper text-6xl text-zinc-300 dark:text-zinc-600" />
+                        </div>
+                      )}
+                    </div>
+                    <Link href={`/news/${newsData.featured.slug}`}>
+                      <span aria-hidden="true" className="absolute inset-0"></span>
+                      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black to-transparent px-6 md:px-12 py-5 md:py-10 rounded-b">
+                        <p className="text-white font-bold text-sm md:text-3xl">{newsData.featured.title}</p>
+                      </div>
+                    </Link>
+                  </div>
+                )}
+                {/* Side cards */}
+                {newsData.latest.length > 0 && (
+                  <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-none md:grid-rows-4 gap-4">
+                    {newsData.latest.map((item) => (
+                      <div key={item.id} className="grid grid-cols-3 gap-4 relative transition duration-500 ease-in-out hover:scale-105 shadow rounded dark:shadow-gray-700">
+                        <div style={{ clipPath: "polygon(0 0,100% 0,85% 100%,0 100%)" }}>
+                          {item.coverUrl ? (
+                            <img src={item.coverUrl} alt={item.title} className="h-full w-full rounded-l object-cover" />
+                          ) : (
+                            <div className="h-full w-full rounded-l bg-gradient-to-br from-emerald-500/10 to-teal-500/10 flex items-center justify-center">
+                              <i className="fa-light fa-newspaper text-xl text-zinc-300 dark:text-zinc-600" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="col-span-2 p-2">
+                          <Link href={`/news/${item.slug}`}>
+                            <span aria-hidden="true" className="absolute inset-0"></span>
+                            <p className="font-bold line-clamp-1 md:line-clamp-2 dark:text-white">{item.title}</p>
+                          </Link>
+                          <div>
+                            <p className="line-clamp-2 font-light dark:text-white">{item.excerpt || ''}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-4xl mb-3">📰</div>
+                <p className="text-zinc-500 dark:text-zinc-400">Chưa có tin tức nào.</p>
+              </div>
+            )}
+            <div className="pt-6 flex justify-center">
+              <Link className="lg:hidden" href="/news">
+                <div className="flex items-center gap-1 px-4 py-2 rounded shadow font-bold uppercase hover:bg-gray-100 transition duration-500 ease-in-out hover:scale-110 dark:shadow-gray-700 dark:hover:bg-gray-700 dark:text-white">
+                  <p>see more</p>
+                  <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                </div>
+              </Link>
             </div>
-            <div className="pt-6 flex justify-center"><a className="lg:hidden" href="/comics">
-              <div className="flex items-center gap-1 px-4 py-2 rounded shadow font-bold uppercase hover:bg-gray-100 transition duration-500 ease-in-out hover:scale-110 dark:shadow-gray-700 dark:hover:bg-gray-700 dark:text-white">
-                <p>see more</p>
-                <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
-                  <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-              </div>
-            </a></div>
           </div>
         </div>
       </section>

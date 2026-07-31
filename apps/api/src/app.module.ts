@@ -14,6 +14,7 @@ import { CommentModule } from './comment/comment.module';
 import { RatingModule } from './rating/rating.module';
 import { UserModule } from './user/user.module';
 import { GamificationModule } from './gamification/gamification.module';
+import { NewsModule } from './news/news.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { GamificationModule } from './gamification/gamification.module';
     CommentModule,
     RatingModule,
     UserModule,
+    NewsModule,
   ],
   controllers: [AppController],
 })

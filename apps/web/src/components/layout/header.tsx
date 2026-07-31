@@ -86,6 +86,9 @@ export function Header() {
           <Link href="/comics" className="text-base font-medium text-zinc-500 dark:text-zinc-400 transition-colors hover:text-zinc-900 hover:dark:text-white">
             Khám phá
           </Link>
+          <Link href="/news" className="text-base font-medium text-zinc-500 dark:text-zinc-400 transition-colors hover:text-zinc-900 hover:dark:text-white">
+            Tin tức
+          </Link>
           {/* {user && (
             <>
               <Link href="/bookmarks" className="text-sm text-zinc-400 transition-colors hover:text-white">

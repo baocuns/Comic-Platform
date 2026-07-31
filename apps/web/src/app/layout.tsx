@@ -19,9 +19,9 @@ export const metadata: Metadata = {
     template: "%s | OWOC",
   },
   icons: {
-    icon: "/owoc_logo.png",
-    shortcut: "/owoc_logo.png",
-    apple: "/owoc_logo.png",
+    icon: "/aaa_logo.png",
+    shortcut: "/aaa_logo.png",
+    apple: "/aaa_logo.png",
   },
   description: "Nền tảng đọc truyện tranh online miễn phí, hỗ trợ tác giả Việt Nam. Đọc Manga, Manhwa, Manhua, Webtoon chất lượng cao.",
   keywords: ["truyện tranh", "manga", "manhwa", "webtoon", "đọc truyện", "comic", "online"],

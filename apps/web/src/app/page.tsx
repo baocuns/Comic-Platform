@@ -161,7 +161,7 @@ export default function Home() {
                 <Link
                   key={g.id}
                   href={`/comics?genre=${g.slug}`}
-                  className="rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-all hover:border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-300"
+                  className="rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-all hover:border-green-500/30 hover:bg-green-500/10 hover:text-green-600 dark:hover:text-green-300"
                 >
                   {g.icon} {g.name}
                 </Link>
@@ -177,14 +177,8 @@ export default function Home() {
             <h2 className="text-3xl lg:text-5xl font-bold dark:text-white">
               Chuyện gì đang xảy ra vậy?
             </h2>
-            <Link className="hidden lg:block" href="/news">
-              <div className="flex items-center gap-1 px-4 py-2 rounded shadow font-bold uppercase hover:bg-gray-100 transition duration-500 ease-in-out hover:scale-110 dark:shadow-gray-700 dark:hover:bg-gray-700 dark:text-white">
-                <p>see more</p>
-                <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round"
-                  strokeLinejoin="round" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
-                  <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-              </div>
+            <Link href="/news" className="hidden lg:block text-3xl text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300">
+              <i className="fa-duotone fa-solid fa-chevrons-right"></i>
             </Link>
           </div>
           <div className="py-6">
@@ -204,7 +198,7 @@ export default function Home() {
                   <div className="md:col-span-3 relative transition duration-500 ease-in-out hover:scale-105 z-10">
                     <div className="w-full h-full">
                       {newsData.featured.coverUrl ? (
-                        <img src={newsData.featured.coverUrl} alt={newsData.featured.title} className="h-full w-full rounded object-cover" />
+                        <img src={newsData.featured.coverUrl} alt={newsData.featured.title} className="h-[496px] w-full rounded object-cover" />
                       ) : (
                         <div className="h-full w-full rounded bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center min-h-[300px]">
                           <i className="fa-light fa-newspaper text-6xl text-zinc-300 dark:text-zinc-600" />
@@ -226,7 +220,7 @@ export default function Home() {
                       <div key={item.id} className="grid grid-cols-3 gap-4 relative transition duration-500 ease-in-out hover:scale-105 shadow rounded dark:shadow-gray-700">
                         <div style={{ clipPath: "polygon(0 0,100% 0,85% 100%,0 100%)" }}>
                           {item.coverUrl ? (
-                            <img src={item.coverUrl} alt={item.title} className="h-full w-full rounded-l object-cover" />
+                            <img src={item.coverUrl} alt={item.title} className="h-[112px] w-full rounded-l object-cover" />
                           ) : (
                             <div className="h-full w-full rounded-l bg-gradient-to-br from-emerald-500/10 to-teal-500/10 flex items-center justify-center">
                               <i className="fa-light fa-newspaper text-xl text-zinc-300 dark:text-zinc-600" />
@@ -253,16 +247,6 @@ export default function Home() {
                 <p className="text-zinc-500 dark:text-zinc-400">Chưa có tin tức nào.</p>
               </div>
             )}
-            <div className="pt-6 flex justify-center">
-              <Link className="lg:hidden" href="/news">
-                <div className="flex items-center gap-1 px-4 py-2 rounded shadow font-bold uppercase hover:bg-gray-100 transition duration-500 ease-in-out hover:scale-110 dark:shadow-gray-700 dark:hover:bg-gray-700 dark:text-white">
-                  <p>see more</p>
-                  <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20" xmlns="http://www.w3.org/2000/svg">
-                    <polyline points="9 18 15 12 9 6"></polyline>
-                  </svg>
-                </div>
-              </Link>
-            </div>
           </div>
         </div>
       </section>
@@ -304,8 +288,8 @@ function ComicSection({ title, comics }: { title: string; comics: Comic[] }) {
     <section className="px-4 sm:px-8 md:px-12 lg:px-16 pb-10">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold text-zinc-900 dark:text-white">{title}</h2>
-        <Link href="/comics" className="text-sm text-violet-600 dark:text-violet-400 hover:text-violet-500 dark:hover:text-violet-300">
-          Xem tất cả →
+        <Link href="/comics" className="text-3xl text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300">
+          <i className="fa-duotone fa-solid fa-chevrons-right"></i>
         </Link>
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -318,7 +302,7 @@ function ComicSection({ title, comics }: { title: string; comics: Comic[] }) {
                 <div className="flex h-full items-center justify-center text-3xl font-bold text-zinc-400 dark:text-zinc-600">{comic.title[0]}</div>
               )}
             </div>
-            <h3 className="line-clamp-2 text-sm font-bold text-zinc-800 dark:text-zinc-200 group-hover:text-violet-600 dark:group-hover:text-violet-300">{comic.title}</h3>
+            <h3 className="line-clamp-2 text-sm font-bold text-zinc-800 dark:text-zinc-200 group-hover:text-green-600 dark:group-hover:text-green-300">{comic.title}</h3>
             <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
               <span><i className="fa-light fa-image"></i> {comic.stats.totalChapters}</span>
               <span><i className="fa-light fa-eye"></i> {comic.stats.totalViews}</span>

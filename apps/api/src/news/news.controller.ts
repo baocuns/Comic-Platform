@@ -36,8 +36,8 @@ export class NewsController {
 
   @Public()
   @Get(':slug')
-  async findBySlug(@Param('slug') slug: string) {
-    const data = await this.newsService.findBySlug(slug);
+  async findBySlug(@Param('slug') slug: string, @CurrentUser('sub') userId?: string) {
+    const data = await this.newsService.findBySlug(slug, userId);
     return { success: true, data };
   }
 

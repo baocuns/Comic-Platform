@@ -90,7 +90,7 @@ function formatViews(count: number) {
 
 export default function NewsDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
-  const { user } = useAuthStore();
+  const { user, accessToken } = useAuthStore();
 
   const [article, setArticle] = useState<NewsArticle | null>(null);
   const [related, setRelated] = useState<RelatedArticle[]>([]);
@@ -100,12 +100,13 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
   const [likesCount, setLikesCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
     api
-      .get<{ data: NewsArticle }>(`/news/${slug}`)
+      .get<{ data: NewsArticle }>(`/news/${slug}`, accessToken ? { token: accessToken } : undefined)
       .then((r) => {
         setArticle(r.data);
         setIsLiked(r.data.isLiked);
@@ -120,7 +121,7 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
       .get<{ data: RelatedArticle[] }>(`/news/${slug}/related`)
       .then((r) => setRelated(r.data))
       .catch(() => {});
-  }, [slug]);
+  }, [slug, accessToken]);
 
   useEffect(() => {
     if (!article) return;
@@ -131,22 +132,44 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
   }, [article]);
 
   const handleLike = async () => {
-    if (!user || !article) return;
+    if (!user || !article || !accessToken || isLiking) return;
+
+    // Save previous state for rollback
+    const previousIsLiked = isLiked;
+    const previousLikesCount = likesCount;
+
+    // Optimistic UI update
+    const nextIsLiked = !isLiked;
+    setIsLiked(nextIsLiked);
+    setLikesCount((prev) => (nextIsLiked ? prev + 1 : prev - 1));
+    setIsLiking(true);
+
     try {
-      const r = await api.post<{ data: { liked: boolean } }>(`/news/${article.id}/like`);
+      const r = await api.post<{ data: { liked: boolean } }>(
+        `/news/${article.id}/like`,
+        undefined,
+        { token: accessToken }
+      );
       setIsLiked(r.data.liked);
-      setLikesCount((prev) => (r.data.liked ? prev + 1 : prev - 1));
-    } catch {}
+    } catch {
+      // Rollback on error
+      setIsLiked(previousIsLiked);
+      setLikesCount(previousLikesCount);
+    } finally {
+      setIsLiking(false);
+    }
   };
 
   const handleComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !article || !commentText.trim()) return;
+    if (!user || !article || !commentText.trim() || !accessToken) return;
     setIsSubmitting(true);
     try {
-      const r = await api.post<{ data: NewsComment }>(`/news/${article.id}/comments`, {
-        content: commentText.trim(),
-      });
+      const r = await api.post<{ data: NewsComment }>(
+        `/news/${article.id}/comments`,
+        { content: commentText.trim() },
+        { token: accessToken }
+      );
       setComments((prev) => [r.data, ...prev]);
       setCommentText('');
     } catch {}
@@ -154,8 +177,9 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
   };
 
   const handleDeleteComment = async (commentId: string) => {
+    if (!accessToken) return;
     try {
-      await api.delete(`/news/comments/${commentId}`);
+      await api.delete(`/news/comments/${commentId}`, { token: accessToken });
       setComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch {}
   };
@@ -290,15 +314,15 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
         <div className="flex items-center gap-4 mb-10 py-6 border-y border-zinc-200 dark:border-white/10">
           <button
             onClick={handleLike}
-            disabled={!user}
-            className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all cursor-pointer ${
+            disabled={!user || isLiking}
+            className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all active:scale-95 cursor-pointer ${
               isLiked
                 ? 'bg-rose-500/10 border border-rose-500/30 text-rose-500'
                 : 'bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-rose-500/30 hover:bg-rose-500/5 hover:text-rose-500'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
             title={!user ? 'Đăng nhập để thích bài viết' : ''}
           >
-            <i className={`${isLiked ? 'fa-solid' : 'fa-light'} fa-heart`} />
+            <i className={`${isLiked ? 'fa-solid text-rose-500' : 'fa-light'} fa-heart transition-transform duration-200 ${isLiked ? 'scale-110' : ''}`} />
             <span>{likesCount}</span>
           </button>
 

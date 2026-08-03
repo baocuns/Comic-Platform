@@ -19,7 +19,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: { sub: string; role: string; sid: string }) {
     // Check if session is blacklisted (logged out)
-    const isBlacklisted = await this.redis.exists(`blacklist:${payload.sid}`);
+    const isBlacklisted = await this.redis.exists(`blacklist:session:${payload.sid}`);
     if (isBlacklisted) {
       throw new UnauthorizedException('Session has been revoked');
     }

@@ -44,6 +44,12 @@ interface ChapterInfo {
   comic: { id: string; title: string; slug: string };
 }
 
+interface ChapterItem {
+  id: string;
+  number: string;
+  title: string | null;
+}
+
 type ViewMode = 'grid' | 'column';
 
 // ── Sortable Page Thumbnail ──
@@ -82,14 +88,14 @@ function SortablePageThumb({
       className={`group relative flex-shrink-0 cursor-grab select-none overflow-hidden rounded-xl border-2 transition-all duration-200 active:cursor-grabbing ${
         isSelected
           ? 'border-violet-500 bg-violet-500/10 shadow-lg shadow-violet-500/20'
-          : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.15]'
+          : 'border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] shadow-sm dark:shadow-none hover:border-zinc-300 dark:hover:border-white/[0.15]'
       }`}
       onClick={(e) => onSelect(page.id, e.ctrlKey || e.metaKey)}
       {...attributes}
       {...listeners}
     >
       {/* Image */}
-      <div className={`relative w-full overflow-hidden bg-zinc-900 ${viewMode === 'grid' ? 'aspect-[3/4]' : ''}`}>
+      <div className={`relative w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900 ${viewMode === 'grid' ? 'aspect-[3/4]' : ''}`}>
         <img
           src={page.imageUrl}
           alt={`Trang ${page.pageNumber}`}
@@ -145,7 +151,7 @@ function DragOverlayThumb({ page, zoom, viewMode }: { page: PageData; zoom: numb
       className="overflow-hidden rounded-xl border-2 border-violet-500 bg-violet-500/10 shadow-2xl shadow-violet-500/30"
       style={{ width: `${w}px` }}
     >
-      <div className={`w-full overflow-hidden bg-zinc-900 ${viewMode === 'grid' ? 'aspect-[3/4]' : ''}`}>
+      <div className={`w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900 ${viewMode === 'grid' ? 'aspect-[3/4]' : ''}`}>
         <img src={page.imageUrl} alt="" className="h-full w-full object-cover" draggable={false} />
       </div>
       <div className="bg-black/60 px-2 py-1 text-center text-[11px] font-semibold text-white">{page.pageNumber}</div>
@@ -163,6 +169,7 @@ export default function CanvasEditorPage() {
   const chapterId = params.chapterId as string;
 
   const [chapter, setChapter] = useState<ChapterInfo | null>(null);
+  const [allChapters, setAllChapters] = useState<ChapterItem[]>([]);
   const [pages, setPages] = useState<PageData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -198,7 +205,6 @@ export default function CanvasEditorPage() {
     try {
       return await fn(token);
     } catch (err: unknown) {
-      // If auth error, try refreshing token once
       if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 401) {
         const refreshed = await refreshToken();
         if (refreshed) {
@@ -213,6 +219,8 @@ export default function CanvasEditorPage() {
   // ── Load Data ──
   useEffect(() => {
     if (!accessToken || !chapterId) return;
+    setLoading(true);
+
     api
       .get<{ data: ChapterInfo & { pages: PageData[] } }>(`/chapters/${chapterId}`)
       .then((res) => {
@@ -224,10 +232,41 @@ export default function CanvasEditorPage() {
           comic: res.data.comic,
         });
         setPages((res.data.pages || []).sort((a, b) => a.pageNumber - b.pageNumber));
+
+        const targetComicId = res.data.comic?.id || comicId;
+        if (targetComicId) {
+          api
+            .get<{ data: ChapterItem[] }>(`/comics/${targetComicId}/chapters`)
+            .then((chRes) => {
+              const sorted = (chRes.data || []).sort(
+                (a, b) => (parseFloat(a.number) || 0) - (parseFloat(b.number) || 0)
+              );
+              setAllChapters(sorted);
+            })
+            .catch(() => {});
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [accessToken, chapterId]);
+  }, [accessToken, chapterId, comicId]);
+
+  // ── Chapter Navigation ──
+  const navigateToChapter = (targetChapterId: string) => {
+    if (targetChapterId === chapterId) return;
+    if (hasChanges && !confirm('Bạn có thay đổi chưa lưu thứ tự trang. Bạn có muốn tiếp tục chuyển chương?')) {
+      return;
+    }
+    const targetComicId = chapter?.comic?.id || comicId;
+    router.push(`/studio/comics/${targetComicId}/chapters/${targetChapterId}`);
+  };
+
+  const chaptersList = allChapters.length > 0
+    ? allChapters
+    : (chapter ? [{ id: chapter.id, number: chapter.number, title: chapter.title }] : []);
+
+  const currentIndex = chaptersList.findIndex((c) => c.id === chapterId);
+  const prevChapter = currentIndex > 0 ? chaptersList[currentIndex - 1] : null;
+  const nextChapter = currentIndex >= 0 && currentIndex < chaptersList.length - 1 ? chaptersList[currentIndex + 1] : null;
 
   // ── Selection ──
   const handleSelect = useCallback((id: string, multi: boolean) => {
@@ -253,88 +292,46 @@ export default function CanvasEditorPage() {
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
-    setActiveId(null);
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    setActiveId(null);
 
-    setPages((prev) => {
-      const oldIndex = prev.findIndex((p) => p.id === active.id);
-      const newIndex = prev.findIndex((p) => p.id === over.id);
-      const reordered = arrayMove(prev, oldIndex, newIndex);
-      return reordered.map((p, i) => ({ ...p, pageNumber: i + 1 }));
-    });
-    setHasChanges(true);
+    if (over && active.id !== over.id) {
+      setPages((items) => {
+        const oldIndex = items.findIndex((i) => i.id === active.id);
+        const newIndex = items.findIndex((i) => i.id === over.id);
+        const reordered = arrayMove(items, oldIndex, newIndex);
+        return reordered.map((p, idx) => ({ ...p, pageNumber: idx + 1 }));
+      });
+      setHasChanges(true);
+    }
   };
 
-  // ── Save Order (with token refresh retry) ──
+  // ── Save Order ──
   const handleSaveOrder = async () => {
-    if (!chapterId) return;
+    if (pages.length === 0) return;
     setSavingOrder(true);
     setErrorMsg(null);
     try {
-      const orders = pages.map((p) => ({ pageId: p.id, newOrder: p.pageNumber }));
+      const orders = pages.map((p, idx) => ({ pageId: p.id, newOrder: idx + 1 }));
       await apiWithRetry((token) =>
-        api.put(`/chapters/${chapterId}/pages/reorder`, { orders }, { token }),
+        api.put(`/chapters/${chapterId}/pages/reorder`, { orders }, { token })
       );
       setHasChanges(false);
     } catch (err) {
-      console.error('Reorder failed:', err);
-      setErrorMsg('Lưu thứ tự thất bại. Hãy thử đăng nhập lại.');
+      console.error('Failed to save order:', err);
+      setErrorMsg('Không thể lưu thứ tự trang. Vui lòng thử lại.');
     }
     setSavingOrder(false);
   };
 
-  // ── Delete Pages ──
-  const handleDeletePage = async (pageId: string) => {
-    if (!chapterId) return;
-    if (!confirm('Xóa trang này?')) return;
-    try {
-      await apiWithRetry((token) =>
-        api.delete(`/chapters/${chapterId}/pages/${pageId}`, { token }),
-      );
-      setPages((prev) => {
-        const filtered = prev.filter((p) => p.id !== pageId);
-        return filtered.map((p, i) => ({ ...p, pageNumber: i + 1 }));
-      });
-      setSelectedIds((prev) => { const next = new Set(prev); next.delete(pageId); return next; });
-    } catch (err) {
-      console.error('Delete page failed:', err);
-    }
-  };
-
-  const handleDeleteSelected = async () => {
-    if (selectedIds.size === 0) return;
-    if (!confirm(`Xóa ${selectedIds.size} trang đã chọn?`)) return;
-    for (const id of selectedIds) {
-      try {
-        await apiWithRetry((token) =>
-          api.delete(`/chapters/${chapterId}/pages/${id}`, { token }),
-        );
-      } catch {}
-    }
-    setPages((prev) => {
-      const filtered = prev.filter((p) => !selectedIds.has(p.id));
-      return filtered.map((p, i) => ({ ...p, pageNumber: i + 1 }));
-    });
-    setSelectedIds(new Set());
-  };
-
-  // ── Preview ──
-  const handlePreview = (id: string) => {
-    const idx = pages.findIndex((p) => p.id === id);
-    if (idx >= 0) setPreviewIndex(idx);
-  };
-
-  // ── File Selection (APPEND, not replace) ──
+  // ── Upload Pages ──
   const handleFilesSelected = (files: FileList | null) => {
-    if (!files) return;
-    const fileArr = Array.from(files).filter((f) => f.type.startsWith('image/'));
-    if (fileArr.length === 0) return;
-    setSelectedFiles((prev) => [...prev, ...fileArr]);
-    const urls = fileArr.map((f) => URL.createObjectURL(f));
-    setPreviews((prev) => [...prev, ...urls]);
-    // Reset file input value so the same file can be selected again
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    setSelectedFiles((prev) => [...prev, ...fileArray]);
+
+    const newPreviews = fileArray.map((f) => URL.createObjectURL(f));
+    setPreviews((prev) => [...prev, ...newPreviews]);
   };
 
   const removeUploadFile = (index: number) => {
@@ -344,57 +341,129 @@ export default function CanvasEditorPage() {
   };
 
   const clearUploadFiles = () => {
-    previews.forEach((u) => URL.revokeObjectURL(u));
+    previews.forEach((url) => URL.revokeObjectURL(url));
     setSelectedFiles([]);
     setPreviews([]);
   };
 
-  // ── Upload Pages (APPEND to existing) ──
   const handleUploadPages = async () => {
-    if (!chapterId || selectedFiles.length === 0) return;
+    if (selectedFiles.length === 0) return;
     setUploading(true);
     setUploadProgress(10);
     setErrorMsg(null);
+
     try {
       const formData = new FormData();
       selectedFiles.forEach((file) => formData.append('files', file));
+
       setUploadProgress(30);
 
-      // Use APPEND endpoint — adds to existing pages, does NOT delete old ones
       await apiWithRetry((token) =>
-        api.upload<{ data: { urls: string[]; count: number } }>(
-          `/upload/chapters/${chapterId}/pages/append`,
-          formData,
-          { token },
-        ),
+        api.upload(`/upload/chapters/${chapterId}/pages/append`, formData, { token })
       );
-      setUploadProgress(90);
 
-      // Reload pages
-      const chRes = await api.get<{ data: { pages: PageData[] } }>(`/chapters/${chapterId}`);
-      setPages((chRes.data.pages || []).sort((a, b) => a.pageNumber - b.pageNumber));
+      setUploadProgress(80);
 
-      clearUploadFiles();
+      const res = await api.get<{ data: ChapterInfo & { pages: PageData[] } }>(`/chapters/${chapterId}`);
+      if (res.data?.pages) {
+        setPages(res.data.pages.sort((a, b) => a.pageNumber - b.pageNumber));
+        if (chapter) {
+          setChapter((prev) => (prev ? { ...prev, totalPages: res.data.pages.length } : null));
+        }
+      }
+
       setUploadProgress(100);
-      setTimeout(() => setUploadProgress(0), 1500);
+      clearUploadFiles();
     } catch (err) {
-      console.error('Upload failed:', err);
-      setErrorMsg('Upload thất bại. Hãy thử lại.');
-      setUploadProgress(0);
+      console.error('Failed to upload pages:', err);
+      setErrorMsg('Tải ảnh lên thất bại. Vui lòng thử lại.');
+    } finally {
+      setUploading(false);
+      setTimeout(() => setUploadProgress(0), 2000);
     }
-    setUploading(false);
   };
 
-  // ── Drag over handler for full-page drop zone ──
-  const handlePageDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
+  // ── Delete Pages ──
+  const handleDeletePage = async (pageId: string) => {
+    if (!confirm('Bạn có chắc muốn xóa trang này?')) return;
+    setErrorMsg(null);
+    try {
+      await apiWithRetry((token) =>
+        api.delete(`/chapters/${chapterId}/pages/${pageId}`, { token })
+      );
+      setPages((prev) =>
+        prev
+          .filter((p) => p.id !== pageId)
+          .map((p, idx) => ({ ...p, pageNumber: idx + 1 }))
+      );
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(pageId);
+        return next;
+      });
+      if (chapter) {
+        setChapter((prev) => (prev ? { ...prev, totalPages: Math.max(0, prev.totalPages - 1) } : null));
+      }
+    } catch (err) {
+      console.error('Failed to delete page:', err);
+      setErrorMsg('Không thể xóa trang. Vui lòng thử lại.');
+    }
   };
-  const handlePageDragLeave = () => setIsDragOver(false);
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Bạn có chắc muốn xóa ${selectedIds.size} trang đã chọn?`)) return;
+    setErrorMsg(null);
+    try {
+      const idsArray = Array.from(selectedIds);
+      await Promise.all(
+        idsArray.map((pageId) =>
+          apiWithRetry((token) => api.delete(`/chapters/${chapterId}/pages/${pageId}`, { token }))
+        )
+      );
+      setPages((prev) =>
+        prev
+          .filter((p) => !selectedIds.has(p.id))
+          .map((p, idx) => ({ ...p, pageNumber: idx + 1 }))
+      );
+      if (chapter) {
+        setChapter((prev) =>
+          prev ? { ...prev, totalPages: Math.max(0, prev.totalPages - selectedIds.size) } : null
+        );
+      }
+      setSelectedIds(new Set());
+    } catch (err) {
+      console.error('Failed to delete selected pages:', err);
+      setErrorMsg('Không thể xóa một số trang. Vui lòng thử lại.');
+    }
+  };
+
+  // ── Drag file into page handler ──
+  const handlePageDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      setIsDragOver(true);
+    }
+  };
+
+  const handlePageDragLeave = (e: React.DragEvent) => {
+    if (e.relatedTarget === null || !e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  };
+
   const handlePageDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    handleFilesSelected(e.dataTransfer.files);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesSelected(e.dataTransfer.files);
+    }
+  };
+
+  // ── Preview modal helper ──
+  const handlePreview = (pageId: string) => {
+    const idx = pages.findIndex((p) => p.id === pageId);
+    if (idx !== -1) setPreviewIndex(idx);
   };
 
   const activePage = activeId ? pages.find((p) => p.id === activeId) : null;
@@ -403,7 +472,6 @@ export default function CanvasEditorPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col" onDragOver={handlePageDragOver} onDragLeave={handlePageDragLeave} onDrop={handlePageDrop}>
-      {/* Hidden global file input — always in the DOM */}
       <input
         ref={fileInputRef}
         type="file"
@@ -414,36 +482,73 @@ export default function CanvasEditorPage() {
       />
 
       {/* ── Toolbar ── */}
-      <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#0c0c0f]/60 px-4 py-2 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 dark:border-white/[0.06] bg-white/80 dark:bg-[#0c0c0f]/60 px-4 py-2 backdrop-blur-xl transition-colors duration-200">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Link
             href={`/studio/comics/${comicId}`}
-            className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:text-white"
+            className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-400 transition-colors hover:text-zinc-900 dark:hover:text-white"
+            title="Quay lại chi tiết truyện"
           >
             ← Quay lại
           </Link>
-          {chapter && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-white">Chương {chapter.number}</span>
-              {chapter.title && <span className="text-sm text-zinc-500">— {chapter.title}</span>}
-              <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-zinc-500">{pages.length} trang</span>
-            </div>
-          )}
+
+          <div className="h-4 w-px bg-zinc-200 dark:bg-white/10" />
+
+          {/* Chapter Navigation: Trước, Select Dropdown, Sau */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => prevChapter && navigateToChapter(prevChapter.id)}
+              disabled={!prevChapter}
+              className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed"
+              title={prevChapter ? `Chương ${prevChapter.number}` : 'Không có chương trước'}
+            >
+              <i className="fa-solid fa-chevron-left text-[10px]" />
+              <span className="hidden sm:inline">Trước</span>
+            </button>
+
+            {/* Chapter Select Dropdown */}
+            <select
+              value={chapterId}
+              onChange={(e) => navigateToChapter(e.target.value)}
+              className="max-w-[150px] sm:max-w-[220px] truncate rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] py-1.5 px-2.5 text-xs font-semibold text-zinc-900 dark:text-white outline-none cursor-pointer transition-colors hover:bg-zinc-200 dark:hover:bg-white/[0.08] [&>option]:bg-white [&>option]:text-zinc-900 dark:[&>option]:bg-[#1a1a1a] dark:[&>option]:text-white"
+              title="Danh sách chương"
+            >
+              {chaptersList.map((ch) => (
+                <option key={ch.id} value={ch.id}>
+                  Chương {ch.number}{ch.title ? `: ${ch.title}` : ''}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={() => nextChapter && navigateToChapter(nextChapter.id)}
+              disabled={!nextChapter}
+              className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed"
+              title={nextChapter ? `Chương ${nextChapter.number}` : 'Không có chương sau'}
+            >
+              <span className="hidden sm:inline">Sau</span>
+              <i className="fa-solid fa-chevron-right text-[10px]" />
+            </button>
+          </div>
+
+          <span className="hidden md:inline-block rounded-full bg-zinc-100 dark:bg-white/[0.06] px-2 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-500">
+            {pages.length} trang
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
           {/* View mode toggle */}
-          <div className="flex rounded-lg border border-white/[0.06] bg-white/[0.02]">
+          <div className="flex rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02]">
             <button
               onClick={() => setViewMode('grid')}
-              className={`rounded-l-lg px-2.5 py-1 text-xs transition-colors ${viewMode === 'grid' ? 'bg-white/[0.08] text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+              className={`rounded-l-lg px-2.5 py-1 text-xs transition-colors ${viewMode === 'grid' ? 'bg-zinc-200 dark:bg-white/[0.08] text-zinc-900 dark:text-white font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
               title="Lưới ngang"
             >
               ▦
             </button>
             <button
               onClick={() => setViewMode('column')}
-              className={`rounded-r-lg px-2.5 py-1 text-xs transition-colors ${viewMode === 'column' ? 'bg-white/[0.08] text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+              className={`rounded-r-lg px-2.5 py-1 text-xs transition-colors ${viewMode === 'column' ? 'bg-zinc-200 dark:bg-white/[0.08] text-zinc-900 dark:text-white font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
               title="Dọc liền mạch"
             >
               ☰
@@ -451,22 +556,22 @@ export default function CanvasEditorPage() {
           </div>
 
           {/* Zoom controls */}
-          <div className="flex items-center gap-1 rounded-lg border border-white/[0.06] bg-white/[0.02] px-1">
-            <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))} className="rounded px-2 py-1 text-xs text-zinc-400 hover:text-white" disabled={zoom <= 0.5}>−</button>
-            <span className="min-w-[3rem] text-center text-xs text-zinc-400">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom((z) => Math.min(2, z + 0.25))} className="rounded px-2 py-1 text-xs text-zinc-400 hover:text-white" disabled={zoom >= 2}>+</button>
+          <div className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] px-1">
+            <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))} className="rounded px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" disabled={zoom <= 0.5}>−</button>
+            <span className="min-w-[3rem] text-center text-xs text-zinc-600 dark:text-zinc-400">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom((z) => Math.min(2, z + 0.25))} className="rounded px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" disabled={zoom >= 2}>+</button>
           </div>
 
           {/* Select all */}
           {pages.length > 0 && (
-            <button onClick={selectedIds.size === pages.length ? clearSelection : selectAll} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-400 hover:text-white">
+            <button onClick={selectedIds.size === pages.length ? clearSelection : selectAll} className="rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
               {selectedIds.size === pages.length ? 'Bỏ chọn' : 'Chọn tất cả'}
             </button>
           )}
 
           {/* Delete selected */}
           {selectedIds.size > 0 && (
-            <button onClick={handleDeleteSelected} className="rounded-lg bg-red-500/15 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/25">
+            <button onClick={handleDeleteSelected} className="rounded-lg bg-red-500/15 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/25">
               🗑️ Xóa {selectedIds.size} trang
             </button>
           )}
@@ -487,8 +592,8 @@ export default function CanvasEditorPage() {
       {/* Error banner */}
       {errorMsg && (
         <div className="flex items-center justify-between border-b border-red-500/20 bg-red-500/10 px-4 py-2">
-          <span className="text-xs text-red-300">{errorMsg}</span>
-          <button onClick={() => setErrorMsg(null)} className="text-xs text-red-400 hover:text-red-200">✕</button>
+          <span className="text-xs text-red-600 dark:text-red-300">{errorMsg}</span>
+          <button onClick={() => setErrorMsg(null)} className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-200">✕</button>
         </div>
       )}
 
@@ -499,12 +604,12 @@ export default function CanvasEditorPage() {
           <div className="flex h-full items-center justify-center">
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="cursor-pointer rounded-2xl border-2 border-dashed border-white/[0.1] p-16 text-center transition-all hover:border-violet-500/30 hover:bg-violet-500/[0.03]"
+              className="cursor-pointer rounded-2xl border-2 border-dashed border-zinc-300 dark:border-white/[0.1] bg-white dark:bg-transparent p-16 text-center shadow-sm dark:shadow-none transition-all hover:border-violet-500/50 hover:bg-violet-500/[0.03]"
             >
               <div className="mb-4 text-5xl">🎨</div>
-              <h3 className="text-lg font-semibold text-white">Bắt đầu với Canvas Editor</h3>
-              <p className="mt-2 text-sm text-zinc-500">Kéo thả ảnh vào đây hoặc <span className="text-violet-400 underline">click để chọn</span></p>
-              <p className="mt-1 text-xs text-zinc-600">JPEG, PNG, WebP, GIF — tối đa 10MB/ảnh</p>
+              <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Bắt đầu với Canvas Editor</h3>
+              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Kéo thả ảnh vào đây hoặc <span className="text-violet-600 dark:text-violet-400 underline font-medium">click để chọn</span></p>
+              <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-600">JPEG, PNG, WebP, GIF — tối đa 10MB/ảnh</p>
             </div>
           </div>
         ) : (
@@ -548,34 +653,34 @@ export default function CanvasEditorPage() {
             )}
 
             {/* Upload zone */}
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
-              <h3 className="mb-3 text-sm font-medium text-zinc-300">
+            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 shadow-sm dark:shadow-none">
+              <h3 className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 📤 Thêm trang mới
               </h3>
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="cursor-pointer rounded-xl border-2 border-dashed border-white/[0.08] p-8 text-center transition-all hover:border-violet-500/30 hover:bg-violet-500/[0.03]"
+                className="cursor-pointer rounded-xl border-2 border-dashed border-zinc-300 dark:border-white/[0.08] bg-zinc-50 dark:bg-transparent p-8 text-center transition-all hover:border-violet-500/50 hover:bg-violet-500/[0.03]"
               >
                 <div className="text-3xl">🖼️</div>
-                <p className="mt-2 text-sm text-zinc-400">Kéo thả ảnh hoặc <span className="text-violet-400 underline">click để chọn</span></p>
-                <p className="mt-1 text-xs text-zinc-600">Ảnh mới sẽ được thêm vào sau các trang hiện có</p>
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Kéo thả ảnh hoặc <span className="text-violet-600 dark:text-violet-400 underline font-medium">click để chọn</span></p>
+                <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-600">Ảnh mới sẽ được thêm vào sau các trang hiện có</p>
               </div>
 
               {/* Upload previews */}
               {selectedFiles.length > 0 && (
                 <div className="mt-4">
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs text-zinc-400">Đã chọn {selectedFiles.length} ảnh mới</span>
+                    <span className="text-xs text-zinc-600 dark:text-zinc-400">Đã chọn {selectedFiles.length} ảnh mới</span>
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="text-xs text-violet-400 hover:text-violet-300"
+                        className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium"
                       >
                         + Thêm ảnh
                       </button>
                       <button
                         onClick={clearUploadFiles}
-                        className="text-xs text-red-400 hover:text-red-300"
+                        className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
                       >
                         Xóa tất cả
                       </button>
@@ -583,7 +688,7 @@ export default function CanvasEditorPage() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {previews.map((url, i) => (
-                      <div key={`${url}-${i}`} className="group relative overflow-hidden rounded-lg border border-white/[0.06]" style={{ width: `${Math.round(90 * zoom)}px` }}>
+                      <div key={`${url}-${i}`} className="group relative overflow-hidden rounded-lg border border-zinc-200 dark:border-white/[0.06]" style={{ width: `${Math.round(90 * zoom)}px` }}>
                         <div className="aspect-[3/4]">
                           <img src={url} alt={`Preview ${i + 1}`} className="h-full w-full object-cover" />
                         </div>
@@ -607,12 +712,12 @@ export default function CanvasEditorPage() {
                     </button>
                     {uploadProgress > 0 && (
                       <div className="flex-1">
-                        <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                        <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
                           <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500" style={{ width: `${uploadProgress}%` }} />
                         </div>
                       </div>
                     )}
-                    {uploadProgress === 100 && <span className="text-xs text-emerald-400">✅ Hoàn tất!</span>}
+                    {uploadProgress === 100 && <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✅ Hoàn tất!</span>}
                   </div>
                 </div>
               )}
@@ -626,7 +731,7 @@ export default function CanvasEditorPage() {
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-violet-500/10 backdrop-blur-sm">
           <div className="rounded-2xl border-2 border-dashed border-violet-400/50 bg-violet-500/10 p-16 text-center">
             <div className="text-5xl">📂</div>
-            <p className="mt-3 text-lg font-semibold text-violet-300">Thả ảnh vào đây để thêm trang</p>
+            <p className="mt-3 text-lg font-semibold text-violet-700 dark:text-violet-300">Thả ảnh vào đây để thêm trang</p>
           </div>
         </div>
       )}

@@ -25,7 +25,7 @@ export class UploadService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
-  ) {}
+  ) { }
 
   // ── Upload Comic Cover ──
 
@@ -98,7 +98,7 @@ export class UploadService {
     if (existingPages.length > 0) {
       for (const page of existingPages) {
         const key = page.imageUrl.split('/').slice(-3).join('/'); // extract key from URL
-        await this.storage.delete(key).catch(() => {});
+        await this.storage.delete(key).catch(() => { });
       }
       await this.prisma.page.deleteMany({ where: { chapterId } });
     }
@@ -109,7 +109,8 @@ export class UploadService {
       this.validateFile(files[i]);
 
       const processed = await this.processImage(files[i].buffer, { width: 1200 });
-      const key = `pages/${chapterId}/${String(i + 1).padStart(3, '0')}.webp`;
+      //const key = `pages/${chapterId}/${String(i + 1).padStart(3, '0')}.webp`;
+      const key = `pages/${chapterId}/${crypto.randomUUID()}.webp`;
       const url = await this.storage.upload(key, processed.webp, 'image/webp');
       urls.push(url);
 
@@ -162,7 +163,7 @@ export class UploadService {
 
       const pageNum = startNumber + i;
       const processed = await this.processImage(files[i].buffer, { width: 1200 });
-      const key = `pages/${chapterId}/${String(pageNum).padStart(3, '0')}.webp`;
+      const key = `pages/${chapterId}/${crypto.randomUUID()}.webp`;
       const url = await this.storage.upload(key, processed.webp, 'image/webp');
       urls.push(url);
 
@@ -225,6 +226,38 @@ export class UploadService {
     });
 
     this.logger.log(`Banner uploaded for user ${userId}`);
+    return url;
+  }
+
+  // ── Upload News Cover ──
+
+  async uploadNewsCover(userId: string, file: UploadedFile): Promise<string> {
+    this.validateFile(file);
+
+    const webp = await sharp(file.buffer)
+      .resize(1200, 675, { fit: 'cover', withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toBuffer();
+
+    const key = `news/covers/${crypto.randomUUID()}.webp`;
+    const url = await this.storage.upload(key, webp, 'image/webp');
+    this.logger.log(`News cover uploaded by user ${userId}`);
+    return url;
+  }
+
+  // ── Upload News Content Image ──
+
+  async uploadNewsContentImage(userId: string, file: UploadedFile): Promise<string> {
+    this.validateFile(file);
+
+    const webp = await sharp(file.buffer)
+      .resize(1400, undefined, { withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toBuffer();
+
+    const key = `news/content/${crypto.randomUUID()}.webp`;
+    const url = await this.storage.upload(key, webp, 'image/webp');
+    this.logger.log(`News content image uploaded by user ${userId}`);
     return url;
   }
 

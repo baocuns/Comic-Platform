@@ -176,14 +176,14 @@ export class AuthService {
         secret: this.config.get('JWT_REFRESH_SECRET'),
       });
 
-      // Check if token is blacklisted
-      const isBlacklisted = await this.redis.exists(`blacklist:${payload.sid}`);
+      // Check if refresh token is blacklisted
+      const isBlacklisted = await this.redis.exists(`blacklist:refresh:${payload.sid}`);
       if (isBlacklisted) {
         throw new UnauthorizedException('Token has been revoked');
       }
 
-      // Blacklist old refresh token
-      await this.redis.set(`blacklist:${payload.sid}`, '1', 7 * 24 * 60 * 60);
+      // Blacklist old refresh token to prevent reuse
+      await this.redis.set(`blacklist:refresh:${payload.sid}`, '1', 7 * 24 * 60 * 60);
 
       // Get user
       const user = await this.prisma.user.findUnique({
@@ -203,8 +203,9 @@ export class AuthService {
   // ── Logout ──
 
   async logout(sessionId: string) {
-    // Blacklist the session
-    await this.redis.set(`blacklist:${sessionId}`, '1', 7 * 24 * 60 * 60);
+    // Blacklist the session for both access token and refresh token
+    await this.redis.set(`blacklist:session:${sessionId}`, '1', 7 * 24 * 60 * 60);
+    await this.redis.set(`blacklist:refresh:${sessionId}`, '1', 7 * 24 * 60 * 60);
   }
 
   // ── Get Current User ──

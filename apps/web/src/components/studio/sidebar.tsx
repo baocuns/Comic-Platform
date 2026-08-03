@@ -5,8 +5,9 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
 const navItems = [
-  { href: '/studio', label: 'Dashboard', icon: '📊', exact: true },
-  { href: '/studio/comics', label: 'Truyện của tôi', icon: '📚', exact: false },
+  { href: '/studio', label: 'Dashboard', icon: <i className="fa-solid fa-chart-mixed"></i>, exact: true },
+  { href: '/studio/comics', label: 'Truyện của tôi', icon: <i className="fa-solid fa-book"></i>, exact: false },
+  { href: '/studio/news', label: 'Quản lý tin tức', icon: <i className="fa-solid fa-newspaper"></i>, exact: false },
 ];
 
 export function StudioSidebar() {
@@ -20,18 +21,15 @@ export function StudioSidebar() {
     <>
       {/* Mobile overlay */}
       <aside
-        className={`fixed left-0 top-0 z-40 flex h-full flex-col border-r border-white/[0.06] bg-[#0c0c0f] transition-all duration-300 ${
-          collapsed ? 'w-[68px]' : 'w-[240px]'
-        }`}
+        className={`fixed left-0 top-0 z-40 flex h-full flex-col border-r border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-[#0c0c0f] transition-all duration-300 ${collapsed ? 'w-[68px]' : 'w-[240px]'
+          }`}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center gap-3 border-b border-white/[0.06] px-4">
+        <div className="flex h-16 items-center gap-3 border-b border-zinc-200 dark:border-white/[0.06] px-4">
           <Link href="/studio" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-lg font-bold text-white shadow-lg shadow-violet-500/25">
-              C
-            </div>
+            <img src="/aaa_logo.png" alt="Logo" className="h-9 w-9" />
             {!collapsed && (
-              <span className="text-base font-semibold tracking-tight text-white animate-fade-in">
+              <span className="text-base font-semibold tracking-tight text-zinc-900 dark:text-white animate-fade-in">
                 Studio
               </span>
             )}
@@ -46,11 +44,10 @@ export function StudioSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                  active
-                    ? 'bg-violet-500/10 text-violet-300 shadow-sm shadow-violet-500/5'
-                    : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300'
-                }`}
+                className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${active
+                  ? 'bg-violet-500/10 text-violet-600 dark:text-violet-300 shadow-sm shadow-violet-500/5'
+                  : 'text-zinc-600 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-zinc-300'
+                  }`}
                 title={collapsed ? item.label : undefined}
               >
                 <span className={`text-lg ${active ? 'drop-shadow-[0_0_6px_rgba(139,92,246,0.4)]' : ''}`}>{item.icon}</span>
@@ -61,21 +58,21 @@ export function StudioSidebar() {
         </nav>
 
         {/* Bottom section */}
-        <div className="border-t border-white/[0.06] p-3 space-y-2">
+        <div className="border-t border-zinc-200 dark:border-white/[0.06] p-3 space-y-2">
           {/* Back to homepage */}
           <Link
             href="/"
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-white/[0.04] hover:text-zinc-400"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-600 dark:text-zinc-500 transition-colors hover:bg-zinc-100 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-zinc-400"
             title={collapsed ? 'Trang chủ' : undefined}
           >
-            <span className="text-lg">🏠</span>
+            <span className="text-lg"><i className="fa-slab-press fa-regular fa-house"></i></span>
             {!collapsed && <span>Trang chủ</span>}
           </Link>
 
           {/* Collapse toggle */}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-white/[0.04] hover:text-zinc-400"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-600 dark:text-zinc-500 transition-colors hover:bg-zinc-100 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-zinc-400"
           >
             <span className={`text-lg transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`}>
               «

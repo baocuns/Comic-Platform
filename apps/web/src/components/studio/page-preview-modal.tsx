@@ -48,35 +48,35 @@ export function PagePreviewModal({ pages, initialIndex, onClose }: PagePreviewMo
     >
       <div className={`relative flex h-full w-full flex-col transition-all duration-200 ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} onClick={(e) => e.stopPropagation()}>
         {/* Top bar */}
-        <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#0c0c0f]/90 px-4">
-          <span className="text-sm text-zinc-400">
+        <div className="flex h-12 shrink-0 items-center justify-between border-b border-zinc-200 dark:border-white/[0.06] bg-white/90 dark:bg-[#0c0c0f]/90 px-4">
+          <span className="text-sm text-zinc-600 dark:text-zinc-400">
             Trang {page.pageNumber} / {pages.length}
-            <span className="ml-3 text-zinc-600">{page.width}×{page.height}px</span>
+            <span className="ml-3 text-zinc-400 dark:text-zinc-600">{page.width}×{page.height}px</span>
           </span>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setZoom((z) => Math.max(0.25, z - 0.25))}
-              className="rounded-md bg-white/[0.06] px-2 py-1 text-xs text-zinc-400 hover:bg-white/[0.1] hover:text-white"
+              className="rounded-md bg-zinc-100 dark:bg-white/[0.06] px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/[0.1] hover:text-zinc-900 dark:hover:text-white transition-colors"
             >
               −
             </button>
-            <span className="min-w-[3rem] text-center text-xs text-zinc-400">{Math.round(zoom * 100)}%</span>
+            <span className="min-w-[3rem] text-center text-xs text-zinc-600 dark:text-zinc-400">{Math.round(zoom * 100)}%</span>
             <button
               onClick={() => setZoom((z) => Math.min(3, z + 0.25))}
-              className="rounded-md bg-white/[0.06] px-2 py-1 text-xs text-zinc-400 hover:bg-white/[0.1] hover:text-white"
+              className="rounded-md bg-zinc-100 dark:bg-white/[0.06] px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/[0.1] hover:text-zinc-900 dark:hover:text-white transition-colors"
             >
               +
             </button>
             <button
               onClick={() => setZoom(1)}
-              className="rounded-md bg-white/[0.06] px-2 py-1 text-xs text-zinc-400 hover:bg-white/[0.1] hover:text-white"
+              className="rounded-md bg-zinc-100 dark:bg-white/[0.06] px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/[0.1] hover:text-zinc-900 dark:hover:text-white transition-colors"
             >
               Reset
             </button>
-            <div className="mx-2 h-4 w-px bg-white/[0.06]" />
+            <div className="mx-2 h-4 w-px bg-zinc-200 dark:bg-white/[0.06]" />
             <button
               onClick={handleClose}
-              className="rounded-md bg-white/[0.06] px-2 py-1 text-xs text-zinc-400 hover:bg-red-500/20 hover:text-red-300"
+              className="rounded-md bg-zinc-100 dark:bg-white/[0.06] px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-red-500/20 hover:text-red-500 dark:hover:text-red-300 transition-colors"
             >
               ✕ Đóng
             </button>
@@ -115,7 +115,7 @@ export function PagePreviewModal({ pages, initialIndex, onClose }: PagePreviewMo
         </div>
 
         {/* Bottom thumbnails */}
-        <div className="flex h-20 shrink-0 items-center gap-2 overflow-x-auto border-t border-white/[0.06] bg-[#0c0c0f]/90 px-4">
+        <div className="flex h-20 shrink-0 items-center gap-2 overflow-x-auto border-t border-zinc-200 dark:border-white/[0.06] bg-white/90 dark:bg-[#0c0c0f]/90 px-4">
           {pages.map((p, i) => (
             <button
               key={p.id}

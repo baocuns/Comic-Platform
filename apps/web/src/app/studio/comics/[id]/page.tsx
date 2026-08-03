@@ -50,10 +50,10 @@ interface EditForm {
 
 const statusLabel: Record<string, string> = { DRAFT: 'Nháp', ONGOING: 'Đang ra', COMPLETED: 'Hoàn thành', HIATUS: 'Tạm dừng' };
 const statusColor: Record<string, string> = {
-  DRAFT: 'bg-zinc-500/20 text-zinc-300',
-  ONGOING: 'bg-emerald-500/20 text-emerald-300',
-  COMPLETED: 'bg-violet-500/20 text-violet-300',
-  HIATUS: 'bg-amber-500/20 text-amber-300',
+  DRAFT: 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300 border-zinc-300 dark:border-zinc-500/20',
+  ONGOING: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/20',
+  COMPLETED: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-500/20',
+  HIATUS: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/20',
 };
 const contentRatingLabel: Record<string, string> = { EVERYONE: 'Mọi người', TEEN: 'Thanh thiếu niên (13+)', MATURE: 'Người lớn (18+)' };
 
@@ -218,31 +218,31 @@ export default function StudioComicDetailPage() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
       {/* Comic Header */}
-      <div className="mb-6 overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]">
+      <div className="mb-6 overflow-hidden rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] shadow-sm dark:shadow-none">
         {/* Banner */}
         {comic.bannerUrl && (
           <div className="relative h-36 w-full">
             <img src={comic.bannerUrl} alt="" className="h-full w-full object-cover" style={{ objectPosition: `center ${comic.bannerPosition ?? 50}%` }} />
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0c0c0f]" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white dark:to-[#0c0c0f]" />
           </div>
         )}
         <div className={`flex items-start gap-5 p-6 ${comic.bannerUrl ? '-mt-10 relative' : ''}`}>
           <div className="shrink-0">
             {comic.coverUrl ? (
-              <img src={comic.coverUrl} alt={comic.title} className="h-28 w-20 rounded-lg border-2 border-[#0c0c0f] object-cover shadow-lg" />
+              <img src={comic.coverUrl} alt={comic.title} className="h-28 w-20 rounded-lg border-2 border-white dark:border-[#0c0c0f] object-cover shadow-lg" />
             ) : (
-              <div className="flex h-28 w-20 items-center justify-center rounded-lg border border-dashed border-white/20 bg-white/5 text-2xl text-zinc-600">📖</div>
+              <div className="flex h-28 w-20 items-center justify-center rounded-lg border border-dashed border-zinc-300 dark:border-white/20 bg-zinc-100 dark:bg-white/5 text-2xl text-zinc-400 dark:text-zinc-600">📖</div>
             )}
           </div>
           <div className="flex-1">
             <div className="mb-1 flex items-center gap-3">
-              <h1 className="text-xl font-bold text-white">{comic.title}</h1>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor[comic.status] || statusColor.DRAFT}`}>
+              <h1 className="text-xl font-bold text-zinc-900 dark:text-white">{comic.title}</h1>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium border ${statusColor[comic.status] || statusColor.DRAFT}`}>
                 {statusLabel[comic.status] || comic.status}
               </span>
             </div>
-            {comic.description && <p className="mb-2 text-sm text-zinc-400 line-clamp-2">{comic.description}</p>}
-            <div className="flex items-center gap-4 text-xs text-zinc-500">
+            {comic.description && <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2">{comic.description}</p>}
+            <div className="flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
               <span>📖 {comic.stats.totalChapters} chương</span>
               <span>👁️ {comic.stats.totalViews.toLocaleString()} đọc</span>
               <span>⭐ {comic.stats.avgRating}</span>
@@ -255,7 +255,7 @@ export default function StudioComicDetailPage() {
                 🚀 Xuất bản
               </button>
             )}
-            <Link href={`/comics/${comic.slug}`} className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:text-white">
+            <Link href={`/comics/${comic.slug}`} className="rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-colors hover:text-zinc-900 dark:hover:text-white">
               👁️ Xem
             </Link>
           </div>
@@ -263,15 +263,15 @@ export default function StudioComicDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1">
+      <div className="mb-6 flex gap-1 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.02] p-1">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all duration-200 ${
               activeTab === tab.key
-                ? 'bg-violet-500/15 text-violet-300 shadow-sm'
-                : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300'
+                ? 'bg-white dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold shadow-sm'
+                : 'text-zinc-600 dark:text-zinc-500 hover:bg-zinc-200/60 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-zinc-300'
             }`}
           >
             {tab.icon} {tab.label}
@@ -285,17 +285,17 @@ export default function StudioComicDetailPage() {
           {/* Cover & Banner */}
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             {/* Cover */}
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
-              <label className="mb-3 block text-sm font-medium text-zinc-300">Ảnh bìa</label>
+            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 shadow-sm dark:shadow-none">
+              <label className="mb-3 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Ảnh bìa</label>
               <div className="flex items-start gap-4">
                 <div
                   onClick={() => coverInputRef.current?.click()}
-                  className="group relative h-40 w-28 shrink-0 cursor-pointer overflow-hidden rounded-lg border border-dashed border-white/20 bg-white/5 transition-all hover:border-violet-500/40"
+                  className="group relative h-40 w-28 shrink-0 cursor-pointer overflow-hidden rounded-lg border border-dashed border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5 transition-all hover:border-violet-500/50"
                 >
                   {coverPreview ? (
                     <img src={coverPreview} alt="Cover" className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center text-zinc-600">
+                    <div className="flex h-full w-full flex-col items-center justify-center text-zinc-400 dark:text-zinc-600">
                       <span className="text-2xl">📷</span>
                       <span className="mt-1 text-[10px]">Chọn ảnh</span>
                     </div>
@@ -305,25 +305,25 @@ export default function StudioComicDetailPage() {
                   </div>
                   <input ref={coverInputRef} type="file" accept="image/*" onChange={(e) => handleCoverSelected(e.target.files?.[0] || null)} className="hidden" />
                 </div>
-                <div className="text-xs text-zinc-500">
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
                   <p>Tỉ lệ 3:4 (600×850px)</p>
                   <p className="mt-1">JPEG, PNG, WebP</p>
-                  {coverFile && <p className="mt-2 text-emerald-400">✅ {coverFile.name}</p>}
+                  {coverFile && <p className="mt-2 text-emerald-600 dark:text-emerald-400 font-medium">✅ {coverFile.name}</p>}
                 </div>
               </div>
             </div>
 
             {/* Banner */}
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
-              <label className="mb-3 block text-sm font-medium text-zinc-300">Ảnh banner</label>
+            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 shadow-sm dark:shadow-none">
+              <label className="mb-3 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Ảnh banner</label>
               <div
                 onClick={() => bannerInputRef.current?.click()}
-                className="group relative h-28 w-full cursor-pointer overflow-hidden rounded-lg border border-dashed border-white/20 bg-white/5 transition-all hover:border-violet-500/40"
+                className="group relative h-28 w-full cursor-pointer overflow-hidden rounded-lg border border-dashed border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5 transition-all hover:border-violet-500/50"
               >
                 {bannerPreview ? (
                   <img src={bannerPreview} alt="Banner" className="h-full w-full object-cover" style={{ objectPosition: `center ${editForm.bannerPosition}%` }} />
                 ) : (
-                  <div className="flex h-full w-full flex-col items-center justify-center text-zinc-600">
+                  <div className="flex h-full w-full flex-col items-center justify-center text-zinc-400 dark:text-zinc-600">
                     <span className="text-2xl">🖼️</span>
                     <span className="mt-1 text-xs">Chọn banner</span>
                   </div>
@@ -334,39 +334,39 @@ export default function StudioComicDetailPage() {
                 <input ref={bannerInputRef} type="file" accept="image/*" onChange={(e) => handleBannerSelected(e.target.files?.[0] || null)} className="hidden" />
               </div>
               {bannerPreview && (
-                <div className="mt-3 flex items-center gap-3 text-xs text-zinc-500">
+                <div className="mt-3 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
                   <span>Vị trí: {editForm.bannerPosition}%</span>
                   <input type="range" min={0} max={100} value={editForm.bannerPosition} onChange={(e) => setEditForm((f) => ({ ...f, bannerPosition: Number(e.target.value) }))} className="flex-1 accent-violet-500" />
                 </div>
               )}
-              {bannerFile && <p className="mt-2 text-xs text-emerald-400">✅ {bannerFile.name}</p>}
+              {bannerFile && <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-medium">✅ {bannerFile.name}</p>}
             </div>
           </div>
 
           {/* Title & Description */}
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-5">
+          <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 shadow-sm dark:shadow-none space-y-5">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-zinc-300">Tên truyện</label>
+              <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Tên truyện</label>
               <input
                 value={editForm.title}
                 onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-zinc-300">Mô tả</label>
+              <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Mô tả</label>
               <textarea
                 value={editForm.description}
                 onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
                 rows={4}
                 placeholder="Mô tả nội dung truyện..."
-                className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/10"
+                className="w-full resize-none rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-zinc-300">Trạng thái</label>
-                <select value={editForm.status} onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white outline-none [&>option]:bg-[#1a1a1a] [&>option]:text-white">
+                <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Trạng thái</label>
+                <select value={editForm.status} onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))} className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white outline-none [&>option]:bg-white [&>option]:text-zinc-900 dark:[&>option]:bg-[#1a1a1a] dark:[&>option]:text-white">
                   <option value="DRAFT">📝 Nháp</option>
                   <option value="ONGOING">🟢 Đang ra</option>
                   <option value="COMPLETED">✅ Hoàn thành</option>
@@ -374,8 +374,8 @@ export default function StudioComicDetailPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-zinc-300">Đánh giá nội dung</label>
-                <select value={editForm.contentRating} onChange={(e) => setEditForm((f) => ({ ...f, contentRating: e.target.value }))} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white outline-none [&>option]:bg-[#1a1a1a] [&>option]:text-white">
+                <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Đánh giá nội dung</label>
+                <select value={editForm.contentRating} onChange={(e) => setEditForm((f) => ({ ...f, contentRating: e.target.value }))} className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white outline-none [&>option]:bg-white [&>option]:text-zinc-900 dark:[&>option]:bg-[#1a1a1a] dark:[&>option]:text-white">
                   <option value="EVERYONE">🌐 Mọi người</option>
                   <option value="TEEN">🔵 Thanh thiếu niên (13+)</option>
                   <option value="MATURE">🔴 Người lớn (18+)</option>
@@ -385,8 +385,8 @@ export default function StudioComicDetailPage() {
           </div>
 
           {/* Genres */}
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
-            <label className="mb-3 block text-sm font-medium text-zinc-300">
+          <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 shadow-sm dark:shadow-none">
+            <label className="mb-3 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
               Thể loại {editForm.genreIds.length > 0 && <span className="text-xs text-zinc-500">({editForm.genreIds.length} đã chọn)</span>}
             </label>
             <div className="flex flex-wrap gap-2">
@@ -398,7 +398,7 @@ export default function StudioComicDetailPage() {
                     type="button"
                     onClick={() => toggleGenre(genre.id)}
                     className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-                      selected ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20' : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200'
+                      selected ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20' : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-zinc-200'
                     }`}
                   >
                     {genre.icon && <span className="mr-1">{genre.icon}</span>}
@@ -425,7 +425,7 @@ export default function StudioComicDetailPage() {
       {activeTab === 'chapters' && (
         <div className="animate-fade-in">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">Danh sách chương ({chapters.length})</h2>
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Danh sách chương ({chapters.length})</h2>
             <button
               onClick={() => { setNewChapter({ number: chapters.length + 1, title: '' }); setShowAddChapter(true); }}
               className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-violet-500/25"
@@ -436,34 +436,34 @@ export default function StudioComicDetailPage() {
 
           {/* Add chapter form */}
           {showAddChapter && (
-            <div className="mb-4 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 animate-slide-up">
+            <div className="mb-4 rounded-xl border border-violet-500/30 dark:border-violet-500/20 bg-violet-500/10 dark:bg-violet-500/5 p-4 animate-slide-up">
               <div className="flex gap-3">
-                <input type="number" value={newChapter.number} onChange={(e) => setNewChapter((n) => ({ ...n, number: Number(e.target.value) }))} placeholder="Số" className="w-24 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none" />
-                <input value={newChapter.title} onChange={(e) => setNewChapter((n) => ({ ...n, title: e.target.value }))} placeholder="Tiêu đề (tùy chọn)" className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-sm text-white outline-none" />
+                <input type="number" value={newChapter.number} onChange={(e) => setNewChapter((n) => ({ ...n, number: Number(e.target.value) }))} placeholder="Số" className="w-24 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] px-3 py-2.5 text-sm text-zinc-900 dark:text-white outline-none" />
+                <input value={newChapter.title} onChange={(e) => setNewChapter((n) => ({ ...n, title: e.target.value }))} placeholder="Tiêu đề (tùy chọn)" className="flex-1 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] px-3 py-2.5 text-sm text-zinc-900 dark:text-white outline-none" />
                 <button onClick={handleAddChapter} disabled={addingChapter} className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50">{addingChapter ? '...' : 'Thêm'}</button>
-                <button onClick={() => setShowAddChapter(false)} className="text-sm text-zinc-500 hover:text-zinc-300">Hủy</button>
+                <button onClick={() => setShowAddChapter(false)} className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">Hủy</button>
               </div>
             </div>
           )}
 
           {chapters.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-white/[0.08] p-16 text-center">
+            <div className="rounded-xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-16 text-center shadow-sm dark:shadow-none">
               <div className="mb-3 text-4xl">📄</div>
-              <p className="text-sm text-zinc-500">Chưa có chương nào. Thêm chương đầu tiên!</p>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">Chưa có chương nào. Thêm chương đầu tiên!</p>
             </div>
           ) : (
             <div className="space-y-2">
               {chapters.map((ch) => (
                 <div
                   key={ch.id}
-                  className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-5 py-4 transition-all duration-200 hover:border-white/[0.1] hover:bg-white/[0.04]"
+                  className="flex items-center justify-between rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] px-5 py-4 shadow-sm dark:shadow-none transition-all duration-200 hover:border-zinc-300 dark:hover:border-white/[0.1] hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-white">Chương {ch.number}</span>
+                      <span className="text-sm font-semibold text-zinc-900 dark:text-white">Chương {ch.number}</span>
                       {ch.title && <span className="text-sm text-zinc-500">— {ch.title}</span>}
                     </div>
-                    <div className="mt-1 flex items-center gap-3 text-xs text-zinc-600">
+                    <div className="mt-1 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
                       <span>📄 {ch.totalPages} trang</span>
                       <span>👁️ {ch.views} views</span>
                       <span>{ch.publishedAt ? `✅ ${new Date(ch.publishedAt).toLocaleDateString('vi-VN')}` : '📝 Nháp'}</span>
@@ -472,16 +472,16 @@ export default function StudioComicDetailPage() {
                   <div className="flex gap-2">
                     <Link
                       href={`/studio/comics/${params.id}/chapters/${ch.id}`}
-                      className="rounded-lg bg-violet-500/15 px-3 py-1.5 text-xs font-medium text-violet-300 transition-colors hover:bg-violet-500/25"
+                      className="rounded-lg bg-violet-500/15 px-3 py-1.5 text-xs font-medium text-violet-700 dark:text-violet-300 transition-colors hover:bg-violet-500/25"
                     >
                       🎨 Canvas Editor
                     </Link>
                     {!ch.publishedAt && (
-                      <button onClick={() => handlePublishChapter(ch.id)} className="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/25">
+                      <button onClick={() => handlePublishChapter(ch.id)} className="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 transition-colors hover:bg-emerald-500/25">
                         Xuất bản
                       </button>
                     )}
-                    <button onClick={() => handleDeleteChapter(ch.id)} className="rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20">
+                    <button onClick={() => handleDeleteChapter(ch.id)} className="rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 transition-colors hover:bg-red-500/20">
                       Xóa
                     </button>
                   </div>
@@ -495,24 +495,24 @@ export default function StudioComicDetailPage() {
       {activeTab === 'stats' && (
         <div className="animate-fade-in">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 text-center">
-              <div className="text-2xl font-bold text-white">{comic.stats.totalViews.toLocaleString()}</div>
-              <div className="mt-1 text-xs text-zinc-500">Lượt đọc</div>
+            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 text-center shadow-sm dark:shadow-none">
+              <div className="text-2xl font-bold text-zinc-900 dark:text-white">{comic.stats.totalViews.toLocaleString()}</div>
+              <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Lượt đọc</div>
             </div>
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 text-center">
-              <div className="text-2xl font-bold text-white">{comic.stats.totalChapters}</div>
-              <div className="mt-1 text-xs text-zinc-500">Chương</div>
+            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 text-center shadow-sm dark:shadow-none">
+              <div className="text-2xl font-bold text-zinc-900 dark:text-white">{comic.stats.totalChapters}</div>
+              <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Chương</div>
             </div>
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 text-center">
-              <div className="text-2xl font-bold text-white">⭐ {comic.stats.avgRating}</div>
-              <div className="mt-1 text-xs text-zinc-500">Đánh giá TB</div>
+            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 text-center shadow-sm dark:shadow-none">
+              <div className="text-2xl font-bold text-zinc-900 dark:text-white">⭐ {comic.stats.avgRating}</div>
+              <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Đánh giá TB</div>
             </div>
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 text-center">
-              <div className="text-2xl font-bold text-white">{comic.stats.totalBookmarks}</div>
-              <div className="mt-1 text-xs text-zinc-500">Bookmark</div>
+            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 text-center shadow-sm dark:shadow-none">
+              <div className="text-2xl font-bold text-zinc-900 dark:text-white">{comic.stats.totalBookmarks}</div>
+              <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Bookmark</div>
             </div>
           </div>
-          <p className="mt-8 text-center text-sm text-zinc-600">Thống kê chi tiết sẽ được cập nhật trong phiên bản tiếp theo.</p>
+          <p className="mt-8 text-center text-sm text-zinc-500 dark:text-zinc-400">Thống kê chi tiết sẽ được cập nhật trong phiên bản tiếp theo.</p>
         </div>
       )}
     </div>

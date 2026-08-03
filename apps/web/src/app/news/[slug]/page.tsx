@@ -4,6 +4,8 @@ import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { api, ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
+import { NewsContentRenderer } from '@/components/news/news-content-renderer';
+import { CommentSection } from '@/components/comments';
 
 interface NewsAuthor {
   id: string;
@@ -160,18 +162,16 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
     }
   };
 
-  const handleComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !article || !commentText.trim() || !accessToken) return;
+  const handlePostComment = async (content: string) => {
+    if (!user || !article || !content.trim() || !accessToken) return;
     setIsSubmitting(true);
     try {
       const r = await api.post<{ data: NewsComment }>(
         `/news/${article.id}/comments`,
-        { content: commentText.trim() },
+        { content: content.trim() },
         { token: accessToken }
       );
       setComments((prev) => [r.data, ...prev]);
-      setCommentText('');
     } catch {}
     setIsSubmitting(false);
   };
@@ -282,18 +282,9 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
         )}
 
         {/* Article Content */}
-        <div
-          className="prose prose-zinc dark:prose-invert max-w-none
-            prose-headings:font-bold prose-headings:text-zinc-900 dark:prose-headings:text-white
-            prose-p:text-zinc-700 dark:prose-p:text-zinc-300 prose-p:leading-relaxed
-            prose-a:text-emerald-600 dark:prose-a:text-emerald-400 prose-a:no-underline hover:prose-a:underline
-            prose-img:rounded-xl prose-img:border prose-img:border-zinc-200 dark:prose-img:border-white/10
-            prose-blockquote:border-emerald-500 prose-blockquote:bg-emerald-50/50 dark:prose-blockquote:bg-emerald-500/5 prose-blockquote:rounded-r-lg prose-blockquote:py-1
-            prose-code:text-emerald-600 dark:prose-code:text-emerald-400
-            prose-pre:bg-zinc-900 dark:prose-pre:bg-zinc-800/50 prose-pre:border prose-pre:border-zinc-200 dark:prose-pre:border-white/10
-            mb-10"
-          dangerouslySetInnerHTML={{ __html: article.content }}
-        />
+        <div className="mb-10">
+          <NewsContentRenderer content={article.content} />
+        </div>
 
         {/* Tags */}
         {article.tags.length > 0 && (
@@ -333,125 +324,15 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
 
         {/* Comments Section */}
         <section className="mb-12">
-          <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-6">
-            Bình luận ({article._count.comments})
-          </h3>
-
-          {/* Comment Form */}
-          {user ? (
-            <form onSubmit={handleComment} className="mb-8">
-              <div className="flex gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-bold text-white">
-                  {user.avatarUrl ? (
-                    <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    user.displayName.charAt(0).toUpperCase()
-                  )}
-                </div>
-                <div className="flex-1">
-                  <textarea
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Viết bình luận..."
-                    rows={3}
-                    className="w-full rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 resize-none"
-                  />
-                  <div className="flex justify-end mt-2">
-                    <button
-                      type="submit"
-                      disabled={!commentText.trim() || isSubmitting}
-                      className="rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-500/25 transition-all hover:shadow-emerald-500/40 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                      {isSubmitting ? 'Đang gửi...' : 'Gửi bình luận'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </form>
-          ) : (
-            <div className="mb-8 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-5 text-center">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-3">Đăng nhập để bình luận</p>
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-500/25"
-              >
-                Đăng nhập
-              </Link>
-            </div>
-          )}
-
-          {/* Comments List */}
-          <div className="space-y-6">
-            {comments.map((comment) => (
-              <div key={comment.id} className="flex gap-3">
-                <Link href={`/@${comment.user.username}`} className="shrink-0">
-                  <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-xs font-bold text-white">
-                    {comment.user.avatarUrl ? (
-                      <img src={comment.user.avatarUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      comment.user.displayName.charAt(0).toUpperCase()
-                    )}
-                  </div>
-                </Link>
-                <div className="flex-1 min-w-0">
-                  <div className="rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200/50 dark:border-white/5 px-4 py-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Link href={`/@${comment.user.username}`} className="text-sm font-semibold text-zinc-900 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-300 transition-colors">
-                        {comment.user.displayName}
-                      </Link>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{formatRelativeTime(comment.createdAt)}</span>
-                    </div>
-                    <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
-                  </div>
-
-                  {/* Delete button for own comments */}
-                  {user && user.id === comment.user.id && (
-                    <button
-                      onClick={() => handleDeleteComment(comment.id)}
-                      className="mt-1 ml-2 text-[10px] text-zinc-400 hover:text-red-400 transition-colors cursor-pointer"
-                    >
-                      Xóa
-                    </button>
-                  )}
-
-                  {/* Replies */}
-                  {comment.replies && comment.replies.length > 0 && (
-                    <div className="mt-3 space-y-3 ml-2 pl-4 border-l-2 border-zinc-100 dark:border-white/5">
-                      {comment.replies.map((reply) => (
-                        <div key={reply.id} className="flex gap-2.5">
-                          <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[8px] font-bold text-white">
-                            {reply.user.avatarUrl ? (
-                              <img src={reply.user.avatarUrl} alt="" className="h-full w-full object-cover" />
-                            ) : (
-                              reply.user.displayName.charAt(0).toUpperCase()
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0 rounded-lg bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200/30 dark:border-white/5 px-3 py-2">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <span className="text-xs font-semibold text-zinc-900 dark:text-white">{reply.user.displayName}</span>
-                              <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{formatRelativeTime(reply.createdAt)}</span>
-                            </div>
-                            <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">{reply.content}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {comment._count.replies > comment.replies.length && (
-                        <button className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline ml-8 cursor-pointer">
-                          Xem thêm {comment._count.replies - comment.replies.length} câu trả lời
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {comments.length === 0 && (
-              <p className="text-center text-sm text-zinc-400 dark:text-zinc-500 py-8">
-                Chưa có bình luận nào. Hãy là người đầu tiên!
-              </p>
-            )}
-          </div>
+          <CommentSection
+            comments={comments}
+            totalCount={article._count.comments}
+            currentUser={user ? { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl } : null}
+            onSubmitComment={handlePostComment}
+            onDeleteComment={(commentId) => handleDeleteComment(commentId)}
+            isSubmitting={isSubmitting}
+            accentColor="emerald"
+          />
         </section>
 
         {/* Related Articles */}

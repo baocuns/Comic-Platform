@@ -54,7 +54,7 @@ export function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  if (pathname?.startsWith('/read/')) {
+  if (pathname?.startsWith('/read/') || pathname?.startsWith('/studio')) {
     return null;
   }
 

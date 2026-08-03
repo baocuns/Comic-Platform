@@ -9,6 +9,20 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // async redirects() {
+  //   return [
+  //     {
+  //       source: '/dashboard/:path*',
+  //       destination: '/studio/:path*',
+  //       permanent: true,
+  //     },
+  //     {
+  //       source: '/dashboard',
+  //       destination: '/studio',
+  //       permanent: true,
+  //     },
+  //   ];
+  // },
 };
 
 export default nextConfig;

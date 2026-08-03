@@ -32,6 +32,7 @@ export class NewsService {
 
   async create(userId: string, dto: CreateNewsDto) {
     const slug = await this.ensureUniqueSlug(this.generateSlug(dto.title));
+    const isPublished = dto.isPublished !== undefined ? dto.isPublished : false;
 
     const article = await this.prisma.newsArticle.create({
       data: {
@@ -44,6 +45,8 @@ export class NewsService {
         category: dto.category,
         tags: dto.tags || [],
         isPinned: dto.isPinned || false,
+        isPublished,
+        publishedAt: isPublished ? new Date() : null,
       },
       include: {
         author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
@@ -53,9 +56,31 @@ export class NewsService {
     return article;
   }
 
+  private async checkOwnershipOrAdmin(articleAuthorId: string, userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (!user) throw new ForbiddenException('User not found');
+    if (user.role === UserRole.ADMIN || user.role === UserRole.MODERATOR) return;
+    if (articleAuthorId !== userId) {
+      throw new ForbiddenException('You do not have permission to modify this article');
+    }
+  }
+
+  async findById(id: string, userId: string) {
+    const article = await this.prisma.newsArticle.findUnique({
+      where: { id },
+      include: {
+        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+      },
+    });
+    if (!article || article.deletedAt) throw new NotFoundException('Article not found');
+    await this.checkOwnershipOrAdmin(article.authorId, userId);
+    return article;
+  }
+
   async update(id: string, userId: string, dto: UpdateNewsDto) {
     const article = await this.prisma.newsArticle.findUnique({ where: { id } });
     if (!article) throw new NotFoundException('Article not found');
+    await this.checkOwnershipOrAdmin(article.authorId, userId);
 
     const data: Record<string, unknown> = {};
     if (dto.title !== undefined) {
@@ -68,6 +93,10 @@ export class NewsService {
     if (dto.category !== undefined) data.category = dto.category;
     if (dto.tags !== undefined) data.tags = dto.tags;
     if (dto.isPinned !== undefined) data.isPinned = dto.isPinned;
+    if (dto.isPublished !== undefined) {
+      data.isPublished = dto.isPublished;
+      data.publishedAt = dto.isPublished ? (article.publishedAt || new Date()) : null;
+    }
 
     return this.prisma.newsArticle.update({
       where: { id },
@@ -81,6 +110,7 @@ export class NewsService {
   async publish(id: string, userId: string) {
     const article = await this.prisma.newsArticle.findUnique({ where: { id } });
     if (!article) throw new NotFoundException('Article not found');
+    await this.checkOwnershipOrAdmin(article.authorId, userId);
 
     return this.prisma.newsArticle.update({
       where: { id },
@@ -97,6 +127,7 @@ export class NewsService {
   async remove(id: string, userId: string) {
     const article = await this.prisma.newsArticle.findUnique({ where: { id } });
     if (!article) throw new NotFoundException('Article not found');
+    await this.checkOwnershipOrAdmin(article.authorId, userId);
 
     await this.prisma.newsArticle.update({
       where: { id },
@@ -127,6 +158,54 @@ export class NewsService {
       this.prisma.newsArticle.findMany({
         where,
         orderBy: [{ isPinned: 'desc' }, { publishedAt: 'desc' }],
+        skip,
+        take: limit,
+        include: {
+          author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+        },
+      }),
+      this.prisma.newsArticle.count({ where }),
+    ]);
+
+    return {
+      data: articles,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit), hasNext: skip + limit < total },
+    };
+  }
+
+  async findStudioNews(query: NewsQueryDto, user: { sub: string; role: UserRole }) {
+    const page = Number(query.page) || 1;
+    const limit = Math.min(Number(query.limit) || 12, 50);
+    const skip = (page - 1) * limit;
+
+    const where: Record<string, unknown> = {
+      deletedAt: null,
+    };
+
+    // AUTHOR role only sees their own articles! MODERATOR/ADMIN can see all (or filter by authorId)
+    if (user.role === UserRole.AUTHOR) {
+      where.authorId = user.sub;
+    } else if (query.authorId) {
+      where.authorId = query.authorId;
+    }
+
+    if (query.status === 'published') where.isPublished = true;
+    else if (query.status === 'draft') where.isPublished = false;
+    else if (query.status === 'pinned') where.isPinned = true;
+
+    if (query.category) where.category = query.category;
+    if (query.tag) where.tags = { has: query.tag };
+    if (query.search) {
+      where.OR = [
+        { title: { contains: query.search, mode: 'insensitive' } },
+        { excerpt: { contains: query.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [articles, total] = await Promise.all([
+      this.prisma.newsArticle.findMany({
+        where,
+        orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
         skip,
         take: limit,
         include: {

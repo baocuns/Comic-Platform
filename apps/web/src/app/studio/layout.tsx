@@ -22,7 +22,7 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
 
   if (!isHydrated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a]">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-[#0a0a0a]">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" />
       </div>
     );
@@ -33,7 +33,7 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="flex min-h-screen bg-[#0a0a0a]">
+    <div className="flex min-h-screen bg-zinc-50 dark:bg-[#0a0a0a] text-zinc-900 dark:text-white transition-colors duration-200">
       <StudioSidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <StudioHeader />

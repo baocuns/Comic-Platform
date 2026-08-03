@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
+import { CommentSection } from '@/components/comments';
 
 interface ChapterListItem {
   id: string;
@@ -301,10 +302,8 @@ export default function ReaderPage() {
   }, [handleKeyDown]);
 
   // Comment actions
-  const postComment = async (targetChapterId: string, parentId?: string) => {
-    if (!accessToken) return;
-    const content = parentId ? replyContent : newComment;
-    if (!content.trim()) return;
+  const postComment = async (targetChapterId: string, content: string, parentId?: string | null) => {
+    if (!accessToken || !content.trim()) return;
 
     setSubmittingComment(true);
     try {
@@ -495,87 +494,22 @@ export default function ReaderPage() {
                   </div>
 
                   {/* Comments for this chapter */}
-                  <div className={`border-t my-6 rounded-2xl p-4 sm:p-6 ${
-                    isReaderBgDark ? 'border-white/10 bg-black/40' : 'border-zinc-200 bg-zinc-50/50'
-                  }`}>
-                    <h3 className={`mb-4 text-base font-semibold ${isReaderBgDark ? 'text-white' : 'text-zinc-800'}`}>
-                      <i className="fa-light fa-comments"></i> Bình luận Chương {chItem.chapter.number} ({chItem.commentTotal})
-                    </h3>
-
-                    {/* New Comment Form */}
-                    {user ? (
-                      <div className="mb-6">
-                        <div className="flex gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600/20 text-sm font-bold text-violet-600 dark:text-violet-300">
-                            {user.displayName[0]}
-                          </div>
-                          <div className="flex-1">
-                            <textarea
-                              value={activeChapterId === chItem.chapter.id ? newComment : ''}
-                              onChange={(e) => {
-                                setActiveChapterId(chItem.chapter.id);
-                                setNewComment(e.target.value);
-                              }}
-                              placeholder={`Viết bình luận cho Chương ${chItem.chapter.number}...`}
-                              rows={2}
-                              className={`w-full rounded-xl border p-3 text-sm outline-none focus:border-violet-500/50 ${
-                                isReaderBgDark ? 'border-white/10 bg-white/5 text-white placeholder-zinc-500' : 'border-zinc-200 bg-white text-zinc-900 placeholder-zinc-400'
-                              }`}
-                            />
-                            <div className="mt-2 flex justify-end">
-                              <button
-                                onClick={() => postComment(chItem.chapter.id)}
-                                disabled={!newComment.trim() || submittingComment}
-                                className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2 text-xs font-medium text-white shadow-lg shadow-violet-500/25 disabled:opacity-50"
-                              >
-                                {submittingComment ? 'Đang gửi...' : 'Bình luận'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className={`mb-6 rounded-lg border p-4 text-center text-sm ${
-                        isReaderBgDark ? 'border-white/10 bg-white/[0.03] text-zinc-500' : 'border-zinc-200 bg-zinc-50 text-zinc-650'
-                      }`}>
-                        <Link href="/login" className="text-violet-600 dark:text-violet-400 hover:underline">Đăng nhập</Link> để bình luận
-                      </div>
-                    )}
-
-                    {/* Comments List */}
-                    <div className="space-y-4">
-                      {chItem.comments.map((comment) => (
-                        <CommentItem
-                          key={comment.id}
-                          comment={comment}
-                          currentUserId={user?.id}
-                          replyingTo={replyingTo}
-                          replyContent={replyContent}
-                          submitting={submittingComment}
-                          onReply={(id) => setReplyingTo(replyingTo === id ? null : id)}
-                          onReplyContentChange={setReplyContent}
-                          onPostReply={(parentId) => postComment(chItem.chapter.id, parentId)}
-                          onDelete={(id, parentId) => deleteComment(id, chItem.chapter.id, parentId)}
-                          isReaderBgDark={isReaderBgDark}
-                        />
-                      ))}
-                      {chItem.comments.length === 0 && (
-                        <p className="py-4 text-center text-xs text-zinc-600">Chưa có bình luận nào cho chương này</p>
-                      )}
-                      {chItem.commentHasNext && (
-                        <div className="text-center pt-2">
-                          <button
-                            onClick={() => loadMoreComments(chItem.chapter.id)}
-                            disabled={chItem.loadingMoreComments}
-                            className={`rounded-lg border px-4 py-2 text-xs transition-colors disabled:opacity-50 ${
-                              isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-400 hover:text-white' : 'border-zinc-200 bg-white text-zinc-650 hover:bg-zinc-50 hover:text-zinc-900'
-                            }`}
-                          >
-                            {chItem.loadingMoreComments ? 'Đang tải...' : 'Xem thêm bình luận'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                  <div className="mt-8">
+                    <CommentSection
+                      comments={chItem.comments}
+                      totalCount={chItem.commentTotal}
+                      title={`Bình luận Chương ${chItem.chapter.number}`}
+                      currentUser={user ? { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl } : null}
+                      onSubmitComment={(content) => postComment(chItem.chapter.id, content)}
+                      onSubmitReply={(parentId, content) => postComment(chItem.chapter.id, content, parentId)}
+                      onDeleteComment={(commentId, parentId) => deleteComment(commentId, chItem.chapter.id, parentId)}
+                      hasNext={chItem.commentHasNext}
+                      isLoadingMore={chItem.loadingMoreComments}
+                      onLoadMore={() => loadMoreComments(chItem.chapter.id)}
+                      isSubmitting={submittingComment}
+                      isReaderBgDark={isReaderBgDark}
+                      accentColor="violet"
+                    />
                   </div>
 
                   {idx < loadedChapters.length - 1 && (
@@ -900,109 +834,3 @@ export default function ReaderPage() {
   );
 }
 
-interface CommentItemProps {
-  comment: Comment;
-  currentUserId?: string;
-  replyingTo: string | null;
-  replyContent: string;
-  submitting: boolean;
-  onReply: (id: string) => void;
-  onReplyContentChange: (v: string) => void;
-  onPostReply: (parentId: string) => void;
-  onDelete: (id: string, parentId?: string | null) => void;
-  isReaderBgDark?: boolean;
-}
-
-function CommentItem({ comment, currentUserId, replyingTo, replyContent, submitting, onReply, onReplyContentChange, onPostReply, onDelete, isReaderBgDark }: CommentItemProps) {
-  return (
-    <div className={`rounded-lg border p-4 ${isReaderBgDark ? 'border-white/5 bg-white/[0.02]' : 'border-zinc-200 bg-zinc-50'}`}>
-      {/* Main comment */}
-      <div className="flex gap-3">
-        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-          isReaderBgDark ? 'bg-violet-600/20 text-violet-300' : 'bg-violet-100 text-violet-600'
-        }`}>
-          {comment.user.avatarUrl ? (
-            <img src={comment.user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
-          ) : (
-            comment.user.displayName[0]
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className={`text-sm font-medium ${isReaderBgDark ? 'text-white' : 'text-zinc-800'}`}>{comment.user.displayName}</span>
-            <span className="text-xs text-zinc-500 dark:text-zinc-650">{new Date(comment.createdAt).toLocaleDateString('vi-VN')}</span>
-          </div>
-          <p className={`mt-1 text-sm whitespace-pre-line ${isReaderBgDark ? 'text-zinc-400' : 'text-zinc-700'}`}>{comment.content}</p>
-          <div className="mt-2 flex items-center gap-3">
-            {currentUserId && (
-              <button onClick={() => onReply(comment.id)} className="text-xs text-zinc-500 hover:text-violet-400">
-                {replyingTo === comment.id ? 'Hủy' : '↩ Trả lời'}
-              </button>
-            )}
-            {currentUserId === comment.user.id && (
-              <button onClick={() => onDelete(comment.id)} className="text-xs text-zinc-500 hover:text-red-400">
-                Xóa
-              </button>
-            )}
-            {(comment._count?.replies || 0) > 0 && (
-              <span className="text-xs text-zinc-500 dark:text-zinc-650">{comment._count!.replies} trả lời</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Reply form */}
-      {replyingTo === comment.id && (
-        <div className="mt-3 ml-11 flex gap-2">
-          <input
-            value={replyContent}
-            onChange={(e) => onReplyContentChange(e.target.value)}
-            placeholder="Trả lời..."
-            className={`flex-1 rounded-lg border px-3 py-2 text-sm outline-none focus:border-violet-500/50 ${
-              isReaderBgDark ? 'border-white/10 bg-white/5 text-white placeholder-zinc-500' : 'border-zinc-200 bg-white text-zinc-900 placeholder-zinc-400'
-            }`}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onPostReply(comment.id); } }}
-          />
-          <button
-            onClick={() => onPostReply(comment.id)}
-            disabled={!replyContent.trim() || submitting}
-            className="rounded-lg bg-violet-600 px-3 py-2 text-sm text-white disabled:opacity-50"
-          >
-            Gửi
-          </button>
-        </div>
-      )}
-
-      {/* Replies */}
-      {comment.replies && comment.replies.length > 0 && (
-        <div className={`mt-3 ml-11 space-y-3 border-l pl-4 ${isReaderBgDark ? 'border-white/5' : 'border-zinc-200'}`}>
-          {comment.replies.map((reply) => (
-            <div key={reply.id} className="flex gap-3">
-              <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                isReaderBgDark ? 'bg-zinc-700/50 text-zinc-400' : 'bg-zinc-200 text-zinc-600'
-              }`}>
-                {reply.user.avatarUrl ? (
-                  <img src={reply.user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
-                ) : (
-                  reply.user.displayName[0]
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs font-medium ${isReaderBgDark ? 'text-white' : 'text-zinc-800'}`}>{reply.user.displayName}</span>
-                  <span className="text-[10px] text-zinc-555 dark:text-zinc-600">{new Date(reply.createdAt).toLocaleDateString('vi-VN')}</span>
-                  {currentUserId === reply.user.id && (
-                    <button onClick={() => onDelete(reply.id, comment.id)} className="text-[10px] text-zinc-500 hover:text-red-400">
-                      Xóa
-                    </button>
-                  )}
-                </div>
-                <p className={`mt-0.5 text-sm ${isReaderBgDark ? 'text-zinc-400' : 'text-zinc-700'}`}>{reply.content}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}

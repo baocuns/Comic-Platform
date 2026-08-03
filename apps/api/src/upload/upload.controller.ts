@@ -101,5 +101,33 @@ export class UploadController {
     });
     return { success: true, data: { url } };
   }
+
+  @Post('news/cover')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadNewsCover(
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const url = await this.uploadService.uploadNewsCover(userId, {
+      buffer: file.buffer,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+    });
+    return { success: true, data: { url } };
+  }
+
+  @Post('news/content')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadNewsContentImage(
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const url = await this.uploadService.uploadNewsContentImage(userId, {
+      buffer: file.buffer,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+    });
+    return { success: true, data: { url } };
+  }
 }
 

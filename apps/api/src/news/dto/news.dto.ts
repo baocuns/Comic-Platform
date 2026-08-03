@@ -32,6 +32,10 @@ export class CreateNewsDto {
   @IsBoolean()
   @IsOptional()
   isPinned?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isPublished?: boolean;
 }
 
 export class UpdateNewsDto {
@@ -65,6 +69,10 @@ export class UpdateNewsDto {
   @IsBoolean()
   @IsOptional()
   isPinned?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isPublished?: boolean;
 }
 
 export class NewsQueryDto {
@@ -79,6 +87,17 @@ export class NewsQueryDto {
   @IsOptional()
   @IsString()
   tag?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  authorId?: string;
+
+  @IsOptional()
+  includeDrafts?: boolean | string;
 
   @IsOptional()
   page?: number;

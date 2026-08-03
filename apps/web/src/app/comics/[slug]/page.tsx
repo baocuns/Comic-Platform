@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
+import { CommentSection } from '@/components/comments';
 
 interface Comic {
   id: string;
@@ -388,103 +389,27 @@ export default function ComicDetailPage() {
         </div>
 
         {/* Comments Section */}
-        <div className="mt-8 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-6">
-          <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-white">💬 Bình luận ({commentTotal})</h2>
-          <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">Bình luận được hiển thị từ tất cả các chương. Để bình luận, hãy đọc chương và bình luận tại đó.</p>
-
-          {comicComments.length === 0 ? (
-            <p className="text-sm text-zinc-500">Chưa có bình luận nào.</p>
-          ) : (
-            <div className="space-y-3">
-              {comicComments.map((comment) => (
-                <div key={comment.id} className="rounded-lg border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-4">
-                  <div className="flex gap-3">
-                    <Link
-                      href={`/@${comment.user.username}`}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600/20 text-sm font-bold text-violet-600 dark:text-violet-300 transition-opacity hover:opacity-85"
-                    >
-                      {comment.user.avatarUrl ? (
-                        <img src={comment.user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
-                      ) : (
-                        comment.user.displayName[0]
-                      )}
-                    </Link>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/@${comment.user.username}`}
-                          className="text-sm font-medium text-zinc-800 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 hover:underline transition-colors"
-                        >
-                          {comment.user.displayName}
-                        </Link>
-                        {comment.chapter && (
-                          <span className="rounded bg-zinc-100 dark:bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
-                            Ch.{comment.chapter.number}
-                          </span>
-                        )}
-                        <span className="text-xs text-zinc-500 dark:text-zinc-600">{new Date(comment.createdAt).toLocaleDateString('vi-VN')}</span>
-                      </div>
-                      <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-400 whitespace-pre-line">{comment.content}</p>
-                    </div>
-                  </div>
-
-                  {/* Replies */}
-                  {comment.replies && comment.replies.length > 0 && (
-                    <div className="mt-3 ml-11 space-y-2 border-l border-zinc-200 dark:border-white/5 pl-4">
-                      {comment.replies.map((reply) => (
-                        <div key={reply.id} className="flex gap-2">
-                          <Link
-                            href={`/@${reply.user.username}`}
-                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-700/50 text-xs font-bold text-zinc-400 transition-opacity hover:opacity-85"
-                          >
-                            {reply.user.avatarUrl ? (
-                              <img src={reply.user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
-                            ) : (
-                              reply.user.displayName[0]
-                            )}
-                          </Link>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <Link
-                                href={`/@${reply.user.username}`}
-                                className="text-xs font-medium text-zinc-800 dark:text-white hover:text-violet-600 dark:hover:text-violet-400 hover:underline transition-colors"
-                              >
-                                {reply.user.displayName}
-                              </Link>
-                              <span className="text-[10px] text-zinc-500 dark:text-zinc-600">{new Date(reply.createdAt).toLocaleDateString('vi-VN')}</span>
-                            </div>
-                            <p className="mt-0.5 text-sm text-zinc-700 dark:text-zinc-400">{reply.content}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Load More */}
-          {commentHasNext && (
-            <button
-              onClick={async () => {
-                if (!comic || loadingMoreComments) return;
-                setLoadingMoreComments(true);
-                const nextPage = commentPage + 1;
-                try {
-                  const r = await api.get<{ data: ComicComment[]; meta: { hasNext: boolean } }>(`/comments/comic/${comic.id}?page=${nextPage}`);
-                  setComicComments((prev) => [...prev, ...r.data]);
-                  setCommentHasNext(r.meta.hasNext);
-                  setCommentPage(nextPage);
-                } catch { }
-                setLoadingMoreComments(false);
-              }}
-              disabled={loadingMoreComments}
-              className="mt-4 w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 py-2.5 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white disabled:opacity-50"
-            >
-              {loadingMoreComments ? 'Đang tải...' : 'Xem thêm bình luận'}
-            </button>
-          )}
+        <div className="mt-8">
+          <CommentSection
+            comments={comicComments}
+            totalCount={commentTotal}
+            readOnly
+            readOnlyMessage="Bình luận được hiển thị từ tất cả các chương. Để gửi bình luận, hãy chọn đọc một chương bất kỳ bên trên."
+            hasNext={commentHasNext}
+            isLoadingMore={loadingMoreComments}
+            onLoadMore={async () => {
+              if (!comic || loadingMoreComments) return;
+              setLoadingMoreComments(true);
+              const nextPage = commentPage + 1;
+              try {
+                const r = await api.get<{ data: ComicComment[]; meta: { hasNext: boolean } }>(`/comments/comic/${comic.id}?page=${nextPage}`);
+                setComicComments((prev) => [...prev, ...r.data]);
+                setCommentHasNext(r.meta.hasNext);
+                setCommentPage(nextPage);
+              } catch { }
+              setLoadingMoreComments(false);
+            }}
+          />
         </div>
       </div>
     </>

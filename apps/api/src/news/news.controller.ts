@@ -19,6 +19,17 @@ export class NewsController {
     return { success: true, ...result };
   }
 
+  @Get('studio')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.AUTHOR)
+  async findStudioNews(
+    @Query() query: NewsQueryDto,
+    @CurrentUser() user: { sub: string; role: UserRole },
+  ) {
+    const result = await this.newsService.findStudioNews(query, user);
+    return { success: true, ...result };
+  }
+
   @Public()
   @Get('featured')
   async featured() {
@@ -27,6 +38,13 @@ export class NewsController {
   }
 
   // ⚠️ Named routes MUST be before wildcard :slug route
+  @Get('id/:id')
+  @UseGuards(JwtAuthGuard)
+  async findById(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+    const data = await this.newsService.findById(id, userId);
+    return { success: true, data };
+  }
+
   @Public()
   @Get(':slug/related')
   async related(@Param('slug') slug: string) {
@@ -43,7 +61,7 @@ export class NewsController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.MODERATOR)
+  @Roles(UserRole.AUTHOR)
   async create(@CurrentUser('sub') userId: string, @Body() dto: CreateNewsDto) {
     const article = await this.newsService.create(userId, dto);
     return { success: true, data: article };
@@ -51,7 +69,7 @@ export class NewsController {
 
   @Put(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.MODERATOR)
+  @Roles(UserRole.AUTHOR)
   async update(
     @Param('id') id: string,
     @CurrentUser('sub') userId: string,
@@ -63,7 +81,7 @@ export class NewsController {
 
   @Post(':id/publish')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.MODERATOR)
+  @Roles(UserRole.AUTHOR)
   async publish(@Param('id') id: string, @CurrentUser('sub') userId: string) {
     const article = await this.newsService.publish(id, userId);
     return { success: true, data: article };
@@ -71,7 +89,7 @@ export class NewsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.MODERATOR)
+  @Roles(UserRole.AUTHOR)
   async remove(@Param('id') id: string, @CurrentUser('sub') userId: string) {
     await this.newsService.remove(id, userId);
     return { success: true, data: { message: 'Article deleted' } };

@@ -198,7 +198,7 @@ export default function Home() {
                   <div className="md:col-span-3 relative transition duration-500 ease-in-out hover:scale-105 z-10">
                     <div className="w-full h-full">
                       {newsData.featured.coverUrl ? (
-                        <img src={newsData.featured.coverUrl} alt={newsData.featured.title} className="h-[496px] w-full rounded object-cover" />
+                        <img src={newsData.featured.coverUrl} alt={newsData.featured.title} className="h-[201px] md:h-[496px] w-full rounded object-cover" />
                       ) : (
                         <div className="h-full w-full rounded bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center min-h-[300px]">
                           <i className="fa-light fa-newspaper text-6xl text-zinc-300 dark:text-zinc-600" />
@@ -220,7 +220,7 @@ export default function Home() {
                       <div key={item.id} className="grid grid-cols-3 gap-4 relative transition duration-500 ease-in-out hover:scale-105 shadow rounded dark:shadow-gray-700">
                         <div style={{ clipPath: "polygon(0 0,100% 0,85% 100%,0 100%)" }}>
                           {item.coverUrl ? (
-                            <img src={item.coverUrl} alt={item.title} className="h-[112px] w-full rounded-l object-cover" />
+                            <img src={item.coverUrl} alt={item.title} className="h-[88px] md:h-[112px] w-full rounded-l object-cover" />
                           ) : (
                             <div className="h-full w-full rounded-l bg-gradient-to-br from-emerald-500/10 to-teal-500/10 flex items-center justify-center">
                               <i className="fa-light fa-newspaper text-xl text-zinc-300 dark:text-zinc-600" />
@@ -272,7 +272,7 @@ export default function Home() {
           <div className="text-4xl mb-4">📚</div>
           <p className="text-zinc-500">Chưa có truyện nào. Hãy là người đầu tiên đăng truyện!</p>
           <Link
-            href="/dashboard"
+            href="/studio"
             className="mt-4 inline-block rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-500/25"
           >
             Bắt đầu sáng tác →

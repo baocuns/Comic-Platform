@@ -41,7 +41,19 @@ export class HistoryService {
           chapter: {
             select: {
               id: true, number: true, title: true, totalPages: true,
-              comic: { select: { id: true, title: true, slug: true, coverUrl: true } },
+              comic: {
+                select: {
+                  id: true,
+                  title: true,
+                  slug: true,
+                  coverUrl: true,
+                  chapters: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    select: { id: true, number: true },
+                  },
+                },
+              },
             },
           },
         },

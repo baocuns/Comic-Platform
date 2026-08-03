@@ -48,8 +48,13 @@ interface RatingItem {
   user: { id: string; displayName: string; avatarUrl: string | null; username: string };
 }
 
-const statusLabel: Record<string, string> = { DRAFT: 'Nháp', ONGOING: 'Đang ra', COMPLETED: 'Hoàn thành', HIATUS: 'Tạm dừng' };
-const statusColor: Record<string, string> = { ONGOING: 'bg-emerald-500/20 text-emerald-300', COMPLETED: 'bg-violet-500/20 text-violet-300', HIATUS: 'bg-amber-500/20 text-amber-300', DRAFT: 'bg-zinc-500/20 text-zinc-300' };
+const statusLabel: Record<string, string> = { DRAFT: 'NHÁP', ONGOING: 'ĐANG RA', COMPLETED: 'HOÀN THÀNH', HIATUS: 'TẠM DỪNG' };
+const statusColor: Record<string, string> = {
+  ONGOING: 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30',
+  COMPLETED: 'bg-violet-500/10 text-violet-700 border border-violet-500/20 dark:bg-violet-500/20 dark:text-violet-300 dark:border-violet-500/30',
+  HIATUS: 'bg-amber-500/10 text-amber-700 border border-amber-500/20 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30',
+  DRAFT: 'bg-zinc-500/10 text-zinc-700 border border-zinc-500/20 dark:bg-zinc-500/20 dark:text-zinc-300 dark:border-zinc-500/30',
+};
 
 export default function ComicDetailPage() {
   const params = useParams();
@@ -76,6 +81,10 @@ export default function ComicDetailPage() {
   const [commentHasNext, setCommentHasNext] = useState(false);
   const [commentTotal, setCommentTotal] = useState(0);
   const [loadingMoreComments, setLoadingMoreComments] = useState(false);
+
+  // Chapter list state
+  const [chapterSearch, setChapterSearch] = useState('');
+  const [chapterSortAsc, setChapterSortAsc] = useState(false);
 
   useEffect(() => {
     if (!params.slug) return;
@@ -159,32 +168,47 @@ export default function ComicDetailPage() {
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" /></div>;
   if (!comic) return <div className="flex min-h-[60vh] items-center justify-center text-zinc-500">Truyện không tồn tại</div>;
 
+  const firstChapter = comic.chapters && comic.chapters.length > 0
+    ? [...comic.chapters].sort((a, b) => parseFloat(a.number) - parseFloat(b.number))[0]
+    : null;
+
+  const filteredChapters = (comic.chapters || [])
+    .filter((ch) => {
+      if (!chapterSearch.trim()) return true;
+      const q = chapterSearch.trim().toLowerCase();
+      return ch.number.toString().toLowerCase().includes(q) || (ch.title && ch.title.toLowerCase().includes(q));
+    })
+    .sort((a, b) => {
+      const numA = parseFloat(a.number) || 0;
+      const numB = parseFloat(b.number) || 0;
+      return chapterSortAsc ? numA - numB : numB - numA;
+    });
+
   return (
     <>
       {/* Banner */}
       <div className="relative -mt-16 h-64 overflow-hidden sm:h-80 z-10">
-        {comic.bannerUrl ? (
+        {comic.bannerUrl || comic.coverUrl ? (
           <>
             <img
-              src={comic.bannerUrl}
+              src={comic.bannerUrl || comic.coverUrl!}
               alt=""
               className="h-full w-full object-cover"
               style={{ objectPosition: `center ${comic.bannerPosition ?? 50}%` }}
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-white dark:to-[#0a0a0a]" />
+            {/* <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent dark:from-[#0a0a0a] dark:via-[#0a0a0a]/40 dark:to-transparent" /> */}
           </>
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-violet-600/20 via-fuchsia-600/10 to-indigo-600/10" />
         )}
-        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white dark:from-[#0a0a0a] to-transparent" />
       </div>
 
-      <div className="mx-auto max-w-5xl px-4 py-8 relative z-20">
+      <div className="px-4 sm:px-8 md:px-12 lg:px-16 py-8 relative z-20">
         {/* Hero */}
-        <div className="relative mb-8 -mt-36 overflow-hidden sm:-mt-48">
+        <div className="relative mb-8 -mt-36 overflow-hidden rounded border border-zinc-200/80 dark:border-white/10 bg-white/40 dark:bg-zinc-900/40 backdrop-blur-xs sm:-mt-48">
           <div className="relative flex flex-col gap-6 p-6 sm:flex-row sm:p-8">
             {/* Cover */}
-            <div className="mx-auto h-72 w-48 flex-shrink-0 overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 shadow-2xl sm:mx-0">
+            <div className="mx-auto h-72 w-48 flex-shrink-0 overflow-hidden rounded shadow-lg bg-zinc-100 dark:bg-zinc-800 sm:mx-0">
               {comic.coverUrl ? (
                 <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover" />
               ) : (
@@ -198,43 +222,62 @@ export default function ComicDetailPage() {
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor[comic.status] || statusColor.DRAFT}`}>
                   {statusLabel[comic.status] || comic.status}
                 </span>
-                <span className="text-xs text-zinc-500">{comic.contentRating}</span>
+                <span className="text-xs rounded-full border border-zinc-200/60 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 px-2.5 py-0.5 text-zinc-800 dark:text-zinc-200">{comic.contentRating}</span>
               </div>
               <h1 className="mb-2 text-2xl font-bold text-zinc-900 dark:text-white sm:text-3xl">{comic.title}</h1>
-              <p className="mb-3 text-sm text-zinc-500 dark:text-zinc-400">
+              <p className="mb-3 text-sm text-zinc-700 dark:text-zinc-200">
                 bởi <Link href={`/@${comic.author.username}`} className="text-violet-600 dark:text-violet-400 hover:underline">{comic.author.displayName}</Link>
               </p>
 
               {/* Genres */}
               <div className="mb-4 flex flex-wrap gap-2">
                 {comic.genres.map((g) => (
-                  <span key={g.id} className="rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-2.5 py-1 text-xs text-zinc-600 dark:text-zinc-300">
+                  <span key={g.id} className="rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 px-2.5 py-1 text-xs text-zinc-600 dark:text-zinc-300">
                     {g.icon} {g.name}
                   </span>
                 ))}
               </div>
 
-              {/* Stats + Bookmark */}
-              <div className="mt-auto flex items-center gap-3">
-                <div className="flex-1 grid grid-cols-4 gap-4 rounded-xl bg-zinc-100/50 dark:bg-white/[0.03] p-3">
-                  <StatItem icon="👁️" value={comic.stats.totalViews} label="Lượt đọc" />
-                  <StatItem icon="⭐" value={comic.stats.avgRating.toFixed(1)} label="Đánh giá" />
-                  <StatItem icon="📖" value={comic.stats.totalChapters} label="Chương" />
-                  <StatItem icon="🔖" value={comic.stats.totalBookmarks} label="Theo dõi" />
-                </div>
+              {/* Compact Stats */}
+              <div className="mb-4 flex flex-wrap items-center gap-2 text-md font-medium text-zinc-700 dark:text-zinc-300">
+                <span className="flex items-center gap-1.5 rounded border border-zinc-200/60 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 px-2.5 py-1.5" title="Lượt đọc">
+                  <span><i className="fa-light fa-eye"></i></span> {comic.stats.totalViews.toLocaleString()}
+                </span>
+                <span className="flex items-center gap-1.5 rounded border border-zinc-200/60 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 px-2.5 py-1.5" title="Đánh giá">
+                  <span><i className="fa-solid text-amber-500 fa-star"></i></span> {comic.stats.avgRating.toFixed(1)}
+                </span>
+                <span className="flex items-center gap-1.5 rounded border border-zinc-200/60 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 px-2.5 py-1.5" title="Số chương">
+                  <span><i className="fa-light fa-book"></i></span> {comic.stats.totalChapters}
+                </span>
+                <span className="flex items-center gap-1.5 rounded border border-zinc-200/60 dark:border-white/10 bg-zinc-100/70 dark:bg-white/5 px-2.5 py-1.5" title="Theo dõi">
+                  <span><i className="fa-light fa-bookmark"></i></span> {comic.stats.totalBookmarks}
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-auto flex flex-wrap items-center gap-3 pt-2">
+                {firstChapter && (
+                  <Link
+                    href={`/read/${firstChapter.id}`}
+                    className="inline-flex items-center gap-2 rounded bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-500/25 transition-all hover:bg-violet-500 hover:shadow-lg hover:shadow-violet-500/35 active:scale-95 cursor-pointer"
+                  >
+                    <span>📖</span>
+                    <span>Bắt đầu đọc</span>
+                  </Link>
+                )}
 
                 {/* Bookmark Button */}
                 {user && (
                   <button
                     onClick={toggleBookmark}
                     disabled={togglingBookmark}
-                    className={`flex h-full flex-col items-center justify-center rounded-xl px-4 py-3 text-sm transition-all ${isBookmarked
+                    className={`inline-flex items-center gap-2 rounded px-4 py-2.5 text-sm font-medium transition-all active:scale-95 cursor-pointer ${isBookmarked
                       ? 'bg-violet-600/20 text-violet-600 dark:text-violet-300 border border-violet-500/30'
-                      : 'bg-zinc-100/50 dark:bg-white/[0.03] text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-white/10 hover:border-violet-500/30 hover:text-violet-600 dark:hover:text-violet-300'
+                      : 'border border-zinc-200 dark:border-white/10 bg-zinc-100/80 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:border-violet-500/30 hover:text-violet-600 dark:hover:text-violet-300'
                       }`}
                   >
-                    <span className="text-lg">{isBookmarked ? '🔖' : '📑'}</span>
-                    <span className="mt-0.5 text-[10px]">{isBookmarked ? 'Đã lưu' : 'Lưu'}</span>
+                    <span>{isBookmarked ? '🔖' : '📑'}</span>
+                    <span>{isBookmarked ? 'Đã lưu' : 'Lưu truyện'}</span>
                   </button>
                 )}
               </div>
@@ -244,14 +287,14 @@ export default function ComicDetailPage() {
 
         {/* Description */}
         {comic.description && (
-          <div className="mb-8 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-6">
+          <div className="mb-8 rounded border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-6">
             <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-white">Giới thiệu</h2>
             <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{comic.description}</p>
           </div>
         )}
 
         {/* Rating Section */}
-        <div className="mb-8 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-6">
+        <div className="mb-8 rounded border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
               ⭐ Đánh giá ({comic.stats.totalRatings})
@@ -264,13 +307,13 @@ export default function ComicDetailPage() {
             {user && !hasRated && !showRatingForm && (
               <button
                 onClick={() => setShowRatingForm(true)}
-                className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2 text-sm font-semibold text-white"
+                className="rounded bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2 text-sm font-semibold text-white"
               >
                 ⭐ Đánh giá
               </button>
             )}
             {user && hasRated && !showRatingForm && (
-              <span className="rounded-lg bg-emerald-600/20 px-3 py-1.5 text-sm text-emerald-300">
+              <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs md:text-sm font-medium text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-300">
                 ✅ Bạn đã đánh giá {myScore}/5
               </span>
             )}
@@ -278,8 +321,8 @@ export default function ComicDetailPage() {
 
           {/* Rating Form */}
           {showRatingForm && user && (
-            <div className="mb-6 rounded-lg border border-violet-500/20 bg-violet-500/5 p-4">
-              <p className="mb-3 text-sm text-zinc-300">{hasRated ? 'Cập nhật đánh giá của bạn' : 'Đánh giá truyện này'}</p>
+            <div className="mb-6 rounded border border-violet-500/20 bg-violet-500/5 p-4">
+              <p className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">{hasRated ? 'Cập nhật đánh giá của bạn' : 'Đánh giá truyện này'}</p>
 
               {/* Star selector */}
               <div className="mb-3 flex items-center gap-1">
@@ -304,18 +347,18 @@ export default function ComicDetailPage() {
                 onChange={(e) => setMyReview(e.target.value)}
                 placeholder="Viết nhận xét (tùy chọn)..."
                 rows={3}
-                className="mb-3 w-full resize-none rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
+                className="mb-3 w-full resize-none rounded border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
               />
 
               <div className="flex gap-2">
                 <button
                   onClick={submitRating}
                   disabled={myScore === 0 || submittingRating}
-                  className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  className="rounded bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
                   {submittingRating ? 'Đang gửi...' : hasRated ? 'Cập nhật' : 'Gửi đánh giá'}
                 </button>
-                <button onClick={() => setShowRatingForm(false)} className="rounded-lg px-4 py-2 text-sm text-zinc-400 hover:text-white">
+                <button onClick={() => setShowRatingForm(false)} className="rounded px-4 py-2 text-sm text-zinc-400 hover:text-white">
                   Hủy
                 </button>
               </div>
@@ -326,7 +369,7 @@ export default function ComicDetailPage() {
           {ratings.length > 0 ? (
             <div className="space-y-3">
               {ratings.map((r) => (
-                <div key={r.id} className="rounded-lg border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-4">
+                <div key={r.id} className="rounded border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-4">
                   <div className="flex items-center gap-3">
                     <Link
                       href={`/@${r.user.username}`}
@@ -361,28 +404,68 @@ export default function ComicDetailPage() {
         </div>
 
         {/* Chapter List */}
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-6">
-          <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-white">
-            Danh sách chương ({comic.chapters?.length || 0})
-          </h2>
-          {comic.chapters && comic.chapters.length > 0 ? (
-            <div className="space-y-2">
-              {comic.chapters.map((ch) => (
-                <Link
-                  key={ch.id}
-                  href={`/read/${ch.id}`}
-                  className="flex items-center justify-between rounded-lg border border-zinc-100 dark:border-white/5 bg-white dark:bg-white/[0.02] px-4 py-3 transition-all hover:border-violet-500/30 hover:bg-violet-500/5"
+        <div className="rounded border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-6">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">
+              Danh sách chương ({comic.chapters?.length || 0})
+            </h2>
+
+            {comic.chapters && comic.chapters.length > 0 && (
+              <div className="flex items-center gap-2">
+                {/* Search input */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={chapterSearch}
+                    onChange={(e) => setChapterSearch(e.target.value)}
+                    placeholder="Tìm chương..."
+                    className="w-36 sm:w-44 rounded border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none focus:border-violet-500/50"
+                  />
+                  {chapterSearch && (
+                    <button
+                      onClick={() => setChapterSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Sort Order Toggle */}
+                <button
+                  onClick={() => setChapterSortAsc(!chapterSortAsc)}
+                  className="inline-flex items-center gap-1.5 rounded border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 cursor-pointer transition-colors"
+                  title={chapterSortAsc ? 'Mới nhất trước' : 'Cũ nhất trước'}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-zinc-800 dark:text-white">Chương {ch.number}</span>
-                    {ch.title && <span className="text-sm text-zinc-500 dark:text-zinc-400">— {ch.title}</span>}
-                  </div>
-                  <span className="text-xs text-zinc-500 dark:text-zinc-600">
-                    {ch.publishedAt ? new Date(ch.publishedAt).toLocaleDateString('vi-VN') : 'Chưa phát hành'}
-                  </span>
-                </Link>
-              ))}
-            </div>
+                  <i className={`fa-light ${chapterSortAsc ? 'fa-arrow-up-1-9' : 'fa-arrow-down-9-1'}`}></i>
+                  <span>{chapterSortAsc ? 'Cũ nhất' : 'Mới nhất'}</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {comic.chapters && comic.chapters.length > 0 ? (
+            filteredChapters.length > 0 ? (
+              <div className="max-h-[480px] overflow-y-auto pr-1 space-y-2">
+                {filteredChapters.map((ch) => (
+                  <Link
+                    key={ch.id}
+                    href={`/read/${ch.id}`}
+                    className="flex items-center justify-between rounded border border-zinc-100 dark:border-white/5 bg-white dark:bg-white/[0.02] px-4 py-3 transition-all hover:border-violet-500/30 hover:bg-violet-500/5"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-zinc-800 dark:text-white">Chương {ch.number}</span>
+                      {ch.title && <span className="text-sm text-zinc-500 dark:text-zinc-400">— {ch.title}</span>}
+                    </div>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-600">
+                      {ch.publishedAt ? new Date(ch.publishedAt).toLocaleDateString('vi-VN') : 'Chưa phát hành'}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-500">Không tìm thấy chương phù hợp</p>
+            )
           ) : (
             <p className="text-sm text-zinc-500">Chưa có chương nào</p>
           )}

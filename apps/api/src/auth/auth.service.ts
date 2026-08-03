@@ -96,17 +96,22 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
+    // Award daily login (await so response includes updated data)
+    try {
+      await this.gamification.awardDailyLogin(user.id);
+    } catch (e) {
+      this.logger.warn(`Daily login reward failed for ${user.id}: ${(e as Error).message}`);
+    }
+
+    // Re-fetch user to get updated XP/coins/streak
+    const updatedUser = await this.prisma.user.findUnique({ where: { id: user.id } });
+
     const tokens = await this.generateTokens(user.id, user.role);
 
     this.logger.log(`User logged in: ${user.email}`);
 
-    // Award daily login (fire-and-forget)
-    this.gamification.awardDailyLogin(user.id).catch((e) =>
-      this.logger.warn(`Daily login reward failed for ${user.id}: ${e.message}`),
-    );
-
     return {
-      user: this.sanitizeUser(user),
+      user: this.sanitizeUser(updatedUser || user),
       ...tokens,
     };
   }
@@ -160,10 +165,20 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
+    // Award daily login for Google OAuth users too
+    try {
+      await this.gamification.awardDailyLogin(user.id);
+    } catch (e) {
+      this.logger.warn(`Daily login reward failed for ${user.id}: ${(e as Error).message}`);
+    }
+
+    // Re-fetch user to get updated XP/coins/streak
+    const updatedUser = await this.prisma.user.findUnique({ where: { id: user.id } });
+
     const tokens = await this.generateTokens(user.id, user.role);
 
     return {
-      user: this.sanitizeUser(user),
+      user: this.sanitizeUser(updatedUser || user),
       ...tokens,
     };
   }
@@ -211,6 +226,13 @@ export class AuthService {
   // ── Get Current User ──
 
   async getProfile(userId: string) {
+    // Award daily login on profile fetch (handles hydrate/refresh visits)
+    try {
+      await this.gamification.awardDailyLogin(userId);
+    } catch (e) {
+      this.logger.warn(`Daily login reward failed for ${userId}: ${(e as Error).message}`);
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });

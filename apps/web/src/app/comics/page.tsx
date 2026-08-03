@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
+import { ElDropdown, ElMenu } from '@tailwindplus/elements/react';
 
 interface Comic {
   id: string;
@@ -23,15 +24,26 @@ interface Genre {
   comicCount: number;
 }
 
+const SORT_OPTIONS = [
+  { value: 'updated', label: 'Mới cập nhật' },
+  { value: 'latest', label: 'Mới nhất' },
+  { value: 'popular', label: 'Phổ biến' },
+  { value: 'rating', label: 'Đánh giá cao' },
+];
+
 export default function ComicsPage() {
   const [comics, setComics] = useState<Comic[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
+  const [genresLoading, setGenresLoading] = useState(true);
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [sort, setSort] = useState<string>('updated');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get<{ data: Genre[] }>('/comics/genres').then((res) => setGenres(res.data)).catch(() => {});
+    api.get<{ data: Genre[] }>('/comics/genres')
+      .then((res) => setGenres(res.data))
+      .catch(() => { })
+      .finally(() => setGenresLoading(false));
   }, []);
 
   useEffect(() => {
@@ -43,62 +55,110 @@ export default function ComicsPage() {
 
     api.get<{ data: Comic[]; meta: unknown }>(`/comics?${params}`)
       .then((res) => setComics(res.data))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   }, [selectedGenre, sort]);
 
+  const currentSortOption = SORT_OPTIONS.find((o) => o.value === sort) || SORT_OPTIONS[0];
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="px-4 sm:px-8 md:px-12 lg:px-16 py-8">
       <h1 className="mb-6 text-2xl font-bold text-zinc-900 dark:text-white">Khám phá truyện</h1>
 
       {/* Filters */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        {/* Sort */}
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-zinc-800 dark:text-zinc-300 outline-none transition-colors"
-        >
-          <option value="updated">Mới cập nhật</option>
-          <option value="latest">Mới nhất</option>
-          <option value="popular">Phổ biến</option>
-          <option value="rating">Đánh giá cao</option>
-        </select>
+        {/* Sort Dropdown */}
+        <ElDropdown className="relative inline-block">
+          <button
+            type="button"
+            popoverTarget="sort-menu"
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-zinc-800 dark:text-zinc-300 outline-none transition-colors hover:bg-zinc-50 dark:hover:bg-white/10 cursor-pointer"
+          >
+            <span>{currentSortOption.label}</span>
+            <svg className="h-4 w-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <ElMenu
+            id="sort-menu"
+            popover="auto"
+            anchor="bottom start"
+            className="z-20 mt-1 w-44 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-1.5 shadow-xl transition-opacity"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSort(opt.value)}
+                className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors cursor-pointer ${sort === opt.value
+                  ? 'bg-violet-500/10 text-violet-600 dark:text-violet-300 font-semibold'
+                  : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5'
+                  }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </ElMenu>
+        </ElDropdown>
 
         {/* Genre pills */}
         <button
           onClick={() => setSelectedGenre(null)}
-          className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-            !selectedGenre ? 'bg-violet-600 text-white' : 'border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-          }`}
+          className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${!selectedGenre
+            ? 'bg-violet-600 text-white font-semibold shadow-sm shadow-violet-500/30'
+            : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-violet-300 dark:hover:border-violet-500/40 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-300 hover:shadow-xs'
+            }`}
         >
           Tất cả
         </button>
-        {genres.map((g) => (
-          <button
-            key={g.id}
-            onClick={() => setSelectedGenre(g.slug)}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-              selectedGenre === g.slug ? 'bg-violet-600 text-white' : 'border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            {g.icon} {g.name}
-          </button>
-        ))}
+        {genresLoading ? (
+          ['w-16', 'w-20', 'w-14', 'w-24', 'w-18'].map((widthClass, i) => (
+            <div
+              key={i}
+              className={`h-7 ${widthClass} animate-pulse rounded-full bg-zinc-200/60 dark:bg-zinc-800/60`}
+            />
+          ))
+        ) : (
+          genres.map((g) => (
+            <button
+              key={g.id}
+              onClick={() => setSelectedGenre(g.slug)}
+              className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${selectedGenre === g.slug
+                ? 'bg-violet-600 text-white font-semibold shadow-sm shadow-violet-500/30'
+                : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-violet-300 dark:hover:border-violet-500/40 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-300 hover:shadow-xs'
+                }`}
+            >
+              {g.icon} {g.name}
+            </button>
+          ))
+        )}
       </div>
 
       {/* Comics Grid */}
       {loading ? (
-        <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" /></div>
+        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="animate-pulse">
+              <div className="mb-2 aspect-[3/4] rounded border border-zinc-200/60 dark:border-white/5 bg-zinc-200/60 dark:bg-zinc-800/60" />
+              <div className="h-4 w-5/6 rounded bg-zinc-200/60 dark:bg-zinc-800/60 mb-1.5" />
+              <div className="h-3 w-1/2 rounded bg-zinc-200/40 dark:bg-zinc-800/40 mb-1.5" />
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-1/4 rounded bg-zinc-200/40 dark:bg-zinc-800/40" />
+                <div className="h-3 w-1/4 rounded bg-zinc-200/40 dark:bg-zinc-800/40" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : comics.length === 0 ? (
         <div className="py-20 text-center text-zinc-500">Chưa có truyện nào</div>
       ) : (
-        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {comics.map((comic) => (
             <Link key={comic.id} href={`/comics/${comic.slug}`} className="group">
-              <div className="mb-2 aspect-[3/4] overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 transition-all group-hover:border-violet-500/30 group-hover:shadow-lg group-hover:shadow-violet-500/5 dark:group-hover:shadow-violet-500/10">
+              <div className="mb-2 aspect-[3/4] overflow-hidden rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 transition-all group-hover:border-violet-500/30 group-hover:shadow-lg group-hover:shadow-violet-500/5 dark:group-hover:shadow-violet-500/10">
                 {comic.coverUrl ? (
-                  <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                  <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover transition-transform group-hover:scale-105 duration-500 ease-in-out" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-3xl font-bold text-zinc-400 dark:text-zinc-600">{comic.title[0]}</div>
                 )}
@@ -106,8 +166,8 @@ export default function ComicsPage() {
               <h3 className="line-clamp-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-violet-600 dark:group-hover:text-violet-300">{comic.title}</h3>
               <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{comic.author.displayName}</p>
               <div className="mt-1 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-500">
-                <span>📖 {comic.stats.totalChapters}</span>
-                <span>👁️ {comic.stats.totalViews}</span>
+                <span><i className="fa-light fa-image"></i> {comic.stats.totalChapters}</span>
+                <span><i className="fa-light fa-eye"></i> {comic.stats.totalViews}</span>
               </div>
             </Link>
           ))}

@@ -81,27 +81,14 @@ export function Header() {
         {/* Navigation Links */}
         <div className="hidden items-center gap-6 md:flex">
           <Link href="/" className="text-base font-medium text-zinc-500 dark:text-zinc-400 transition-colors hover:text-zinc-900 hover:dark:text-white">
-            Trang chủ
+            TRANG CHỦ
           </Link>
           <Link href="/comics" className="text-base font-medium text-zinc-500 dark:text-zinc-400 transition-colors hover:text-zinc-900 hover:dark:text-white">
-            Khám phá
+            TRUYỆN TRANH
           </Link>
           <Link href="/news" className="text-base font-medium text-zinc-500 dark:text-zinc-400 transition-colors hover:text-zinc-900 hover:dark:text-white">
-            Tin tức
+            TIN TỨC
           </Link>
-          {/* {user && (
-            <>
-              <Link href="/bookmarks" className="text-sm text-zinc-400 transition-colors hover:text-white">
-                🔖 Đã lưu
-              </Link>
-              <Link href="/history" className="text-sm text-zinc-400 transition-colors hover:text-white">
-                📖 Lịch sử
-              </Link>
-              <Link href="/studio" className="text-sm text-zinc-400 transition-colors hover:text-white">
-                ✏️ Studio
-              </Link>
-            </>
-          )} */}
         </div>
 
         {/* Auth Actions */}

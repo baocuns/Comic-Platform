@@ -424,29 +424,25 @@ export default function ReaderPage() {
     <>
       <div className={`min-h-screen ${bgColor} transition-colors duration-300 ${isReaderBgDark ? 'text-zinc-100' : 'text-zinc-900'}`}>
         {/* Reader Header */}
-        <div className={`sticky top-0 z-50 border-b transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'} ${
-          isReaderBgDark ? 'border-white/10 bg-black/90 text-white' : 'border-zinc-200 bg-white/95 text-zinc-900 shadow-sm'
-        } backdrop-blur-xl`}>
+        <div className={`sticky top-0 z-50 border-b transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'} ${isReaderBgDark ? 'border-white/10 bg-black/90 text-white' : 'border-zinc-200 bg-white/95 text-zinc-900 shadow-sm'
+          } backdrop-blur-xl`}>
           <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-4">
-            <Link href={`/comics/${activeChapter.comic.slug}`} className={`text-sm flex items-center gap-1.5 transition-colors ${
-              isReaderBgDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'
-            }`}>
+            <Link href={`/comics/${activeChapter.comic.slug}`} className={`text-sm flex items-center gap-1.5 transition-colors ${isReaderBgDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'
+              }`}>
               <i className="fa-light fa-arrow-left-long"></i>
               <span className="hidden sm:inline">{activeChapter.comic.title}</span>
             </Link>
             <button
               onClick={handleOpenChapterList}
-              className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-medium transition-colors ${
-                isReaderBgDark ? 'text-white hover:bg-white/10 hover:text-violet-300' : 'text-zinc-800 hover:bg-zinc-100 hover:text-violet-600'
-              }`}>
+              className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-medium transition-colors ${isReaderBgDark ? 'text-white hover:bg-white/10 hover:text-violet-300' : 'text-zinc-800 hover:bg-zinc-100 hover:text-violet-600'
+                }`}>
               <span>Chương {activeChapter.number}{activeChapter.title ? ` — ${activeChapter.title}` : ''}</span>
             </button>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowSettings(true)}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors ${
-                  isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
-                }`}
+                className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors ${isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                  }`}
                 title="Cài đặt trình đọc">
                 <i className="fa-regular fa-gear text-sm" />
               </button>
@@ -478,9 +474,8 @@ export default function ReaderPage() {
                   </div>
 
                   {/* Chapter End & Separator */}
-                  <div className={`my-10 rounded-2xl border p-6 text-center backdrop-blur-xl ${
-                    isReaderBgDark ? 'border-white/10 bg-white/[0.02]' : 'border-zinc-200 bg-zinc-50/50'
-                  }`}>
+                  <div className={`my-10 lg:rounded-2xl border p-6 text-center backdrop-blur-xl ${isReaderBgDark ? 'border-white/10 bg-white/[0.02]' : 'border-zinc-200 bg-zinc-50/50'
+                    }`}>
                     <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-4 py-1 text-xs font-semibold text-violet-600 dark:text-violet-300">
                       🎉 Hết Chương {chItem.chapter.number}
                     </div>
@@ -540,9 +535,8 @@ export default function ReaderPage() {
                     <button
                       onClick={() => setCurrentPage((p) => Math.max(p - 1, 0))}
                       disabled={currentPage === 0}
-                      className={`rounded-lg border px-4 py-2 text-sm disabled:opacity-30 ${
-                        isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-400' : 'border-zinc-200 bg-white text-zinc-600'
-                      }`}
+                      className={`rounded-lg border px-4 py-2 text-sm disabled:opacity-30 ${isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-400' : 'border-zinc-200 bg-white text-zinc-600'
+                        }`}
                     >
                       ← Trang trước
                     </button>
@@ -552,9 +546,8 @@ export default function ReaderPage() {
                     <button
                       onClick={() => setCurrentPage((p) => Math.min(p + 1, activeChapter.pages.length - 1))}
                       disabled={currentPage === activeChapter.pages.length - 1}
-                      className={`rounded-lg border px-4 py-2 text-sm disabled:opacity-30 ${
-                        isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-400' : 'border-zinc-200 bg-white text-zinc-600'
-                      }`}
+                      className={`rounded-lg border px-4 py-2 text-sm disabled:opacity-30 ${isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-400' : 'border-zinc-200 bg-white text-zinc-600'
+                        }`}
                     >
                       Trang sau →
                     </button>
@@ -566,16 +559,14 @@ export default function ReaderPage() {
         </div>
 
         {/* Navigation Footer */}
-        <div className={`border-t backdrop-blur-xl ${
-          isReaderBgDark ? 'border-white/10 bg-black/90 text-white' : 'border-zinc-200 bg-white/95 text-zinc-900 shadow-sm'
-        }`}>
+        <div className={`border-t backdrop-blur-xl mt-4 ${isReaderBgDark ? 'border-white/10 bg-black/90 text-white' : 'border-zinc-200 bg-white/95 text-zinc-900 shadow-sm'
+          }`}>
           <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
             {activeItem?.nav?.prev ? (
               <Link
                 href={`/read/${activeItem.nav.prev.id}`}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-colors ${
-                  isReaderBgDark ? 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900'
-                }`}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-colors ${isReaderBgDark ? 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900'
+                  }`}
               >
                 ← Ch.{activeItem.nav.prev.number}
               </Link>
@@ -583,9 +574,8 @@ export default function ReaderPage() {
 
             <button
               onClick={handleOpenChapterList}
-              className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
-                isReaderBgDark ? 'border-white/10 text-zinc-400 hover:text-white' : 'border-zinc-200 text-zinc-650 hover:text-zinc-900'
-              }`}
+              className={`rounded-lg border px-4 py-2 text-sm transition-colors ${isReaderBgDark ? 'border-white/10 text-zinc-400 hover:text-white' : 'border-zinc-200 text-zinc-650 hover:text-zinc-900'
+                }`}
             >
               Danh sách chương
             </button>
@@ -717,9 +707,42 @@ export default function ReaderPage() {
               </button>
             </div>
 
+            {/* Giao diện Dark / Light */}
+            <div>
+              <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                Giao diện (Theme)
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    setBgColor('bg-black');
+                    document.documentElement.classList.add('dark');
+                  }}
+                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all ${isReaderBgDark
+                    ? 'border-violet-500 bg-violet-500/15 text-violet-600 dark:text-violet-300'
+                    : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-800 dark:hover:text-white'
+                    }`}
+                >
+                  🌙 Chế độ Tối (Dark)
+                </button>
+                <button
+                  onClick={() => {
+                    setBgColor('bg-white');
+                    document.documentElement.classList.remove('dark');
+                  }}
+                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all ${!isReaderBgDark
+                    ? 'border-violet-500 bg-violet-500/15 text-violet-600 dark:text-violet-300'
+                    : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-800 dark:hover:text-white'
+                    }`}
+                >
+                  ☀️ Chế độ Sáng (Light)
+                </button>
+              </div>
+            </div>
+
             {/* Chế độ đọc */}
             <div>
-              <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-555 dark:text-zinc-400">
+              <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                 Chế độ hiển thị
               </label>
               <div className="grid grid-cols-2 gap-2">

@@ -45,13 +45,13 @@ export function StickerEmojiPicker({
   return (
     <div
       ref={popoverRef}
-      className={`absolute bottom-full left-0 mb-2 z-50 w-80 sm:w-96 rounded-2xl border shadow-2xl backdrop-blur-xl transition-all duration-200 animate-in fade-in zoom-in-95 ${isReaderBgDark
+      className={`absolute bottom-full left-0 mb-2 z-50 w-80 max-w-[calc(100vw-1.5rem)] sm:w-96 rounded-2xl border shadow-2xl backdrop-blur-xl transition-all duration-200 animate-in fade-in zoom-in-95 ${isReaderBgDark
         ? 'border-white/10 bg-zinc-900/95 text-white shadow-black/80'
-        : 'border-zinc-200 bg-white/95 text-zinc-900 shadow-zinc-400/30'
+        : 'border-zinc-200 bg-white/95 text-zinc-900 shadow-zinc-400/30 dark:border-white/10 dark:bg-zinc-900/95 dark:text-white dark:shadow-black/80'
         }`}
     >
       {/* Header Tabs */}
-      <div className={`flex items-center justify-between border-b px-3 py-2 ${isReaderBgDark ? 'border-white/10' : 'border-zinc-100'}`}>
+      <div className={`flex items-center justify-between border-b px-3 py-2 ${isReaderBgDark ? 'border-white/10' : 'border-zinc-100 dark:border-white/10'}`}>
         <div className="flex gap-1">
           <button
             type="button"
@@ -59,7 +59,7 @@ export function StickerEmojiPicker({
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${activeTab === 'sticker'
               ? isReaderBgDark
                 ? 'bg-violet-500/20 text-violet-300'
-                : 'bg-violet-100 text-violet-700'
+                : 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300'
               : 'opacity-60 hover:opacity-100'
               }`}
           >
@@ -71,7 +71,7 @@ export function StickerEmojiPicker({
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${activeTab === 'emoji'
               ? isReaderBgDark
                 ? 'bg-violet-500/20 text-violet-300'
-                : 'bg-violet-100 text-violet-700'
+                : 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300'
               : 'opacity-60 hover:opacity-100'
               }`}
           >
@@ -101,7 +101,7 @@ export function StickerEmojiPicker({
                 onClick={() => scrollStickerNav('left')}
                 className={`absolute left-0 z-10 flex h-6 w-6 -ml-1 items-center justify-center rounded-full text-xs font-bold shadow-md transition-all opacity-0 group-hover/subnav:opacity-100 ${isReaderBgDark
                   ? 'bg-zinc-800/95 text-white hover:bg-zinc-700'
-                  : 'bg-white/95 text-zinc-700 hover:bg-zinc-100 border border-zinc-200'
+                  : 'bg-white/95 text-zinc-700 hover:bg-zinc-100 border border-zinc-200 dark:bg-zinc-800/95 dark:text-white dark:border-white/10'
                   }`}
                 title="Cuộn sang trái"
               >
@@ -125,10 +125,10 @@ export function StickerEmojiPicker({
                     className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-all ${selectedStickerCat === cat.id
                       ? isReaderBgDark
                         ? 'bg-violet-600 text-white font-bold shadow-sm'
-                        : 'bg-zinc-800 text-white font-bold shadow-sm'
+                        : 'bg-zinc-800 text-white font-bold shadow-sm dark:bg-violet-600'
                       : isReaderBgDark
                         ? 'bg-white/10 text-zinc-300 hover:bg-white/20'
-                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-white/10 dark:text-zinc-300 dark:hover:bg-white/20'
                       }`}
                   >
                     <span>{cat.icon}</span>
@@ -142,7 +142,7 @@ export function StickerEmojiPicker({
                 onClick={() => scrollStickerNav('right')}
                 className={`absolute right-0 z-10 flex h-6 w-6 -mr-1 items-center justify-center rounded-full text-xs font-bold shadow-md transition-all opacity-0 group-hover/subnav:opacity-100 ${isReaderBgDark
                   ? 'bg-zinc-800/95 text-white hover:bg-zinc-700'
-                  : 'bg-white/95 text-zinc-700 hover:bg-zinc-100 border border-zinc-200'
+                  : 'bg-white/95 text-zinc-700 hover:bg-zinc-100 border border-zinc-200 dark:bg-zinc-800/95 dark:text-white dark:border-white/10'
                   }`}
                 title="Cuộn sang phải"
               >
@@ -151,7 +151,7 @@ export function StickerEmojiPicker({
             </div>
 
             {/* Sticker Grid */}
-            <div className="grid grid-cols-4 gap-2 max-h-56 overflow-y-auto pr-1">
+            <div className="grid grid-cols-4 gap-2 max-h-56 overflow-y-auto pr-1 select-none">
               {STICKER_CATEGORIES.find((c) => c.id === selectedStickerCat)?.stickers.map((s: Sticker) => (
                 <button
                   key={s.id}
@@ -161,15 +161,16 @@ export function StickerEmojiPicker({
                     onSelectSticker(s.url, s.name);
                     onClose?.();
                   }}
-                  className={`group relative aspect-square overflow-hidden rounded-xl border p-1 transition-all hover:scale-105 hover:z-10 ${isReaderBgDark
+                  className={`group relative flex items-center justify-center aspect-square min-w-0 min-h-0 overflow-hidden rounded-xl border p-1 transition-all active:scale-95 touch-manipulation ${isReaderBgDark
                     ? 'border-white/5 bg-white/[0.03] hover:border-violet-500/50 hover:bg-violet-500/10'
-                    : 'border-zinc-200/60 bg-zinc-50 hover:border-violet-500/50 hover:bg-violet-50'
+                    : 'border-zinc-200/60 bg-zinc-50 hover:border-violet-500/50 hover:bg-violet-50 dark:border-white/5 dark:bg-white/[0.03] dark:hover:border-violet-500/50 dark:hover:bg-violet-500/10'
                     }`}
                 >
-                  <img src={s.url} alt={s.name} className="h-full w-full object-contain" />
-                  <span className="absolute inset-x-0 bottom-0 bg-black/60 text-[9px] text-white py-0.5 text-center truncate opacity-0 group-hover:opacity-100 transition-opacity">
-                    {s.name}
-                  </span>
+                  <img
+                    src={s.url}
+                    alt={s.name}
+                    className="max-h-full max-w-full h-auto w-auto object-contain block mx-auto pointer-events-none"
+                  />
                 </button>
               ))}
             </div>
@@ -186,7 +187,7 @@ export function StickerEmojiPicker({
               onChange={(e) => setSearchQuery(e.target.value)}
               className={`mb-2 w-full rounded-xl border px-3 py-1.5 text-xs outline-none ${isReaderBgDark
                 ? 'border-white/10 bg-white/5 text-white placeholder-zinc-500 focus:border-violet-400'
-                : 'border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:border-violet-500'
+                : 'border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:border-violet-500 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder-zinc-500 dark:focus:border-violet-400'
                 }`}
             />
             <div className="max-h-52 overflow-y-auto pr-1 space-y-3">
@@ -221,8 +222,6 @@ export function StickerEmojiPicker({
             </div>
           </div>
         )}
-
-
       </div>
     </div>
   );

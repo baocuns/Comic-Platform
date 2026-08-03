@@ -44,6 +44,28 @@ interface ProfileData {
   stats: ProfileStats;
   isFollowing: boolean;
   isOwnProfile: boolean;
+  authorComics?: AuthorComic[];
+}
+
+interface AuthorComic {
+  id: string;
+  title: string;
+  slug: string;
+  coverUrl: string | null;
+  status: string;
+  totalChapters: number;
+  totalViews: number;
+  avgRating: number;
+  lastChapterAt: string | null;
+}
+
+interface FollowUser {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  role: string;
+  level: number;
 }
 
 interface BookmarkItem {
@@ -85,6 +107,14 @@ export default function UserProfilePage() {
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loadingTab, setLoadingTab] = useState(false);
+
+  // Follow list modal
+  const [followModal, setFollowModal] = useState<{ type: 'followers' | 'following'; open: boolean }>({ type: 'followers', open: false });
+  const [followList, setFollowList] = useState<FollowUser[]>([]);
+  const [followListLoading, setFollowListLoading] = useState(false);
+  const [followListTotal, setFollowListTotal] = useState(0);
+  const [followListPage, setFollowListPage] = useState(1);
+  const [followListTotalPages, setFollowListTotalPages] = useState(1);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -194,11 +224,42 @@ export default function UserProfilePage() {
     router.push('/');
   };
 
+  // Open follow list modal
+  const openFollowModal = async (type: 'followers' | 'following') => {
+    setFollowModal({ type, open: true });
+    setFollowList([]);
+    setFollowListPage(1);
+    setFollowListLoading(true);
+    try {
+      const res = await api.get<{ data: { items: FollowUser[]; total: number; totalPages: number } }>(
+        `/users/${profileUser.id}/${type}?page=1&limit=20`,
+      );
+      setFollowList(res.data.items);
+      setFollowListTotal(res.data.total);
+      setFollowListTotalPages(res.data.totalPages);
+    } catch { }
+    setFollowListLoading(false);
+  };
+
+  const loadMoreFollows = async () => {
+    const nextPage = followListPage + 1;
+    setFollowListLoading(true);
+    try {
+      const res = await api.get<{ data: { items: FollowUser[]; total: number; totalPages: number } }>(
+        `/users/${profileUser.id}/${followModal.type}?page=${nextPage}&limit=20`,
+      );
+      setFollowList((prev) => [...prev, ...res.data.items]);
+      setFollowListPage(nextPage);
+      setFollowListTotalPages(res.data.totalPages);
+    } catch { }
+    setFollowListLoading(false);
+  };
+
   const roleBadge: Record<string, { color: string; label: string }> = {
-    READER: { color: 'bg-zinc-500/20 text-zinc-300', label: 'Độc giả' },
-    AUTHOR: { color: 'bg-violet-500/20 text-violet-300', label: 'Tác giả' },
-    MODERATOR: { color: 'bg-amber-500/20 text-amber-300', label: 'Quản trị viên' },
-    ADMIN: { color: 'bg-red-500/20 text-red-300', label: 'Admin' },
+    READER: { color: 'bg-zinc-500/10 text-zinc-700 border border-zinc-500/20 dark:bg-zinc-500/20 dark:text-zinc-300 dark:border-zinc-500/30', label: 'Độc giả' },
+    AUTHOR: { color: 'bg-violet-500/10 text-violet-700 border border-violet-500/20 dark:bg-violet-500/20 dark:text-violet-300 dark:border-violet-500/30', label: 'Tác giả' },
+    MODERATOR: { color: 'bg-amber-500/10 text-amber-700 border border-amber-500/20 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30', label: 'Quản trị viên' },
+    ADMIN: { color: 'bg-red-500/10 text-red-700 border border-red-500/20 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30', label: 'Admin' },
   };
 
   const xpForNextLevel = Math.floor(100 * Math.pow(1.5, (currentUser?.level ?? 1) - 1));
@@ -218,7 +279,7 @@ export default function UserProfilePage() {
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end">
             {/* Avatar */}
             <div className="group relative">
-              <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl border-2 border-[#0a0a0a] bg-gradient-to-br from-violet-500 to-fuchsia-500 text-4xl font-bold text-white shadow-xl sm:h-32 sm:w-32">
+              <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded bg-gradient-to-br from-violet-500 to-fuchsia-500 text-4xl font-bold text-white shadow-xl sm:h-32 sm:w-32">
                 {profileUser.avatarUrl ? (
                   <img src={profileUser.avatarUrl} alt={profileUser.displayName} className="h-full w-full object-cover" />
                 ) : (
@@ -229,7 +290,7 @@ export default function UserProfilePage() {
                 <button
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={uploadingAvatar}
-                  className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
+                  className="absolute inset-0 flex items-center justify-center rounded bg-black/60 opacity-0 transition-opacity group-hover:opacity-100 cursor-pointer"
                 >
                   {uploadingAvatar ? (
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -246,12 +307,12 @@ export default function UserProfilePage() {
             {/* Name & Role */}
             <div className="flex-1 pb-1">
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-white sm:text-3xl">{profileUser.displayName}</h1>
+                <h1 className="text-2xl font-bold text-zinc-900 dark:text-white sm:text-3xl">{profileUser.displayName}</h1>
                 <span className={`rounded-full px-3 py-1 text-xs font-semibold ${roleBadge[profileUser.role]?.color || roleBadge.READER.color}`}>
                   {roleBadge[profileUser.role]?.label || profileUser.role}
                 </span>
               </div>
-              <p className="mt-0.5 text-sm text-zinc-500">@{profileUser.username}</p>
+              <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">@{profileUser.username}</p>
             </div>
 
             {/* Action Buttons */}
@@ -260,13 +321,13 @@ export default function UserProfilePage() {
                 <>
                   <button
                     onClick={() => setShowEditModal(true)}
-                    className="rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 hover:brightness-110"
+                    className="rounded bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 hover:brightness-110 cursor-pointer"
                   >
                     Chỉnh sửa
                   </button>
                   <button
                     onClick={handleLogout}
-                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                    className="rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-400 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
                   >
                     Đăng xuất
                   </button>
@@ -275,8 +336,8 @@ export default function UserProfilePage() {
                 <button
                   onClick={handleFollowToggle}
                   disabled={followLoading}
-                  className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${isFollowing
-                    ? 'border border-white/10 bg-white/5 text-zinc-300 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400'
+                  className={`rounded px-6 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer ${isFollowing
+                    ? 'border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400'
                     : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:brightness-110'
                     }`}
                 >
@@ -289,41 +350,47 @@ export default function UserProfilePage() {
 
         {/* ──── Follow stats ──── */}
         <div className="mt-4 flex items-center gap-5 px-4 sm:px-6">
-          <span className="text-sm text-zinc-400">
-            <span className="font-bold text-white">{stats.followerCount}</span> người theo dõi
-          </span>
-          <span className="text-sm text-zinc-400">
-            <span className="font-bold text-white">{stats.followingCount}</span> đang theo dõi
-          </span>
+          <button
+            onClick={() => openFollowModal('followers')}
+            className="text-sm text-zinc-500 dark:text-zinc-400 transition-colors hover:text-violet-600 dark:hover:text-violet-400 cursor-pointer"
+          >
+            <span className="font-bold text-zinc-900 dark:text-white">{stats.followerCount}</span> người theo dõi
+          </button>
+          <button
+            onClick={() => openFollowModal('following')}
+            className="text-sm text-zinc-500 dark:text-zinc-400 transition-colors hover:text-violet-600 dark:hover:text-violet-400 cursor-pointer"
+          >
+            <span className="font-bold text-zinc-900 dark:text-white">{stats.followingCount}</span> đang theo dõi
+          </button>
         </div>
 
         {/* ──── Level & XP (own profile only) ──── */}
         {isOwnProfile && currentUser && (
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-xl">
+          <div className="mt-4 rounded border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-5 backdrop-blur-xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-lg font-bold text-white shadow-lg">
+                <div className="flex h-10 w-10 items-center justify-center rounded bg-gradient-to-br from-amber-500 to-orange-600 text-lg font-bold text-white shadow-lg">
                   {currentUser.level}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">Cấp {currentUser.level}</p>
-                  <p className="text-xs text-zinc-500">{currentUser.experience} / {xpForNextLevel} XP</p>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-white">Cấp {currentUser.level}</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">{currentUser.experience} / {xpForNextLevel} XP</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 {currentUser.loginStreak > 0 && (
                   <div className="flex items-center gap-1.5 rounded-full bg-orange-500/10 px-3 py-1.5">
                     <span className="text-sm">🔥</span>
-                    <span className="text-sm font-semibold text-orange-400">{currentUser.loginStreak} ngày</span>
+                    <span className="text-sm font-semibold text-orange-600 dark:text-orange-400">{currentUser.loginStreak} ngày</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1.5">
                   <span className="text-sm">🪙</span>
-                  <span className="text-sm font-semibold text-amber-400">{currentUser.coins} xu</span>
+                  <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">{currentUser.coins} xu</span>
                 </div>
               </div>
             </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5">
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
@@ -336,26 +403,26 @@ export default function UserProfilePage() {
         )}
 
         {/* ──── Bio ──── */}
-        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-xl">
-          <h3 className="mb-2 text-sm font-semibold text-zinc-400">Giới thiệu</h3>
-          <p className="text-sm leading-relaxed text-zinc-300">
+        <div className="mt-4 rounded border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-5 backdrop-blur-xl">
+          <h3 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-400">Giới thiệu</h3>
+          <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
             {profileUser.bio || (isOwnProfile ? 'Chưa có giới thiệu. Nhấn "Chỉnh sửa" để thêm!' : 'Chưa có giới thiệu.')}
           </p>
 
           {profileUser.socialLinks && Object.keys(profileUser.socialLinks).length > 0 && (
             <div className="mt-4 flex flex-wrap gap-3">
               {profileUser.socialLinks.website && (
-                <a href={profileUser.socialLinks.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-white/10 hover:text-white">
+                <a href={profileUser.socialLinks.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white">
                   🌐 Website
                 </a>
               )}
               {profileUser.socialLinks.twitter && (
-                <a href={profileUser.socialLinks.twitter.startsWith('http') ? profileUser.socialLinks.twitter : `https://twitter.com/${profileUser.socialLinks.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-white/10 hover:text-white">
+                <a href={profileUser.socialLinks.twitter.startsWith('http') ? profileUser.socialLinks.twitter : `https://twitter.com/${profileUser.socialLinks.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white">
                   𝕏 Twitter
                 </a>
               )}
               {profileUser.socialLinks.facebook && (
-                <a href={profileUser.socialLinks.facebook.startsWith('http') ? profileUser.socialLinks.facebook : `https://facebook.com/${profileUser.socialLinks.facebook}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:bg-white/10 hover:text-white">
+                <a href={profileUser.socialLinks.facebook.startsWith('http') ? profileUser.socialLinks.facebook : `https://facebook.com/${profileUser.socialLinks.facebook}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white">
                   ⓕ Facebook
                 </a>
               )}
@@ -375,10 +442,59 @@ export default function UserProfilePage() {
           />
         </div>
 
-        {/* ──── Activity Tabs (own profile only) ──── */}
+        {/* ──── Author Comics (visible on author profiles) ──── */}
+        {profile.authorComics && profile.authorComics.length > 0 && (
+          <div className="mt-8">
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-zinc-900 dark:text-white">
+              <span>✍️</span> Truyện của {profileUser.displayName}
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {profile.authorComics.map((comic) => (
+                <Link
+                  key={comic.id}
+                  href={`/comics/${comic.slug}`}
+                  className="flex items-center gap-3 rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-3 transition-all hover:border-violet-500/30 hover:bg-violet-500/5"
+                >
+                  <div className="h-20 w-14 flex-shrink-0 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+                    {comic.coverUrl ? (
+                      <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-lg font-bold text-zinc-400 dark:text-zinc-600">
+                        {comic.title[0]}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{comic.title}</h4>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                      <span>{comic.totalChapters} chương</span>
+                      <span>·</span>
+                      <span>{comic.totalViews.toLocaleString('vi-VN')} lượt xem</span>
+                      {Number(comic.avgRating) > 0 && (
+                        <>
+                          <span>·</span>
+                          <span className="text-amber-500">⭐ {Number(comic.avgRating).toFixed(1)}</span>
+                        </>
+                      )}
+                    </div>
+                    <span className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      comic.status === 'COMPLETED'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : comic.status === 'ONGOING'
+                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                          : 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400'
+                    }`}>
+                      {comic.status === 'COMPLETED' ? 'Hoàn thành' : comic.status === 'ONGOING' ? 'Đang tiến hành' : comic.status}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
         {isOwnProfile && (
           <div className="mt-8">
-            <div className="flex gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-1">
+            <div className="flex gap-1 rounded border border-zinc-200 dark:border-white/10 bg-zinc-100/80 dark:bg-white/[0.02] p-1">
               <TabButton label="🔖 Truyện đã lưu" active={activeTab === 'bookmarks'} onClick={() => setActiveTab('bookmarks')} />
               <TabButton label="📖 Lịch sử đọc" active={activeTab === 'history'} onClick={() => setActiveTab('history')} />
             </div>
@@ -395,43 +511,55 @@ export default function UserProfilePage() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     {bookmarks.map((bm) => (
                       <Link key={bm.id} href={`/comics/${bm.comic.slug}`}
-                        className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-3 transition-all hover:border-violet-500/30 hover:bg-violet-500/5">
-                        <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                        className="flex items-center gap-3 rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-3 transition-all hover:border-violet-500/30 hover:bg-violet-500/5">
+                        <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
                           {bm.comic.coverUrl ? <img src={bm.comic.coverUrl} alt={bm.comic.title} className="h-full w-full object-cover" /> :
-                            <div className="flex h-full items-center justify-center text-lg font-bold text-zinc-600">{bm.comic.title[0]}</div>}
+                            <div className="flex h-full items-center justify-center text-lg font-bold text-zinc-400 dark:text-zinc-600">{bm.comic.title[0]}</div>}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
-                            <h4 className="truncate text-sm font-semibold text-white">{bm.comic.title}</h4>
+                            <h4 className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{bm.comic.title}</h4>
                             {bm.isFavorite && <span className="text-xs">❤️</span>}
                           </div>
-                          <p className="text-xs text-zinc-500">{bm.comic.author.displayName}</p>
-                          <p className="mt-0.5 text-xs text-zinc-600">{bm.comic.totalChapters} chương</p>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">{bm.comic.author.displayName}</p>
+                          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{bm.comic.totalChapters} chương</p>
                         </div>
                       </Link>
                     ))}
                   </div>
                 )
-              ) : history.length === 0 ? (
-                <EmptyState icon="📖" title="Chưa có lịch sử đọc" desc="Bắt đầu đọc truyện ngay!" link="/comics" linkText="Khám phá truyện →" />
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {history.map((h) => (
-                    <Link key={h.id} href={`/comics/${h.chapter.comic.slug}`}
-                      className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-3 transition-all hover:border-violet-500/30 hover:bg-violet-500/5">
-                      <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
-                        {h.chapter.comic.coverUrl ? <img src={h.chapter.comic.coverUrl} alt={h.chapter.comic.title} className="h-full w-full object-cover" /> :
-                          <div className="flex h-full items-center justify-center text-lg font-bold text-zinc-600">{h.chapter.comic.title[0]}</div>}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="truncate text-sm font-semibold text-white">{h.chapter.comic.title}</h4>
-                        <p className="text-xs text-zinc-500">Chương {String(h.chapter.number)} {h.chapter.title ? `— ${h.chapter.title}` : ''}</p>
-                        <p className="mt-0.5 text-xs text-zinc-600">{new Date(h.readAt).toLocaleDateString('vi-VN')}</p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
+              ) : (() => {
+                const groupedUserHistory = history.reduce<HistoryItem[]>((acc, item) => {
+                  const comicId = item.chapter.comic.id;
+                  if (!acc.some((existing) => existing.chapter.comic.id === comicId)) {
+                    acc.push(item);
+                  }
+                  return acc;
+                }, []);
+
+                if (groupedUserHistory.length === 0) {
+                  return <EmptyState icon="📖" title="Chưa có lịch sử đọc" desc="Bắt đầu đọc truyện ngay!" link="/comics" linkText="Khám phá truyện →" />;
+                }
+
+                return (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {groupedUserHistory.map((h) => (
+                      <Link key={h.id} href={`/read/${h.chapter.id}`}
+                        className="flex items-center gap-3 rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-3 transition-all hover:border-violet-500/30 hover:bg-violet-500/5">
+                        <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+                          {h.chapter.comic.coverUrl ? <img src={h.chapter.comic.coverUrl} alt={h.chapter.comic.title} className="h-full w-full object-cover" /> :
+                            <div className="flex h-full items-center justify-center text-lg font-bold text-zinc-400 dark:text-zinc-600">{h.chapter.comic.title[0]}</div>}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{h.chapter.comic.title}</h4>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">Đã đọc: Chương {String(h.chapter.number)}{h.chapter.title ? ` — ${h.chapter.title}` : ''}</p>
+                          <p className="mt-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">{new Date(h.readAt).toLocaleDateString('vi-VN')}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -439,6 +567,79 @@ export default function UserProfilePage() {
 
       {showEditModal && <EditProfileModal onClose={() => { setShowEditModal(false); /* Refresh after edit */ location.reload(); }} />}
       {showCropModal && <AvatarCropModal imageSrc={cropImageSrc} onCropComplete={handleCroppedAvatar} onClose={() => setShowCropModal(false)} />}
+
+      {/* ──── Follow List Modal ──── */}
+      {followModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setFollowModal({ ...followModal, open: false })}>
+          <div
+            className="relative mx-4 w-full max-w-md rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 px-5 py-4">
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                {followModal.type === 'followers' ? `Người theo dõi (${followListTotal})` : `Đang theo dõi (${followListTotal})`}
+              </h3>
+              <button
+                onClick={() => setFollowModal({ ...followModal, open: false })}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* List */}
+            <div className="max-h-[60vh] overflow-y-auto p-3">
+              {followListLoading && followList.length === 0 ? (
+                <div className="flex justify-center py-12">
+                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" />
+                </div>
+              ) : followList.length === 0 ? (
+                <div className="py-12 text-center">
+                  <div className="mb-2 text-3xl">😶</div>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    {followModal.type === 'followers' ? 'Chưa có người theo dõi nào' : 'Chưa theo dõi ai'}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    {followList.map((u) => (
+                      <Link
+                        key={u.id}
+                        href={`/user/${u.username}`}
+                        onClick={() => setFollowModal({ ...followModal, open: false })}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all hover:bg-zinc-100 dark:hover:bg-white/5"
+                      >
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-bold text-white">
+                          {u.avatarUrl ? (
+                            <img src={u.avatarUrl} alt={u.displayName} className="h-full w-full object-cover" />
+                          ) : (
+                            u.displayName.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{u.displayName}</p>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">@{u.username} · Lv.{u.level}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                  {followListPage < followListTotalPages && (
+                    <button
+                      onClick={loadMoreFollows}
+                      disabled={followListLoading}
+                      className="mt-3 w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 py-2.5 text-sm font-medium text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white disabled:opacity-50 cursor-pointer"
+                    >
+                      {followListLoading ? 'Đang tải...' : 'Xem thêm'}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -447,10 +648,10 @@ export default function UserProfilePage() {
 
 function StatCard({ icon, label, value }: { icon: string; label: string; value: string | number }) {
   return (
-    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 text-center">
+    <div className="rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-4 text-center">
       <div className="mb-1 text-lg">{icon}</div>
-      <p className="text-lg font-bold text-white">{value}</p>
-      <p className="text-xs text-zinc-500">{label}</p>
+      <p className="text-lg font-bold text-zinc-900 dark:text-white">{value}</p>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
     </div>
   );
 }
@@ -458,7 +659,7 @@ function StatCard({ icon, label, value }: { icon: string; label: string; value: 
 function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick}
-      className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${active ? 'bg-gradient-to-r from-violet-600/20 to-fuchsia-600/20 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>
+      className={`flex-1 rounded px-4 py-2.5 text-sm font-medium transition-all cursor-pointer ${active ? 'bg-white dark:bg-white/10 text-violet-600 dark:text-white font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}>
       {label}
     </button>
   );
@@ -466,11 +667,11 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
 
 function EmptyState({ icon, title, desc, link, linkText }: { icon: string; title: string; desc: string; link: string; linkText: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-12 text-center">
+    <div className="rounded border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] p-12 text-center">
       <div className="mb-3 text-4xl">{icon}</div>
-      <h3 className="text-base font-semibold text-white">{title}</h3>
-      <p className="mt-1.5 text-sm text-zinc-500">{desc}</p>
-      <Link href={link} className="mt-4 inline-block rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25">
+      <h3 className="text-base font-semibold text-zinc-900 dark:text-white">{title}</h3>
+      <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">{desc}</p>
+      <Link href={link} className="mt-4 inline-block rounded bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25">
         {linkText}
       </Link>
     </div>

@@ -42,11 +42,10 @@ export function CommentSection({
 }: CommentSectionProps) {
   return (
     <div
-      className={`rounded-2xl border p-5 sm:p-6 transition-colors ${
-        isReaderBgDark
-          ? 'border-white/10 bg-white/[0.03] text-white'
-          : 'border-zinc-200/80 bg-zinc-50/50 text-zinc-900'
-      }`}
+      className={`lg:rounded border p-5 sm:p-6 transition-colors ${isReaderBgDark
+        ? 'border-white/10 bg-white/[0.03] text-white'
+        : 'border-zinc-200/80 bg-zinc-50/50 text-zinc-900 dark:border-white/10 dark:bg-zinc-900/80 dark:text-white'
+        }`}
     >
       {/* Section Header */}
       <div className="mb-6 flex items-center justify-between">
@@ -62,11 +61,10 @@ export function CommentSection({
       {readOnly ? (
         readOnlyMessage && (
           <div
-            className={`mb-6 rounded-xl border p-4 text-xs ${
-              isReaderBgDark
-                ? 'border-white/10 bg-white/5 text-zinc-400'
-                : 'border-zinc-200 bg-zinc-100/70 text-zinc-600'
-            }`}
+            className={`mb-6 rounded border p-4 text-xs ${isReaderBgDark
+              ? 'border-white/10 bg-white/5 text-zinc-400'
+              : 'border-zinc-200 bg-zinc-100/70 text-zinc-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-400'
+              }`}
           >
             ℹ️ {readOnlyMessage}
           </div>
@@ -86,20 +84,18 @@ export function CommentSection({
         )
       ) : (
         <div
-          className={`mb-8 rounded-2xl border p-5 text-center transition-colors ${
-            isReaderBgDark
-              ? 'border-white/10 bg-white/5 text-zinc-400'
-              : 'border-zinc-200 bg-white shadow-sm text-zinc-600'
-          }`}
+          className={`mb-8 rounded border p-5 text-center transition-colors ${isReaderBgDark
+            ? 'border-white/10 bg-white/5 text-zinc-400'
+            : 'border-zinc-200 bg-white shadow-sm text-zinc-600 dark:border-white/10 dark:bg-zinc-800/80 dark:text-zinc-300'
+            }`}
         >
           <p className="mb-3 text-sm">Đăng nhập để tham gia bình luận và chia sẻ cảm nghĩ của bạn.</p>
           <Link
             href="/login"
-            className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-semibold text-white shadow-lg transition-all hover:brightness-110 ${
-              accentColor === 'emerald'
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-500/25'
-                : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 shadow-violet-500/25'
-            }`}
+            className={`inline-flex items-center gap-2 rounded px-5 py-2.5 text-xs font-semibold text-white shadow-lg transition-all hover:brightness-110 ${accentColor === 'emerald'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-500/25'
+              : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 shadow-violet-500/25'
+              }`}
           >
             Đăng nhập ngay
           </Link>
@@ -124,7 +120,7 @@ export function CommentSection({
         </div>
       ) : (
         <div className="py-10 text-center">
-          <p className={`text-sm ${isReaderBgDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
+          <p className={`text-sm ${isReaderBgDark ? 'text-zinc-500' : 'text-zinc-400 dark:text-zinc-500'}`}>
             Chưa có bình luận nào. Hãy là người đầu tiên lên tiếng!
           </p>
         </div>
@@ -136,11 +132,10 @@ export function CommentSection({
           <button
             onClick={onLoadMore}
             disabled={isLoadingMore}
-            className={`w-full sm:w-auto rounded-xl border px-6 py-2.5 text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer ${
-              isReaderBgDark
-                ? 'border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white'
-                : 'border-zinc-200 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50 hover:text-zinc-900'
-            }`}
+            className={`w-full sm:w-auto rounded border px-6 py-2.5 text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer ${isReaderBgDark
+              ? 'border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white'
+              : 'border-zinc-200 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50 hover:text-zinc-900 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white'
+              }`}
           >
             {isLoadingMore ? 'Đang tải bình luận...' : 'Xem thêm bình luận'}
           </button>

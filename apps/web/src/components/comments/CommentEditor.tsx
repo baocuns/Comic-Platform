@@ -110,8 +110,8 @@ export function CommentEditor({
                 isReaderBgDark
                   ? 'border-white/10 bg-white/[0.04] focus-within:border-violet-500/50 focus-within:ring-2 focus-within:ring-violet-500/20'
                   : accentColor === 'emerald'
-                  ? 'border-zinc-200 bg-zinc-50 focus-within:border-emerald-500/50 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/20'
-                  : 'border-zinc-200 bg-zinc-50 focus-within:border-violet-500/50 focus-within:bg-white focus-within:ring-2 focus-within:ring-violet-500/20'
+                  ? 'border-zinc-200 bg-zinc-50 focus-within:border-emerald-500/50 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/20 dark:border-white/10 dark:bg-zinc-900/60 dark:focus-within:bg-zinc-900'
+                  : 'border-zinc-200 bg-zinc-50 focus-within:border-violet-500/50 focus-within:bg-white focus-within:ring-2 focus-within:ring-violet-500/20 dark:border-white/10 dark:bg-zinc-900/60 dark:focus-within:bg-zinc-900'
               }`}
             >
               <textarea
@@ -121,7 +121,7 @@ export function CommentEditor({
                 placeholder={placeholder}
                 rows={compact ? 2 : 3}
                 className={`w-full bg-transparent px-4 py-3 text-sm outline-none resize-none transition-colors ${
-                  isReaderBgDark ? 'text-white placeholder-zinc-500' : 'text-zinc-900 placeholder-zinc-400'
+                  isReaderBgDark ? 'text-white placeholder-zinc-500' : 'text-zinc-900 placeholder-zinc-400 dark:text-white dark:placeholder-zinc-500'
                 }`}
               />
 
@@ -134,7 +134,7 @@ export function CommentEditor({
                       className={`group relative rounded-xl border p-1.5 transition-all shadow-sm ${
                         isReaderBgDark
                           ? 'border-white/15 bg-white/5 shadow-black/40'
-                          : 'border-zinc-200 bg-white shadow-zinc-200/50'
+                          : 'border-zinc-200 bg-white shadow-zinc-200/50 dark:border-white/10 dark:bg-zinc-800/80 dark:shadow-black/40'
                       }`}
                     >
                       <img
@@ -158,7 +158,7 @@ export function CommentEditor({
               {/* Bottom Toolbar */}
               <div
                 className={`flex items-center justify-between border-t px-3 py-2 ${
-                  isReaderBgDark ? 'border-white/5' : 'border-zinc-100'
+                  isReaderBgDark ? 'border-white/5' : 'border-zinc-100 dark:border-white/10'
                 }`}
               >
                 {/* Left tools: Emoji & Sticker */}
@@ -173,7 +173,7 @@ export function CommentEditor({
                           : 'bg-violet-500/20 text-violet-500'
                         : isReaderBgDark
                         ? 'text-zinc-400 hover:bg-white/10 hover:text-white'
-                        : 'text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-900'
+                        : 'text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white'
                     }`}
                   >
                     <span className="text-base leading-none">🎭</span>

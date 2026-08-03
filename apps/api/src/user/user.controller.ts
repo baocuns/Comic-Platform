@@ -1,4 +1,4 @@
-import { Controller, Put, Get, Post, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Put, Get, Post, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from './user.service';
 import { UpdateProfileDto, UpdateBannerPositionDto } from './dto/user.dto';
@@ -72,6 +72,38 @@ export class UserController {
 
     const profile = await this.userService.getPublicProfile(username, viewerId);
     return { success: true, data: profile };
+  }
+
+  // ── Follow lists ──
+
+  @Public()
+  @Get(':userId/followers')
+  async getFollowers(
+    @Param('userId') userId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const data = await this.userService.getFollowers(
+      userId,
+      page ? parseInt(page, 10) : 1,
+      limit ? Math.min(parseInt(limit, 10), 50) : 20,
+    );
+    return { success: true, data };
+  }
+
+  @Public()
+  @Get(':userId/following')
+  async getFollowing(
+    @Param('userId') userId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const data = await this.userService.getFollowing(
+      userId,
+      page ? parseInt(page, 10) : 1,
+      limit ? Math.min(parseInt(limit, 10), 50) : 20,
+    );
+    return { success: true, data };
   }
 
   // ── Follow ──

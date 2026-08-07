@@ -18,6 +18,33 @@ interface NewsArticle {
   tags: string[];
   isPinned: boolean;
   isPublished: boolean;
+  approvalStatus?: string;
+  rejectionReason?: string | null;
+}
+
+interface ArticleEvent {
+  id: string;
+  type: 'LIKE' | 'COMMENT' | 'MODERATION';
+  user?: {
+    id: string;
+    displayName: string;
+    avatarUrl: string | null;
+    username: string;
+  };
+  content?: string;
+  action?: string;
+  createdAt: string;
+}
+
+interface ArticleStats {
+  viewCount: number;
+  likesCount: number;
+  commentsCount: number;
+  approvalStatus: string;
+  rejectionReason: string | null;
+  isPublished: boolean;
+  publishedAt: string | null;
+  createdAt: string;
 }
 
 const categoryOptions = [
@@ -44,6 +71,11 @@ export default function EditNewsPage() {
   const [isPinned, setIsPinned] = useState(false);
   const [isPublished, setIsPublished] = useState(true);
 
+  // Stats & Events
+  const [stats, setStats] = useState<ArticleStats | null>(null);
+  const [events, setEvents] = useState<ArticleEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+
   // Cover image mode: 'upload' | 'url'
   const [coverMode, setCoverMode] = useState<'upload' | 'url'>('upload');
   const [coverUrl, setCoverUrl] = useState('');
@@ -64,6 +96,25 @@ export default function EditNewsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const fetchEvents = () => {
+    if (!accessToken || !articleId) return;
+    setEventsLoading(true);
+    api
+      .get<{ stats: ArticleStats; events: ArticleEvent[] }>(`/news/${articleId}/events`, { token: accessToken })
+      .then((res) => {
+        if (res) {
+          setStats(res.stats || null);
+          setEvents(res.events || []);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setEventsLoading(false));
+  };
+
+  useEffect(() => {
+    fetchEvents();
+  }, [accessToken, articleId]);
 
   // Fetch article data
   useEffect(() => {
@@ -263,13 +314,145 @@ export default function EditNewsPage() {
         </button>
       </div>
 
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white sm:text-3xl">
           Chỉnh sửa bài viết tin tức
         </h1>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           Cập nhật thông tin, nội dung và các tùy chọn xuất bản của bài viết
         </p>
+      </div>
+
+      {/* Article Performance Stats Cards */}
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-[#0c0c0f] p-4 shadow-sm">
+          <div className="flex items-center justify-between text-xs text-zinc-500">
+            <span>Lượt xem</span>
+            <span>👁️</span>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{stats?.viewCount || 0}</p>
+        </div>
+
+        <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-[#0c0c0f] p-4 shadow-sm">
+          <div className="flex items-center justify-between text-xs text-zinc-500">
+            <span>Lượt thích</span>
+            <span>❤️</span>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{stats?.likesCount || 0}</p>
+        </div>
+
+        <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-[#0c0c0f] p-4 shadow-sm">
+          <div className="flex items-center justify-between text-xs text-zinc-500">
+            <span>Bình luận</span>
+            <span>💬</span>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{stats?.commentsCount || 0}</p>
+        </div>
+
+        <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-[#0c0c0f] p-4 shadow-sm">
+          <div className="flex items-center justify-between text-xs text-zinc-500">
+            <span>Phê duyệt</span>
+            <span>🛡️</span>
+          </div>
+          <div className="mt-2 flex items-center gap-1.5">
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                stats?.approvalStatus === 'APPROVED'
+                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                  : stats?.approvalStatus === 'REJECTED'
+                  ? 'bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20'
+                  : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+              }`}
+            >
+              {stats?.approvalStatus === 'APPROVED'
+                ? '✅ Đã duyệt'
+                : stats?.approvalStatus === 'REJECTED'
+                ? '❌ Bị từ chối'
+                : '⏳ Chờ duyệt'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Rejection Alert Banner */}
+      {stats?.approvalStatus === 'REJECTED' && stats?.rejectionReason && (
+        <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-700 dark:text-red-300">
+          <p className="font-bold text-sm">❌ Bài viết chưa được phê duyệt</p>
+          <p className="mt-1">Lý do từ chối: "{stats.rejectionReason}"</p>
+          <p className="mt-1 text-[11px] text-zinc-500">Vui lòng chỉnh sửa lại nội dung phù hợp rồi gửi lại yêu cầu phê duyệt.</p>
+        </div>
+      )}
+
+      {/* Article Activity & Events Feed */}
+      <div className="mb-8 rounded-2xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-[#0c0c0f] p-6 shadow-sm">
+        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-white/[0.06] pb-3 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⚡</span>
+            <h2 className="text-base font-bold text-zinc-900 dark:text-white">Thông báo sự kiện & Tương tác</h2>
+            <span className="rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-300 px-2 py-0.5 text-xs font-semibold">
+              {events.length} sự kiện
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={fetchEvents}
+            className="rounded-lg bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 px-3 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors"
+          >
+            🔄 Làm mới
+          </button>
+        </div>
+
+        {eventsLoading ? (
+          <div className="py-8 text-center">
+            <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" />
+          </div>
+        ) : events.length === 0 ? (
+          <div className="py-8 text-center text-xs text-zinc-500">
+            Chưa có tương tác (thích, bình luận) nào trên bài viết này.
+          </div>
+        ) : (
+          <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+            {events.map((ev) => (
+              <div
+                key={ev.id}
+                className="flex items-start justify-between gap-3 rounded-xl bg-zinc-50 dark:bg-white/[0.02] p-3 text-xs border border-zinc-100 dark:border-white/[0.04]"
+              >
+                <div className="flex items-start gap-3">
+                  {ev.type === 'LIKE' && <span className="text-base">❤️</span>}
+                  {ev.type === 'COMMENT' && <span className="text-base">💬</span>}
+                  {ev.type === 'MODERATION' && <span className="text-base">🛡️</span>}
+
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-zinc-900 dark:text-white">
+                        {ev.user?.displayName || 'Hệ thống'}
+                      </span>
+                      {ev.user?.username && <span className="text-zinc-500">@{ev.user.username}</span>}
+                    </div>
+
+                    {ev.type === 'LIKE' && (
+                      <p className="text-zinc-600 dark:text-zinc-400">Đã thả tim bài viết của bạn</p>
+                    )}
+                    {ev.type === 'COMMENT' && (
+                      <p className="text-zinc-700 dark:text-zinc-300 italic bg-white dark:bg-white/5 p-2 rounded-lg mt-1 border border-zinc-200 dark:border-white/5">
+                        "{ev.content}"
+                      </p>
+                    )}
+                    {ev.type === 'MODERATION' && (
+                      <p className="text-violet-600 dark:text-violet-400 font-medium">
+                        {ev.action}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <span className="text-[11px] text-zinc-400 shrink-0">
+                  {new Date(ev.createdAt).toLocaleString('vi-VN')}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {errorMsg && (

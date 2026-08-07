@@ -28,6 +28,8 @@ interface Chapter {
   title: string | null;
   totalPages: number;
   views: number;
+  approvalStatus?: string;
+  rejectionReason?: string | null;
   publishedAt: string | null;
   createdAt: string;
 }
@@ -193,9 +195,22 @@ export default function StudioComicDetailPage() {
   const handlePublishChapter = async (chapterId: string) => {
     if (!accessToken) return;
     try {
-      await api.post(`/chapters/${chapterId}/publish`, {}, { token: accessToken });
-      setChapters((prev) => prev.map((ch) => ch.id === chapterId ? { ...ch, publishedAt: new Date().toISOString() } : ch));
-    } catch {}
+      const res = await api.post<{ data: { autoApproved: boolean; status: string } }>(
+        `/chapters/${chapterId}/submit-review`,
+        {},
+        { token: accessToken },
+      );
+      setChapters((prev) =>
+        prev.map((ch) => (ch.id === chapterId ? { ...ch, approvalStatus: res.data.status, rejectionReason: null } : ch)),
+      );
+      alert(
+        res.data.autoApproved
+          ? 'Tác giả đã được xác minh. Chương truyện đã được tự động phê duyệt!'
+          : 'Đã gửi yêu cầu phê duyệt chương truyện tới Ban Quản Trị.',
+      );
+    } catch (err: any) {
+      alert(err?.message || 'Gửi yêu cầu thất bại');
+    }
   };
 
   const handleDeleteChapter = async (chapterId: string) => {
@@ -462,11 +477,27 @@ export default function StudioComicDetailPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-zinc-900 dark:text-white">Chương {ch.number}</span>
                       {ch.title && <span className="text-sm text-zinc-500">— {ch.title}</span>}
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                        ch.approvalStatus === 'APPROVED'
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                          : ch.approvalStatus === 'PENDING_APPROVAL'
+                          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                          : ch.approvalStatus === 'REJECTED'
+                          ? 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20'
+                          : 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-500/20'
+                      }`}>
+                        {ch.approvalStatus === 'APPROVED' ? '✅ Đã duyệt' : ch.approvalStatus === 'PENDING_APPROVAL' ? '⏳ Chờ duyệt' : ch.approvalStatus === 'REJECTED' ? '❌ Bị từ chối' : '📝 Bản nháp'}
+                      </span>
                     </div>
+                    {ch.approvalStatus === 'REJECTED' && ch.rejectionReason && (
+                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                        Lý do từ chối: {ch.rejectionReason}
+                      </p>
+                    )}
                     <div className="mt-1 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
                       <span>📄 {ch.totalPages} trang</span>
                       <span>👁️ {ch.views} views</span>
-                      <span>{ch.publishedAt ? `✅ ${new Date(ch.publishedAt).toLocaleDateString('vi-VN')}` : '📝 Nháp'}</span>
+                      {ch.publishedAt && <span>📅 {new Date(ch.publishedAt).toLocaleDateString('vi-VN')}</span>}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -476,9 +507,9 @@ export default function StudioComicDetailPage() {
                     >
                       🎨 Canvas Editor
                     </Link>
-                    {!ch.publishedAt && (
-                      <button onClick={() => handlePublishChapter(ch.id)} className="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 transition-colors hover:bg-emerald-500/25">
-                        Xuất bản
+                    {(ch.approvalStatus === 'DRAFT' || ch.approvalStatus === 'REJECTED' || !ch.approvalStatus) && (
+                      <button onClick={() => handlePublishChapter(ch.id)} className="rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 transition-colors hover:bg-amber-500/25 border border-amber-500/30">
+                        {ch.approvalStatus === 'REJECTED' ? 'Sửa & Gửi lại' : 'Gửi duyệt'}
                       </button>
                     )}
                     <button onClick={() => handleDeleteChapter(ch.id)} className="rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 transition-colors hover:bg-red-500/20">

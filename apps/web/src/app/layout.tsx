@@ -8,6 +8,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { SearchModal } from "@/components/layout/search-modal";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { SocketProvider } from "@/components/providers/socket-provider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -103,10 +104,12 @@ export default function RootLayout({
           <ToastProvider>
             <ThemeProvider>
               <AuthProvider>
-                <Header />
-                <SearchModal />
-                <main className="flex-1">{children}</main>
-                <Footer />
+                <SocketProvider>
+                  <Header />
+                  <SearchModal />
+                  <main className="flex-1">{children}</main>
+                  <Footer />
+                </SocketProvider>
               </AuthProvider>
             </ThemeProvider>
           </ToastProvider>

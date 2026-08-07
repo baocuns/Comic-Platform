@@ -16,6 +16,8 @@ interface NewsArticle {
   tags: string[];
   isPinned: boolean;
   isPublished: boolean;
+  approvalStatus?: string;
+  rejectionReason?: string | null;
   viewCount: number;
   publishedAt: string | null;
   createdAt: string;
@@ -82,6 +84,25 @@ export default function StudioNewsPage() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     fetchArticles();
+  };
+
+  const handleSubmitReview = async (id: string) => {
+    if (!accessToken) return;
+    try {
+      const res = await api.post<{ data: { autoApproved: boolean; status: string } }>(
+        `/news/${id}/submit-review`,
+        {},
+        { token: accessToken },
+      );
+      fetchArticles();
+      alert(
+        res.data.autoApproved
+          ? 'Tác giả đã được xác minh. Bài viết đã được tự động phê duyệt!'
+          : 'Đã gửi yêu cầu phê duyệt bài viết tới Ban Quản Trị.',
+      );
+    } catch (err: any) {
+      alert(err?.message || 'Gửi yêu cầu thất bại');
+    }
   };
 
   const handleTogglePublish = async (id: string) => {

@@ -79,12 +79,28 @@ export class NewsController {
     return { success: true, data: article };
   }
 
+  @Post(':id/submit-review')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.AUTHOR)
+  async submitReview(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+    const result = await this.newsService.submitReview(id, userId);
+    return { success: true, data: result };
+  }
+
   @Post(':id/publish')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.AUTHOR)
   async publish(@Param('id') id: string, @CurrentUser('sub') userId: string) {
     const article = await this.newsService.publish(id, userId);
     return { success: true, data: article };
+  }
+
+  @Get(':id/events')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.AUTHOR)
+  async getEvents(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+    const result = await this.newsService.getArticleEvents(id, userId);
+    return { success: true, ...result };
   }
 
   @Delete(':id')

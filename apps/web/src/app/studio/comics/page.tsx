@@ -11,6 +11,8 @@ interface Comic {
   title: string;
   slug: string;
   status: string;
+  approvalStatus?: string;
+  rejectionReason?: string | null;
   coverUrl: string | null;
   stats: { totalViews: number; totalChapters: number };
   genres: { id: string; name: string }[];
@@ -23,6 +25,13 @@ const statusLabel: Record<string, string> = {
   HIATUS: 'Tạm dừng',
 };
 
+const approvalBadge: Record<string, { label: string; class: string }> = {
+  DRAFT: { label: 'Bản nháp', class: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-300 dark:border-zinc-500/20' },
+  PENDING_APPROVAL: { label: '⏳ Chờ duyệt', class: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-500/20' },
+  APPROVED: { label: '✅ Đã duyệt', class: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/20' },
+  REJECTED: { label: '❌ Bị từ chối', class: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-300 dark:border-red-500/20' },
+};
+
 const statusColor: Record<string, string> = {
   DRAFT: 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300 border-zinc-300 dark:border-zinc-500/20',
   ONGOING: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/20',
@@ -32,9 +41,10 @@ const statusColor: Record<string, string> = {
 
 const filterOptions = [
   { value: 'ALL', label: 'Tất cả' },
-  { value: 'DRAFT', label: 'Nháp' },
-  { value: 'ONGOING', label: 'Đang ra' },
-  { value: 'COMPLETED', label: 'Hoàn thành' },
+  { value: 'PENDING_APPROVAL', label: 'Chờ duyệt' },
+  { value: 'APPROVED', label: 'Đã duyệt' },
+  { value: 'REJECTED', label: 'Bị từ chối' },
+  { value: 'DRAFT', label: 'Bản nháp' },
 ];
 
 export default function StudioComicsPage() {
@@ -77,8 +87,31 @@ export default function StudioComicsPage() {
     setCreating(false);
   };
 
+  const handleSubmitReview = async (e: React.MouseEvent, comicId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!accessToken) return;
+    try {
+      const res = await api.post<{ data: { autoApproved: boolean; status: string } }>(
+        `/comics/${comicId}/submit-review`,
+        {},
+        { token: accessToken },
+      );
+      setComics((prev) =>
+        prev.map((c) => (c.id === comicId ? { ...c, approvalStatus: res.data.status, rejectionReason: null } : c)),
+      );
+      alert(
+        res.data.autoApproved
+          ? 'Tác giả đã được xác minh. Truyện đã được tự động phê duyệt!'
+          : 'Đã gửi yêu cầu phê duyệt tới Ban Quản Trị.',
+      );
+    } catch (err: any) {
+      alert(err?.message || 'Gửi yêu cầu thất bại');
+    }
+  };
+
   const filtered = comics.filter((c) => {
-    if (filter !== 'ALL' && c.status !== filter) return false;
+    if (filter !== 'ALL' && (c.approvalStatus || c.status) !== filter) return false;
     if (search && !c.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -182,14 +215,16 @@ export default function StudioComicsPage() {
                   <img src={comic.coverUrl} alt="" className="h-full w-full object-cover opacity-60 dark:opacity-40 transition-opacity group-hover:opacity-80 dark:group-hover:opacity-50" />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-[#0c0c0f] via-transparent to-transparent" />
-                <span className={`absolute right-3 top-3 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold backdrop-blur-sm ${statusColor[comic.status] || statusColor.DRAFT}`}>
-                  {statusLabel[comic.status] || comic.status}
-                </span>
+                <div className="absolute right-3 top-3 flex items-center gap-1.5">
+                  <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold backdrop-blur-sm ${approvalBadge[comic.approvalStatus || 'DRAFT']?.class || approvalBadge.DRAFT.class}`}>
+                    {approvalBadge[comic.approvalStatus || 'DRAFT']?.label || comic.approvalStatus}
+                  </span>
+                </div>
               </div>
 
               {/* Info */}
               <div className="relative -mt-8 px-5 pb-5">
-                <div className="mb-3 flex items-end gap-3">
+                <div className="mb-3 flex items-end justify-between">
                   <div className="h-16 w-12 shrink-0 overflow-hidden rounded-lg border-2 border-white dark:border-[#0c0c0f] bg-zinc-100 dark:bg-zinc-800 shadow-lg">
                     {comic.coverUrl ? (
                       <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover" />
@@ -197,10 +232,23 @@ export default function StudioComicsPage() {
                       <div className="flex h-full w-full items-center justify-center text-base font-bold text-zinc-400 dark:text-zinc-600">{comic.title[0]}</div>
                     )}
                   </div>
+                  {(comic.approvalStatus === 'DRAFT' || comic.approvalStatus === 'REJECTED') && (
+                    <button
+                      onClick={(e) => handleSubmitReview(e, comic.id)}
+                      className="rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-3 py-1 text-xs font-semibold transition-all"
+                    >
+                      {comic.approvalStatus === 'REJECTED' ? 'Sửa & Gửi lại' : 'Gửi duyệt'}
+                    </button>
+                  )}
                 </div>
                 <h3 className="truncate text-base font-semibold text-zinc-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">
                   {comic.title}
                 </h3>
+                {comic.approvalStatus === 'REJECTED' && comic.rejectionReason && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400 bg-red-500/10 p-2 rounded border border-red-500/20">
+                    <strong>Lý do từ chối:</strong> {comic.rejectionReason}
+                  </p>
+                )}
                 <div className="mt-2 flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
                   <span className="flex items-center gap-1">📖 {comic.stats?.totalChapters || 0} chương</span>
                   <span className="flex items-center gap-1">👁️ {(comic.stats?.totalViews || 0).toLocaleString()} đọc</span>
@@ -226,17 +274,32 @@ export default function StudioComicsPage() {
                 )}
               </div>
               <div className="flex-1 overflow-hidden">
-                <h3 className="truncate text-sm font-semibold text-zinc-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">
-                  {comic.title}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="truncate text-sm font-semibold text-zinc-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">
+                    {comic.title}
+                  </h3>
+                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${approvalBadge[comic.approvalStatus || 'DRAFT']?.class || approvalBadge.DRAFT.class}`}>
+                    {approvalBadge[comic.approvalStatus || 'DRAFT']?.label || comic.approvalStatus}
+                  </span>
+                </div>
+                {comic.approvalStatus === 'REJECTED' && comic.rejectionReason && (
+                  <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">
+                    Lý do: {comic.rejectionReason}
+                  </p>
+                )}
                 <div className="mt-1 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
                   <span>📖 {comic.stats?.totalChapters || 0} chương</span>
                   <span>👁️ {(comic.stats?.totalViews || 0).toLocaleString()} đọc</span>
                 </div>
               </div>
-              <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${statusColor[comic.status] || statusColor.DRAFT}`}>
-                {statusLabel[comic.status] || comic.status}
-              </span>
+              {(comic.approvalStatus === 'DRAFT' || comic.approvalStatus === 'REJECTED') && (
+                <button
+                  onClick={(e) => handleSubmitReview(e, comic.id)}
+                  className="shrink-0 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-3 py-1 text-xs font-semibold transition-all"
+                >
+                  {comic.approvalStatus === 'REJECTED' ? 'Sửa & Gửi lại' : 'Gửi duyệt'}
+                </button>
+              )}
             </Link>
           ))}
         </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/auth-store';
 import { usePathname, useRouter } from 'next/navigation';
+import { NotificationBell } from './notification-bell';
 import { useSearchStore } from '@/stores/search-store';
 import { useTheme } from '@/components/providers/theme-provider';
 
@@ -92,7 +93,7 @@ export function Header() {
         </div>
 
         {/* Auth Actions */}
-        <div className="flex items-center gap-2 md:gap-8">
+        <div className="flex items-center gap-2 md:gap-4">
           {/* Search */}
           <button
             onClick={openSearch}
@@ -100,6 +101,9 @@ export function Header() {
           >
             <i className="fa-light fa-magnifying-glass" />
           </button>
+
+          {/* Notifications */}
+          {user && <NotificationBell />}
 
           {/* User */}
           {user ? (
@@ -163,7 +167,7 @@ export function Header() {
                         className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors"
                       >
                         <i className="fa-light fa-pen-nib w-4 text-center text-zinc-400 text-base" />
-                        <span>Studio tác giả</span>
+                        <span>Studio</span>
                       </Link>
                     )}
                     <Link

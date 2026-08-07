@@ -2,12 +2,15 @@ import { Injectable, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
 import { GamificationService } from '../gamification/gamification.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class RatingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gamification: GamificationService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async rate(userId: string, comicId: string, score: number, review?: string) {
@@ -50,6 +53,30 @@ export class RatingService {
     // Award XP on first rating only
     if (isFirstRating) {
       this.gamification.awardRate(userId, comicId).catch(() => {});
+
+      // Send RATING_RECEIVED notification to comic author
+      const comic = await this.prisma.comic.findUnique({
+        where: { id: comicId },
+        select: { authorId: true, title: true, slug: true },
+      });
+
+      if (comic && comic.authorId !== userId) {
+        this.notificationService.createPersonal({
+          userId: comic.authorId,
+          type: NotificationType.RATING_RECEIVED,
+          title: `${rating.user.displayName} đã đánh giá ${score}⭐ truyện của bạn`,
+          content: review ? (review.length > 100 ? review.substring(0, 100) + '...' : review) : undefined,
+          data: {
+            comicId,
+            comicSlug: comic.slug,
+            comicTitle: comic.title,
+            score,
+            actorId: userId,
+            actorName: rating.user.displayName,
+            actorAvatar: rating.user.avatarUrl,
+          },
+        }).catch(() => {});
+      }
     }
 
     return rating;

@@ -59,6 +59,16 @@ body {
   animation: cursor-blink 0.8s step-end infinite;
 }
 
+@keyframes bounce-in {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.3s ease-out;
+}
+
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;

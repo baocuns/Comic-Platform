@@ -1,11 +1,17 @@
 import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateNewsDto, UpdateNewsDto, NewsQueryDto } from './dto/news.dto';
-import { UserRole } from '@prisma/client';
+import { UserRole, ApprovalStatus, ModerationTargetType, NotificationType } from '@prisma/client';
+import { ModerationService } from '../moderation/moderation.service';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class NewsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly moderationService: ModerationService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   private generateSlug(title: string): string {
     return title
@@ -32,7 +38,26 @@ export class NewsService {
 
   async create(userId: string, dto: CreateNewsDto) {
     const slug = await this.ensureUniqueSlug(this.generateSlug(dto.title));
-    const isPublished = dto.isPublished !== undefined ? dto.isPublished : false;
+    const requestedPublish = dto.isPublished !== undefined ? dto.isPublished : false;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { isVerified: true, role: true },
+    });
+    const isAutoApproved = user?.isVerified === true || user?.role === UserRole.ADMIN || user?.role === UserRole.MODERATOR;
+
+    let approvalStatus: ApprovalStatus = ApprovalStatus.DRAFT;
+    let isPublished = false;
+
+    if (requestedPublish) {
+      if (isAutoApproved) {
+        approvalStatus = ApprovalStatus.APPROVED;
+        isPublished = true;
+      } else {
+        approvalStatus = ApprovalStatus.PENDING_APPROVAL;
+        isPublished = false;
+      }
+    }
 
     const article = await this.prisma.newsArticle.create({
       data: {
@@ -45,6 +70,7 @@ export class NewsService {
         category: dto.category,
         tags: dto.tags || [],
         isPinned: dto.isPinned || false,
+        approvalStatus,
         isPublished,
         publishedAt: isPublished ? new Date() : null,
       },
@@ -82,6 +108,12 @@ export class NewsService {
     if (!article) throw new NotFoundException('Article not found');
     await this.checkOwnershipOrAdmin(article.authorId, userId);
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { isVerified: true, role: true },
+    });
+    const isAutoApproved = user?.isVerified === true || user?.role === UserRole.ADMIN || user?.role === UserRole.MODERATOR;
+
     const data: Record<string, unknown> = {};
     if (dto.title !== undefined) {
       data.title = dto.title;
@@ -94,8 +126,18 @@ export class NewsService {
     if (dto.tags !== undefined) data.tags = dto.tags;
     if (dto.isPinned !== undefined) data.isPinned = dto.isPinned;
     if (dto.isPublished !== undefined) {
-      data.isPublished = dto.isPublished;
-      data.publishedAt = dto.isPublished ? (article.publishedAt || new Date()) : null;
+      if (dto.isPublished) {
+        if (isAutoApproved) {
+          data.approvalStatus = ApprovalStatus.APPROVED;
+          data.isPublished = true;
+          data.publishedAt = article.publishedAt || new Date();
+        } else {
+          data.approvalStatus = ApprovalStatus.PENDING_APPROVAL;
+          data.isPublished = false;
+        }
+      } else {
+        data.isPublished = false;
+      }
     }
 
     return this.prisma.newsArticle.update({
@@ -107,21 +149,26 @@ export class NewsService {
     });
   }
 
+  async submitReview(id: string, userId: string) {
+    return this.moderationService.submitForReview(userId, ModerationTargetType.NEWS, id);
+  }
+
   async publish(id: string, userId: string) {
     const article = await this.prisma.newsArticle.findUnique({ where: { id } });
     if (!article) throw new NotFoundException('Article not found');
     await this.checkOwnershipOrAdmin(article.authorId, userId);
 
-    return this.prisma.newsArticle.update({
-      where: { id },
-      data: {
-        isPublished: !article.isPublished,
-        publishedAt: article.isPublished ? null : new Date(),
-      },
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-      },
-    });
+    if (article.isPublished) {
+      return this.prisma.newsArticle.update({
+        where: { id },
+        data: { isPublished: false },
+        include: {
+          author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+        },
+      });
+    }
+
+    return this.moderationService.submitForReview(userId, ModerationTargetType.NEWS, id);
   }
 
   async remove(id: string, userId: string) {
@@ -142,6 +189,7 @@ export class NewsService {
 
     const where: Record<string, unknown> = {
       isPublished: true,
+      approvalStatus: ApprovalStatus.APPROVED,
       deletedAt: null,
     };
 
@@ -231,7 +279,18 @@ export class NewsService {
     });
 
     if (!article || article.deletedAt) throw new NotFoundException('Article not found');
-    if (!article.isPublished) throw new NotFoundException('Article not found');
+    if (!article.isPublished || article.approvalStatus !== ApprovalStatus.APPROVED) {
+      let canAccess = false;
+      if (userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+        if (user && (user.role === UserRole.ADMIN || user.role === UserRole.MODERATOR || article.authorId === userId)) {
+          canAccess = true;
+        }
+      }
+      if (!canAccess) {
+        throw new NotFoundException('Article not found');
+      }
+    }
 
     // Increment view count
     await this.prisma.newsArticle.update({
@@ -254,7 +313,7 @@ export class NewsService {
   async findFeatured() {
     // Get pinned article or the latest one as the featured
     const featured = await this.prisma.newsArticle.findFirst({
-      where: { isPublished: true, deletedAt: null },
+      where: { isPublished: true, approvalStatus: ApprovalStatus.APPROVED, deletedAt: null },
       orderBy: [{ isPinned: 'desc' }, { publishedAt: 'desc' }],
       include: {
         author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
@@ -265,6 +324,7 @@ export class NewsService {
     const latest = await this.prisma.newsArticle.findMany({
       where: {
         isPublished: true,
+        approvalStatus: ApprovalStatus.APPROVED,
         deletedAt: null,
         ...(featured ? { id: { not: featured.id } } : {}),
       },
@@ -285,6 +345,7 @@ export class NewsService {
     return this.prisma.newsArticle.findMany({
       where: {
         isPublished: true,
+        approvalStatus: ApprovalStatus.APPROVED,
         deletedAt: null,
         id: { not: article.id },
         category: article.category,
@@ -339,6 +400,21 @@ export class NewsService {
       data: { commentsCount: { increment: 1 } },
     });
 
+    // Send real-time notification to the news article author if commenter is not the author
+    if (userId !== article.authorId) {
+      const commenterName = comment.user?.displayName || 'Một độc giả';
+      const snippet = content.length > 50 ? `${content.slice(0, 50)}...` : content;
+      this.notificationService
+        .createPersonal({
+          userId: article.authorId,
+          type: NotificationType.NEWS_COMMENT,
+          title: '💬 Bình luận mới trên tin tức',
+          content: `${commenterName} đã bình luận: "${snippet}" trên bài viết "${article.title}".`,
+          data: { articleId: article.id, slug: article.slug, commentId: comment.id, commenterId: userId },
+        })
+        .catch(() => {});
+    }
+
     return comment;
   }
 
@@ -376,7 +452,133 @@ export class NewsService {
         where: { id: articleId },
         data: { likesCount: { increment: 1 } },
       });
+
+      // Send real-time notification to the news article author if liker is not the author
+      if (userId !== article.authorId) {
+        const liker = await this.prisma.user.findUnique({ where: { id: userId }, select: { displayName: true } });
+        const likerName = liker?.displayName || 'Một độc giả';
+        this.notificationService
+          .createPersonal({
+            userId: article.authorId,
+            type: NotificationType.NEWS_LIKE,
+            title: '❤️ Lượt thích mới cho tin tức',
+            content: `${likerName} đã thích bài viết "${article.title}" của bạn.`,
+            data: { articleId: article.id, slug: article.slug, likerId: userId },
+          })
+          .catch(() => {});
+      }
+
       return { liked: true };
     }
+  }
+
+  // ── Article Events & Stats ──
+
+  async getArticleEvents(id: string, userId: string) {
+    const article = await this.prisma.newsArticle.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        authorId: true,
+        viewCount: true,
+        likesCount: true,
+        commentsCount: true,
+        approvalStatus: true,
+        rejectionReason: true,
+        isPublished: true,
+        publishedAt: true,
+        createdAt: true,
+        deletedAt: true,
+      },
+    });
+    if (!article || article.deletedAt) throw new NotFoundException('Article not found');
+    await this.checkOwnershipOrAdmin(article.authorId, userId);
+
+    // Fetch recent likes
+    const likes = await this.prisma.newsLike.findMany({
+      where: { articleId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      include: {
+        user: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+      },
+    });
+
+    // Fetch recent comments
+    const comments = await this.prisma.newsComment.findMany({
+      where: { articleId: id, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      include: {
+        user: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+      },
+    });
+
+    // Fetch moderation logs
+    const logs = await this.prisma.moderationLog.findMany({
+      where: { targetType: ModerationTargetType.NEWS, targetId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: {
+        moderator: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+      },
+    });
+
+    // Combine into unified event timeline
+    const events: Array<{
+      id: string;
+      type: 'LIKE' | 'COMMENT' | 'MODERATION';
+      user?: { id: string; displayName: string; avatarUrl: string | null; username: string };
+      content?: string;
+      action?: string;
+      createdAt: Date;
+    }> = [];
+
+    likes.forEach((l) =>
+      events.push({
+        id: `like-${l.id}`,
+        type: 'LIKE',
+        user: l.user,
+        createdAt: l.createdAt,
+      }),
+    );
+
+    comments.forEach((c) =>
+      events.push({
+        id: `comment-${c.id}`,
+        type: 'COMMENT',
+        user: c.user,
+        content: c.content,
+        createdAt: c.createdAt,
+      }),
+    );
+
+    logs.forEach((log) =>
+      events.push({
+        id: `mod-${log.id}`,
+        type: 'MODERATION',
+        user: log.moderator,
+        action: log.action === ApprovalStatus.APPROVED ? 'Đã phê duyệt' : `Bị từ chối (Lý do: ${log.reason || 'Không có'})`,
+        content: log.reason || undefined,
+        createdAt: log.createdAt,
+      }),
+    );
+
+    events.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    return {
+      stats: {
+        viewCount: article.viewCount,
+        likesCount: article.likesCount || likes.length,
+        commentsCount: article.commentsCount || comments.length,
+        approvalStatus: article.approvalStatus,
+        rejectionReason: article.rejectionReason,
+        isPublished: article.isPublished,
+        publishedAt: article.publishedAt,
+        createdAt: article.createdAt,
+      },
+      events: events.slice(0, 30),
+    };
   }
 }

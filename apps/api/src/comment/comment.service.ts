@@ -1,12 +1,15 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GamificationService } from '../gamification/gamification.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class CommentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gamification: GamificationService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async create(userId: string, chapterId: string, content: string, parentId?: string) {
@@ -16,13 +19,39 @@ export class CommentService {
     });
 
     // Update comic comment count
-    const chapter = await this.prisma.chapter.findUnique({ where: { id: chapterId }, select: { comicId: true } });
+    const chapter = await this.prisma.chapter.findUnique({ where: { id: chapterId }, select: { comicId: true, comic: { select: { slug: true, title: true } } } });
     if (chapter) {
       await this.prisma.comic.update({ where: { id: chapter.comicId }, data: { totalComments: { increment: 1 } } });
     }
 
     // Award XP
     this.gamification.awardComment(userId, comment.id).catch(() => {});
+
+    // Send COMMENT_REPLY notification (if replying to someone else's comment)
+    if (parentId) {
+      const parentComment = await this.prisma.comment.findUnique({
+        where: { id: parentId },
+        select: { userId: true },
+      });
+
+      if (parentComment && parentComment.userId !== userId) {
+        this.notificationService.createPersonal({
+          userId: parentComment.userId,
+          type: NotificationType.COMMENT_REPLY,
+          title: `${comment.user.displayName} đã trả lời bình luận của bạn`,
+          content: content.length > 100 ? content.substring(0, 100) + '...' : content,
+          data: {
+            commentId: comment.id,
+            chapterId,
+            comicId: chapter?.comicId,
+            comicSlug: chapter?.comic?.slug,
+            actorId: userId,
+            actorName: comment.user.displayName,
+            actorAvatar: comment.user.avatarUrl,
+          },
+        }).catch(() => {});
+      }
+    }
 
     return comment;
   }

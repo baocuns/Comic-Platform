@@ -19,8 +19,8 @@ export class ChapterController {
 
   @Public()
   @Get('chapters/:id')
-  async findOne(@Param('id') id: string) {
-    const chapter = await this.chapterService.findOne(id);
+  async findOne(@Param('id') id: string, @CurrentUser('sub') userId?: string) {
+    const chapter = await this.chapterService.findOne(id, userId);
     return { success: true, data: chapter };
   }
 
@@ -51,6 +51,13 @@ export class ChapterController {
   ) {
     const chapter = await this.chapterService.update(id, userId, dto);
     return { success: true, data: chapter };
+  }
+
+  @Post('chapters/:id/submit-review')
+  @UseGuards(JwtAuthGuard)
+  async submitReview(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+    const result = await this.chapterService.submitReview(id, userId);
+    return { success: true, data: result };
   }
 
   @Post('chapters/:id/publish')

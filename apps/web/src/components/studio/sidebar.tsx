@@ -4,15 +4,23 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
-const navItems = [
-  { href: '/studio', label: 'Dashboard', icon: <i className="fa-solid fa-chart-mixed"></i>, exact: true },
-  { href: '/studio/comics', label: 'Truyện của tôi', icon: <i className="fa-solid fa-book"></i>, exact: false },
-  { href: '/studio/news', label: 'Quản lý tin tức', icon: <i className="fa-solid fa-newspaper"></i>, exact: false },
-];
+import { useAuthStore } from '@/stores/auth-store';
 
 export function StudioSidebar() {
   const pathname = usePathname();
+  const { user } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
+
+  const isAdminOrMod = user && (user.role === 'ADMIN' || user.role === 'MODERATOR');
+
+  const navItems = [
+    { href: '/studio', label: 'Dashboard', icon: <i className="fa-solid fa-chart-mixed"></i>, exact: true },
+    { href: '/studio/comics', label: 'Truyện của tôi', icon: <i className="fa-solid fa-book"></i>, exact: false },
+    { href: '/studio/news', label: 'Quản lý tin tức', icon: <i className="fa-solid fa-newspaper"></i>, exact: false },
+    ...(isAdminOrMod
+      ? [{ href: '/studio/moderation', label: 'Phê duyệt nội dung', icon: <i className="fa-solid fa-shield-check"></i>, exact: false }]
+      : []),
+  ];
 
   const isActive = (href: string, exact: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);

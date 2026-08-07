@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateChapterDto, UpdateChapterDto } from './dto/chapter.dto';
+import { ApprovalStatus, ModerationTargetType } from '@prisma/client';
+import { ModerationService } from '../moderation/moderation.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
@@ -13,7 +15,14 @@ export class ChapterService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly storage: StorageService,
+    private readonly moderationService: ModerationService,
   ) {}
+
+  // ── Submit Chapter Review ──
+
+  async submitReview(chapterId: string, userId: string) {
+    return this.moderationService.submitForReview(userId, ModerationTargetType.CHAPTER, chapterId);
+  }
 
   // ── Create Chapter ──
 
@@ -30,6 +39,7 @@ export class ChapterService {
         orderIndex: dto.number,
         isPremium: dto.isPremium || false,
         priceCoins: dto.priceCoins || 0,
+        approvalStatus: ApprovalStatus.DRAFT,
       },
     });
 
@@ -63,6 +73,8 @@ export class ChapterService {
         views: true,
         isPremium: true,
         priceCoins: true,
+        approvalStatus: true,
+        rejectionReason: true,
         publishedAt: true,
         createdAt: true,
       },
@@ -71,11 +83,11 @@ export class ChapterService {
 
   // ── Get Chapter with Pages ──
 
-  async findOne(chapterId: string) {
+  async findOne(chapterId: string, userId?: string) {
     const chapter = await this.prisma.chapter.findUnique({
       where: { id: chapterId, deletedAt: null },
       include: {
-        comic: { select: { id: true, title: true, slug: true, authorId: true } },
+        comic: { select: { id: true, title: true, slug: true, authorId: true, approvalStatus: true } },
         pages: {
           orderBy: { pageNumber: 'asc' },
         },
@@ -83,6 +95,20 @@ export class ChapterService {
     });
 
     if (!chapter) throw new NotFoundException('Chapter not found');
+
+    // Check approval status unless the requester is the author or an admin/moderator
+    if (chapter.approvalStatus !== ApprovalStatus.APPROVED || chapter.comic.approvalStatus !== ApprovalStatus.APPROVED) {
+      let canAccess = false;
+      if (userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+        if (user && (user.role === 'ADMIN' || user.role === 'MODERATOR' || chapter.comic.authorId === userId)) {
+          canAccess = true;
+        }
+      }
+      if (!canAccess) {
+        throw new NotFoundException('Chapter not found or not published');
+      }
+    }
 
     // Increment view count (fire and forget)
     this.prisma.chapter.update({
@@ -110,12 +136,22 @@ export class ChapterService {
 
     const [prev, next] = await Promise.all([
       this.prisma.chapter.findFirst({
-        where: { comicId: chapter.comicId, orderIndex: { lt: chapter.orderIndex }, deletedAt: null },
+        where: {
+          comicId: chapter.comicId,
+          orderIndex: { lt: chapter.orderIndex },
+          deletedAt: null,
+          approvalStatus: ApprovalStatus.APPROVED,
+        },
         orderBy: { orderIndex: 'desc' },
         select: { id: true, number: true, title: true },
       }),
       this.prisma.chapter.findFirst({
-        where: { comicId: chapter.comicId, orderIndex: { gt: chapter.orderIndex }, deletedAt: null },
+        where: {
+          comicId: chapter.comicId,
+          orderIndex: { gt: chapter.orderIndex },
+          deletedAt: null,
+          approvalStatus: ApprovalStatus.APPROVED,
+        },
         orderBy: { orderIndex: 'asc' },
         select: { id: true, number: true, title: true },
       }),
@@ -147,7 +183,7 @@ export class ChapterService {
     return updated;
   }
 
-  // ── Publish Chapter ──
+  // ── Publish Chapter (Submits for review / Auto approves if verified) ──
 
   async publish(chapterId: string, userId: string) {
     const chapter = await this.prisma.chapter.findUnique({
@@ -157,13 +193,7 @@ export class ChapterService {
     if (!chapter) throw new NotFoundException('Chapter not found');
     if (chapter.comic.authorId !== userId) throw new ForbiddenException('Not the author');
 
-    const updated = await this.prisma.chapter.update({
-      where: { id: chapterId },
-      data: { publishedAt: new Date() },
-    });
-
-    await this.redis.del(`comic:${chapter.comic.slug}`);
-    return updated;
+    return this.moderationService.submitForReview(userId, ModerationTargetType.CHAPTER, chapterId);
   }
 
   // ── Delete Chapter (soft) ──

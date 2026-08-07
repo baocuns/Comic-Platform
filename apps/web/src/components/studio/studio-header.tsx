@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { useTheme } from '@/components/providers/theme-provider';
+import { NotificationBell } from '@/components/layout/notification-bell';
 
 export function StudioHeader() {
   const pathname = usePathname();
@@ -43,6 +44,9 @@ export function StudioHeader() {
         >
           <i className={`fa-light ${theme === 'dark' ? 'fa-sun-bright' : 'fa-moon'} text-sm`} />
         </button>
+
+        {/* Notification Bell */}
+        <NotificationBell />
 
         {user && (
           <Link

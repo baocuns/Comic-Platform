@@ -2,7 +2,8 @@ import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nest
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { CreateComicDto, UpdateComicDto, ComicQueryDto } from './dto/comic.dto';
-import { ComicStatus, ContentRating, Prisma } from '@prisma/client';
+import { ComicStatus, ContentRating, ApprovalStatus, Prisma, ModerationTargetType } from '@prisma/client';
+import { ModerationService } from '../moderation/moderation.service';
 import slugify from 'slugify';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class ComicService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly moderationService: ModerationService,
   ) {}
 
   // ── Create Comic ──
@@ -28,6 +30,7 @@ export class ComicService {
         contentRating: dto.contentRating || ContentRating.EVERYONE,
         originalLanguage: dto.originalLanguage || 'vi',
         status: ComicStatus.DRAFT,
+        approvalStatus: ApprovalStatus.DRAFT,
         ...(dto.genreIds && {
           genres: {
             create: dto.genreIds.map((genreId) => ({ genreId })),
@@ -53,6 +56,7 @@ export class ComicService {
 
     const where: Prisma.ComicWhereInput = {
       deletedAt: null,
+      approvalStatus: ApprovalStatus.APPROVED,
       status: query.status || { not: ComicStatus.DRAFT },
     };
 
@@ -115,14 +119,16 @@ export class ComicService {
         author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
         genres: { include: { genre: true } },
         chapters: {
-          where: { deletedAt: null, publishedAt: { not: null } },
+          where: { deletedAt: null, approvalStatus: ApprovalStatus.APPROVED, publishedAt: { not: null } },
           orderBy: { orderIndex: 'asc' },
           select: { id: true, number: true, title: true, totalPages: true, isPremium: true, views: true, publishedAt: true },
         },
       },
     });
 
-    if (!comic) throw new NotFoundException('Comic not found');
+    if (!comic || comic.approvalStatus !== ApprovalStatus.APPROVED) {
+      throw new NotFoundException('Comic not found');
+    }
 
     const result = {
       ...this.formatComic(comic),
@@ -191,21 +197,20 @@ export class ComicService {
     await this.redis.del(`comic:${comic.slug}`);
   }
 
-  // ── Publish Comic ──
+  // ── Submit Comic Review ──
+
+  async submitReview(comicId: string, userId: string) {
+    return this.moderationService.submitForReview(userId, ModerationTargetType.COMIC, comicId);
+  }
+
+  // ── Publish Comic (Submits for review / Auto approves if verified) ──
 
   async publish(comicId: string, userId: string) {
     const comic = await this.prisma.comic.findUnique({ where: { id: comicId } });
     if (!comic) throw new NotFoundException('Comic not found');
     if (comic.authorId !== userId) throw new ForbiddenException('Not the author');
 
-    return this.prisma.comic.update({
-      where: { id: comicId },
-      data: { status: ComicStatus.ONGOING, publishedAt: comic.publishedAt || new Date() },
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-        genres: { include: { genre: true } },
-      },
-    });
+    return this.moderationService.submitForReview(userId, ModerationTargetType.COMIC, comicId);
   }
 
   // ── Get Author's Comics ──
@@ -220,7 +225,7 @@ export class ComicService {
       },
     });
 
-    return comics.map(this.formatComic);
+    return comics.map((c) => this.formatComic(c));
   }
 
   // ── Homepage Sections ──
@@ -235,7 +240,7 @@ export class ComicService {
       genres: { include: { genre: true } },
     };
     const notDraft = ComicStatus.DRAFT;
-    const baseWhere = { deletedAt: null, status: { not: notDraft } };
+    const baseWhere = { deletedAt: null, approvalStatus: ApprovalStatus.APPROVED, status: { not: notDraft } };
 
     const [trending, latest, topRated] = await Promise.all([
       this.prisma.comic.findMany({
@@ -344,6 +349,8 @@ export class ComicService {
       bannerUrl: comic.bannerUrl,
       bannerPosition: comic.bannerPosition ?? 50,
       status: comic.status,
+      approvalStatus: comic.approvalStatus,
+      rejectionReason: comic.rejectionReason,
       contentRating: comic.contentRating,
       originalLanguage: comic.originalLanguage,
       author: comic.author,

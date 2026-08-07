@@ -74,6 +74,13 @@ export class ComicController {
     return { success: true, data: comic };
   }
 
+  @Post(':id/submit-review')
+  @UseGuards(JwtAuthGuard)
+  async submitReview(@Param('id') id: string, @CurrentUser('sub') userId: string) {
+    const result = await this.comicService.submitReview(id, userId);
+    return { success: true, data: result };
+  }
+
   @Post(':id/publish')
   @UseGuards(JwtAuthGuard)
   async publish(@Param('id') id: string, @CurrentUser('sub') userId: string) {

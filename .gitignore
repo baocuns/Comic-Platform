@@ -39,3 +39,7 @@ apps/api/prisma/migrations/**/migration_lock.toml
 
 # Uploads (local dev)
 uploads/
+
+# Graphify
+graphify-out/
+.agents/

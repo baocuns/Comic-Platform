@@ -32,10 +32,10 @@ async function main() {
   // ── Seed Admin User ──
   const adminPassword = await bcrypt.hash('Admin@2026', 12);
   await prisma.user.upsert({
-    where: { email: 'admin@comicplatform.vn' },
+    where: { email: 'admin@owoc.vn' },
     update: {},
     create: {
-      email: 'admin@comicplatform.vn',
+      email: 'admin@owoc.vn',
       username: 'admin',
       passwordHash: adminPassword,
       displayName: 'Admin',
@@ -44,7 +44,7 @@ async function main() {
       emailVerifiedAt: new Date(),
     },
   });
-  console.log('  ✅ Admin user created (admin@comicplatform.vn / Admin@2026)');
+  console.log('  ✅ Admin user created (admin@owoc.vn / Admin@2026)');
 
   console.log('🎉 Seeding complete!');
 }

@@ -10,7 +10,7 @@ interface StatCardProps {
   gradient?: string;
 }
 
-export function StatCard({ icon, label, value, suffix = '', gradient = 'from-green-500 to-green-500' }: StatCardProps) {
+export function StatCard({ icon, label, value, suffix = '', gradient = 'from-amber-500 to-orange-500' }: StatCardProps) {
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export function StatCard({ icon, label, value, suffix = '', gradient = 'from-gre
 
       <div className="relative">
         <div className="mb-3 flex items-center gap-2.5">
-          <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br ${gradient} text-lg text-white shadow-lg shadow-violet-500/10`}>
+          <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br ${gradient} text-lg text-white shadow-lg shadow-amber-500/10`}>
             {icon}
           </div>
           <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">{label}</span>

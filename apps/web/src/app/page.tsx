@@ -108,16 +108,10 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Background effects */}
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute left-1/2 top-1/4 h-96 w-96 -translate-x-1/2 rounded-full bg-violet-500/5 dark:bg-violet-600/10 blur-[150px]" />
-        <div className="absolute bottom-0 left-1/4 h-64 w-64 rounded-full bg-fuchsia-500/5 dark:bg-fuchsia-600/8 blur-[120px]" />
-      </div>
-
       {/* Hero */}
       <section className="relative mx-auto max-w-6xl px-4 pb-12 pt-16 text-center">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-green-500/20 bg-green-500/5 dark:bg-green-500/10 px-4 py-1.5 text-sm text-green-600 dark:text-green-300">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500 dark:bg-green-400" />
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 px-4 py-1.5 text-sm text-amber-600 dark:text-amber-400 font-medium">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500 dark:bg-amber-400" />
           O W O C — Beta 1.0
         </div>
 
@@ -132,11 +126,11 @@ export default function Home() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={displayedPlaceholder}
-                className="w-full rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 pl-5 pr-14 py-3.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20"
+                className="w-full rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 pl-5 pr-14 py-3.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
               />
               <button
                 type="submit"
-                className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center text-zinc-600 dark:text-zinc-400 cursor-pointer"
+                className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer transition-colors"
               >
                 <i className="fa-light fa-magnifying-glass text-base" />
               </button>
@@ -161,7 +155,7 @@ export default function Home() {
                 <Link
                   key={g.id}
                   href={`/comics?genre=${g.slug}`}
-                  className="rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-all hover:border-green-500/30 hover:bg-green-500/10 hover:text-green-600 dark:hover:text-green-300"
+                  className="rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-all hover:border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 font-medium"
                 >
                   {g.icon} {g.name}
                 </Link>
@@ -177,7 +171,7 @@ export default function Home() {
             <h2 className="text-3xl lg:text-5xl font-bold dark:text-white">
               Chuyện gì đang xảy ra vậy?
             </h2>
-            <Link href="/news" className="hidden lg:block text-3xl text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300">
+            <Link href="/news" className="hidden lg:block text-3xl text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300 transition-colors">
               <i className="fa-duotone fa-solid fa-chevrons-right"></i>
             </Link>
           </div>
@@ -200,7 +194,7 @@ export default function Home() {
                       {newsData.featured.coverUrl ? (
                         <img src={newsData.featured.coverUrl} alt={newsData.featured.title} className="h-[201px] md:h-[496px] w-full rounded object-cover" />
                       ) : (
-                        <div className="h-full w-full rounded bg-gradient-to-br from-emerald-500/20 to-teal-500/20 flex items-center justify-center min-h-[300px]">
+                        <div className="h-full w-full rounded bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center min-h-[300px]">
                           <i className="fa-light fa-newspaper text-6xl text-zinc-300 dark:text-zinc-600" />
                         </div>
                       )}
@@ -222,7 +216,7 @@ export default function Home() {
                           {item.coverUrl ? (
                             <img src={item.coverUrl} alt={item.title} className="h-[88px] md:h-[112px] w-full rounded-l object-cover" />
                           ) : (
-                            <div className="h-full w-full rounded-l bg-gradient-to-br from-emerald-500/10 to-teal-500/10 flex items-center justify-center">
+                            <div className="h-full w-full rounded-l bg-gradient-to-br from-amber-500/10 to-orange-500/10 flex items-center justify-center">
                               <i className="fa-light fa-newspaper text-xl text-zinc-300 dark:text-zinc-600" />
                             </div>
                           )}
@@ -273,7 +267,7 @@ export default function Home() {
           <p className="text-zinc-500">Chưa có truyện nào. Hãy là người đầu tiên đăng truyện!</p>
           <Link
             href="/studio"
-            className="mt-4 inline-block rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-500/25"
+            className="mt-4 inline-block rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:brightness-110 transition-all"
           >
             Bắt đầu sáng tác →
           </Link>
@@ -288,21 +282,21 @@ function ComicSection({ title, comics }: { title: string; comics: Comic[] }) {
     <section className="px-4 sm:px-8 md:px-12 lg:px-16 pb-10">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold text-zinc-900 dark:text-white">{title}</h2>
-        <Link href="/comics" className="text-3xl text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300">
+        <Link href="/comics" className="text-3xl text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300 transition-colors">
           <i className="fa-duotone fa-solid fa-chevrons-right"></i>
         </Link>
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
         {comics.map((comic) => (
           <Link key={comic.id} href={`/comics/${comic.slug}`} className="group">
-            <div className="mb-2 aspect-[3/4] overflow-hidden rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 transition-all group-hover:border-violet-500/30 group-hover:shadow-lg group-hover:shadow-violet-500/5 dark:group-hover:shadow-violet-500/10">
+            <div className="mb-2 aspect-[3/4] overflow-hidden rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 transition-all group-hover:border-amber-500/40 group-hover:shadow-lg group-hover:shadow-amber-500/10">
               {comic.coverUrl ? (
                 <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover transition-transform group-hover:scale-105 duration-500 ease-in-out" />
               ) : (
                 <div className="flex h-full items-center justify-center text-3xl font-bold text-zinc-400 dark:text-zinc-600">{comic.title[0]}</div>
               )}
             </div>
-            <h3 className="line-clamp-2 text-sm font-bold text-zinc-800 dark:text-zinc-200 group-hover:text-green-600 dark:group-hover:text-green-300">{comic.title}</h3>
+            <h3 className="line-clamp-2 text-sm font-bold text-zinc-800 dark:text-zinc-200 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{comic.title}</h3>
             <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
               <span><i className="fa-light fa-image"></i> {comic.stats.totalChapters}</span>
               <span><i className="fa-light fa-eye"></i> {comic.stats.totalViews}</span>

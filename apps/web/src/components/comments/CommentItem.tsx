@@ -29,7 +29,7 @@ interface CommentItemProps {
   onPostReply?: (parentId: string, content: string) => Promise<void> | void;
   onDelete?: (id: string, parentId?: string | null) => Promise<void> | void;
   isReaderBgDark?: boolean;
-  accentColor?: 'violet' | 'emerald';
+  accentColor?: 'amber' | 'violet' | 'emerald';
   readOnly?: boolean;
 }
 
@@ -39,7 +39,7 @@ export function CommentItem({
   onPostReply,
   onDelete,
   isReaderBgDark = false,
-  accentColor = 'violet',
+  accentColor = 'amber',
   readOnly = false,
 }: CommentItemProps) {
   const [isReplying, setIsReplying] = useState(false);
@@ -71,7 +71,9 @@ export function CommentItem({
   const hoverTextClass =
     accentColor === 'emerald'
       ? 'hover:text-emerald-500 dark:hover:text-emerald-400'
-      : 'hover:text-violet-500 dark:hover:text-violet-400';
+      : accentColor === 'violet'
+      ? 'hover:text-violet-500 dark:hover:text-violet-400'
+      : 'hover:text-amber-500 dark:hover:text-amber-400';
 
   return (
     <div
@@ -89,7 +91,9 @@ export function CommentItem({
             <div
               className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-full font-bold text-sm text-white shadow-sm transition-opacity hover:opacity-85 ${accentColor === 'emerald'
                 ? 'bg-gradient-to-br from-emerald-500 to-teal-500'
-                : 'bg-gradient-to-br from-violet-500 to-fuchsia-500'
+                : accentColor === 'violet'
+                ? 'bg-gradient-to-br from-violet-500 to-fuchsia-500'
+                : 'bg-gradient-to-br from-amber-500 to-orange-500'
                 }`}
             >
               {comment.user.avatarUrl ? (
@@ -103,7 +107,9 @@ export function CommentItem({
           <div
             className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full font-bold text-sm text-white shadow-sm ${accentColor === 'emerald'
               ? 'bg-gradient-to-br from-emerald-500 to-teal-500'
-              : 'bg-gradient-to-br from-violet-500 to-fuchsia-500'
+              : accentColor === 'violet'
+              ? 'bg-gradient-to-br from-violet-500 to-fuchsia-500'
+              : 'bg-gradient-to-br from-amber-500 to-orange-500'
               }`}
           >
             {comment.user.avatarUrl ? (
@@ -167,7 +173,9 @@ export function CommentItem({
                   className={`font-medium transition-colors cursor-pointer ${isReplying
                     ? accentColor === 'emerald'
                       ? 'text-emerald-500'
-                      : 'text-violet-500'
+                      : accentColor === 'violet'
+                      ? 'text-violet-500'
+                      : 'text-amber-500'
                     : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
                     }`}
                 >
@@ -218,7 +226,7 @@ export function CommentItem({
             <div key={reply.id} className="flex gap-2.5">
               <Link href={`/@${reply.user.username}`} className="shrink-0">
                 <div
-                  className={`flex h-7 w-7 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white ${accentColor === 'emerald' ? 'bg-teal-600' : 'bg-violet-600'
+                  className={`flex h-7 w-7 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-white ${accentColor === 'emerald' ? 'bg-teal-600' : accentColor === 'violet' ? 'bg-violet-600' : 'bg-amber-600'
                     }`}
                 >
                   {reply.user.avatarUrl ? (

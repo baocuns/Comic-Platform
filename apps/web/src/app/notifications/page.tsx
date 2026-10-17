@@ -168,7 +168,7 @@ export default function NotificationsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/20">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/20">
                 <i className="fa-solid fa-bell text-white text-sm" />
               </div>
               Trung tâm thông báo
@@ -183,7 +183,7 @@ export default function NotificationsPage() {
           {unreadCount > 0 && (
             <button
               onClick={markAllAsRead}
-              className="flex items-center gap-2 rounded-xl border border-violet-200 dark:border-violet-500/20 bg-violet-50 dark:bg-violet-500/10 px-4 py-2 text-sm font-medium text-violet-600 dark:text-violet-400 transition-all hover:bg-violet-100 dark:hover:bg-violet-500/20 hover:shadow-sm cursor-pointer"
+              className="flex items-center gap-2 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-600 dark:text-amber-400 transition-all hover:bg-amber-100 dark:hover:bg-amber-500/20 hover:shadow-sm cursor-pointer"
             >
               <i className="fa-solid fa-check-double text-xs" />
               Đọc tất cả
@@ -202,7 +202,7 @@ export default function NotificationsPage() {
               onClick={() => setFilter(tab.key)}
               className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all cursor-pointer ${
                 isActive
-                  ? 'bg-violet-500 text-white shadow-md shadow-violet-500/25'
+                  ? 'bg-amber-500 text-white shadow-md shadow-amber-500/25'
                   : 'bg-zinc-100 dark:bg-white/[0.04] text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/[0.08] hover:text-zinc-700 dark:hover:text-zinc-300'
               }`}
             >
@@ -269,7 +269,7 @@ export default function NotificationsPage() {
                       key={n.id}
                       className={`group relative flex items-start gap-4 rounded-2xl border p-4 transition-all duration-200 ${
                         !n.isRead
-                          ? `border-violet-100 dark:border-violet-500/10 bg-violet-50/40 dark:bg-violet-500/[0.03] shadow-sm`
+                          ? `border-amber-100 dark:border-amber-500/10 bg-amber-50/40 dark:bg-amber-500/[0.03] shadow-sm`
                           : 'border-zinc-100 dark:border-white/[0.04] bg-white dark:bg-white/[0.02] hover:border-zinc-200 dark:hover:border-white/[0.08]'
                       } ${url ? 'cursor-pointer hover:shadow-md' : ''}`}
                       onClick={() => handleClick(n)}
@@ -302,7 +302,7 @@ export default function NotificationsPage() {
 
                           {/* Unread dot */}
                           {!n.isRead && (
-                            <div className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-violet-500 shadow-sm shadow-violet-500/40" />
+                            <div className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500 shadow-sm shadow-amber-500/40" />
                           )}
                         </div>
 
@@ -316,7 +316,7 @@ export default function NotificationsPage() {
                           <span
                             className={`text-xs ${
                               !n.isRead
-                                ? 'text-violet-500 dark:text-violet-400 font-medium'
+                                ? 'text-amber-600 dark:text-amber-400 font-medium'
                                 : 'text-zinc-400 dark:text-zinc-600'
                             }`}
                           >

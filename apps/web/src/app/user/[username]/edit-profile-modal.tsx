@@ -71,7 +71,7 @@ export default function EditProfileModal({ onClose }: Props) {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               maxLength={100}
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-2.5 text-sm text-zinc-900 dark:text-white outline-none transition-colors focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-2.5 text-sm text-zinc-900 dark:text-white outline-none transition-colors focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30"
               placeholder="Nhập tên hiển thị..."
             />
           </div>
@@ -83,7 +83,7 @@ export default function EditProfileModal({ onClose }: Props) {
               onChange={(e) => setBio(e.target.value)}
               maxLength={500}
               rows={3}
-              className="w-full resize-none rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-2.5 text-sm text-zinc-900 dark:text-white outline-none transition-colors focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+              className="w-full resize-none rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-2.5 text-sm text-zinc-900 dark:text-white outline-none transition-colors focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30"
               placeholder="Viết gì đó về bạn..."
             />
             <p className="mt-1 text-right text-xs text-zinc-500 dark:text-zinc-400">{bio.length}/500</p>
@@ -94,19 +94,19 @@ export default function EditProfileModal({ onClose }: Props) {
             <div className="flex items-center gap-3">
               <span className="w-8 text-center text-lg">🌐</span>
               <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)}
-                className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none transition-colors focus:border-violet-500/50"
+                className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none transition-colors focus:border-amber-500/50"
                 placeholder="https://website.com" />
             </div>
             <div className="flex items-center gap-3">
               <span className="w-8 text-center text-lg">𝕏</span>
               <input type="text" value={twitter} onChange={(e) => setTwitter(e.target.value)}
-                className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none transition-colors focus:border-violet-500/50"
+                className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none transition-colors focus:border-amber-500/50"
                 placeholder="@username" />
             </div>
             <div className="flex items-center gap-3">
               <span className="w-8 text-center text-lg">📘</span>
               <input type="text" value={facebook} onChange={(e) => setFacebook(e.target.value)}
-                className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none transition-colors focus:border-violet-500/50"
+                className="flex-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 py-2 text-sm text-zinc-900 dark:text-white outline-none transition-colors focus:border-amber-500/50"
                 placeholder="facebook.com/username" />
             </div>
           </div>
@@ -118,7 +118,7 @@ export default function EditProfileModal({ onClose }: Props) {
             Hủy
           </button>
           <button onClick={handleSave} disabled={saving}
-            className="flex-1 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 hover:brightness-110 disabled:opacity-50 cursor-pointer">
+            className="flex-1 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110 disabled:opacity-50 cursor-pointer">
             {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
           </button>
         </div>

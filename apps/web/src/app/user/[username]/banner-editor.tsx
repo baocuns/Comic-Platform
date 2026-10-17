@@ -127,7 +127,7 @@ export default function BannerEditor({ banner, isOwnProfile, onBannerChange }: P
   return (
     <div
       ref={bannerRef}
-      className={`relative -mt-16 h-52 overflow-hidden sm:h-64 transition-all duration-300 ${repositioning
+      className={`relative h-52 overflow-hidden sm:h-64 transition-all duration-300 ${repositioning
         ? `z-[51] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`
         : '-z-1'
         }`}
@@ -146,7 +146,7 @@ export default function BannerEditor({ banner, isOwnProfile, onBannerChange }: P
           draggable={false}
         />
       ) : (
-        <div className="h-full w-full bg-gradient-to-br from-violet-600/40 via-fuchsia-600/30 to-indigo-600/40" />
+        <div className="h-full w-full bg-gradient-to-br from-amber-600/40 via-orange-600/30 to-amber-700/40" />
       )}
 
       {/* Bottom gradient */}
@@ -174,7 +174,7 @@ export default function BannerEditor({ banner, isOwnProfile, onBannerChange }: P
             <button
               onClick={savePosition}
               disabled={saving}
-              className="rounded bg-violet-600 px-3 py-1 text-xs font-semibold hover:bg-violet-500 disabled:opacity-50 text-white"
+              className="rounded bg-amber-500 px-3 py-1 text-xs font-semibold hover:bg-amber-600 disabled:opacity-50 text-white"
             >
               {saving ? 'Lưu...' : 'Lưu'}
             </button>

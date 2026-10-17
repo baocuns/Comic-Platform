@@ -75,6 +75,7 @@ export default function StudioComicDetailPage() {
   // Edit form
   const [editForm, setEditForm] = useState<EditForm>({ title: '', description: '', status: 'DRAFT', contentRating: 'EVERYONE', genreIds: [], bannerPosition: 50 });
   const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -145,6 +146,8 @@ export default function StudioComicDetailPage() {
       });
       setCoverFile(null);
       setBannerFile(null);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
     } catch (err) {
       console.error('Save failed:', err);
     }
@@ -221,7 +224,7 @@ export default function StudioComicDetailPage() {
     } catch {}
   };
 
-  if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" /></div>;
+  if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" /></div>;
   if (!comic) return <div className="flex min-h-[60vh] items-center justify-center text-zinc-500">Truyện không tồn tại hoặc bạn không có quyền.</div>;
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
@@ -285,7 +288,7 @@ export default function StudioComicDetailPage() {
             onClick={() => setActiveTab(tab.key)}
             className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all duration-200 ${
               activeTab === tab.key
-                ? 'bg-white dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold shadow-sm'
+                ? 'bg-white dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-sm'
                 : 'text-zinc-600 dark:text-zinc-500 hover:bg-zinc-200/60 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-zinc-300'
             }`}
           >
@@ -305,7 +308,7 @@ export default function StudioComicDetailPage() {
               <div className="flex items-start gap-4">
                 <div
                   onClick={() => coverInputRef.current?.click()}
-                  className="group relative h-40 w-28 shrink-0 cursor-pointer overflow-hidden rounded-lg border border-dashed border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5 transition-all hover:border-violet-500/50"
+                  className="group relative h-40 w-28 shrink-0 cursor-pointer overflow-hidden rounded-lg border border-dashed border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5 transition-all hover:border-amber-500/50"
                 >
                   {coverPreview ? (
                     <img src={coverPreview} alt="Cover" className="h-full w-full object-cover" />
@@ -333,7 +336,7 @@ export default function StudioComicDetailPage() {
               <label className="mb-3 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Ảnh banner</label>
               <div
                 onClick={() => bannerInputRef.current?.click()}
-                className="group relative h-28 w-full cursor-pointer overflow-hidden rounded-lg border border-dashed border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5 transition-all hover:border-violet-500/50"
+                className="group relative h-28 w-full cursor-pointer overflow-hidden rounded-lg border border-dashed border-zinc-300 dark:border-white/20 bg-zinc-50 dark:bg-white/5 transition-all hover:border-amber-500/50"
               >
                 {bannerPreview ? (
                   <img src={bannerPreview} alt="Banner" className="h-full w-full object-cover" style={{ objectPosition: `center ${editForm.bannerPosition}%` }} />
@@ -351,7 +354,7 @@ export default function StudioComicDetailPage() {
               {bannerPreview && (
                 <div className="mt-3 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
                   <span>Vị trí: {editForm.bannerPosition}%</span>
-                  <input type="range" min={0} max={100} value={editForm.bannerPosition} onChange={(e) => setEditForm((f) => ({ ...f, bannerPosition: Number(e.target.value) }))} className="flex-1 accent-violet-500" />
+                  <input type="range" min={0} max={100} value={editForm.bannerPosition} onChange={(e) => setEditForm((f) => ({ ...f, bannerPosition: Number(e.target.value) }))} className="flex-1 accent-amber-500" />
                 </div>
               )}
               {bannerFile && <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-medium">✅ {bannerFile.name}</p>}
@@ -365,7 +368,7 @@ export default function StudioComicDetailPage() {
               <input
                 value={editForm.title}
                 onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/10"
               />
             </div>
             <div>
@@ -375,7 +378,7 @@ export default function StudioComicDetailPage() {
                 onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
                 rows={4}
                 placeholder="Mô tả nội dung truyện..."
-                className="w-full resize-none rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10"
+                className="w-full resize-none rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/10"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -413,7 +416,7 @@ export default function StudioComicDetailPage() {
                     type="button"
                     onClick={() => toggleGenre(genre.id)}
                     className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-                      selected ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/20' : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-zinc-200'
+                      selected ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-zinc-200'
                     }`}
                   >
                     {genre.icon && <span className="mr-1">{genre.icon}</span>}
@@ -429,9 +432,13 @@ export default function StudioComicDetailPage() {
             <button
               onClick={handleSave}
               disabled={saving || !editForm.title.trim()}
-              className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 disabled:opacity-50"
+              className={`rounded-lg px-8 py-3 text-sm font-semibold text-white shadow-lg transition-all disabled:opacity-50 ${
+                saveSuccess
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-500/25'
+                  : 'bg-gradient-to-r from-amber-500 to-orange-500 shadow-amber-500/25 hover:shadow-amber-500/40'
+              }`}
             >
-              {saving ? (uploadingCover ? 'Đang upload ảnh...' : 'Đang lưu...') : '💾 Lưu thay đổi'}
+              {saving ? (uploadingCover ? 'Đang upload ảnh...' : 'Đang lưu...') : saveSuccess ? '✓ Đã lưu thay đổi' : '💾 Lưu thay đổi'}
             </button>
           </div>
         </div>
@@ -443,7 +450,7 @@ export default function StudioComicDetailPage() {
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Danh sách chương ({chapters.length})</h2>
             <button
               onClick={() => { setNewChapter({ number: chapters.length + 1, title: '' }); setShowAddChapter(true); }}
-              className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-violet-500/25"
+              className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-amber-500/25"
             >
               + Thêm chương
             </button>
@@ -451,11 +458,11 @@ export default function StudioComicDetailPage() {
 
           {/* Add chapter form */}
           {showAddChapter && (
-            <div className="mb-4 rounded-xl border border-violet-500/30 dark:border-violet-500/20 bg-violet-500/10 dark:bg-violet-500/5 p-4 animate-slide-up">
+            <div className="mb-4 rounded-xl border border-amber-500/30 dark:border-amber-500/20 bg-amber-500/10 dark:bg-amber-500/5 p-4 animate-slide-up">
               <div className="flex gap-3">
                 <input type="number" value={newChapter.number} onChange={(e) => setNewChapter((n) => ({ ...n, number: Number(e.target.value) }))} placeholder="Số" className="w-24 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] px-3 py-2.5 text-sm text-zinc-900 dark:text-white outline-none" />
                 <input value={newChapter.title} onChange={(e) => setNewChapter((n) => ({ ...n, title: e.target.value }))} placeholder="Tiêu đề (tùy chọn)" className="flex-1 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] px-3 py-2.5 text-sm text-zinc-900 dark:text-white outline-none" />
-                <button onClick={handleAddChapter} disabled={addingChapter} className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50">{addingChapter ? '...' : 'Thêm'}</button>
+                <button onClick={handleAddChapter} disabled={addingChapter} className="rounded-lg bg-amber-500 hover:bg-amber-600 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50">{addingChapter ? '...' : 'Thêm'}</button>
                 <button onClick={() => setShowAddChapter(false)} className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">Hủy</button>
               </div>
             </div>
@@ -503,7 +510,7 @@ export default function StudioComicDetailPage() {
                   <div className="flex gap-2">
                     <Link
                       href={`/studio/comics/${params.id}/chapters/${ch.id}`}
-                      className="rounded-lg bg-violet-500/15 px-3 py-1.5 text-xs font-medium text-violet-700 dark:text-violet-300 transition-colors hover:bg-violet-500/25"
+                      className="rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 transition-colors hover:bg-amber-500/25"
                     >
                       🎨 Canvas Editor
                     </Link>

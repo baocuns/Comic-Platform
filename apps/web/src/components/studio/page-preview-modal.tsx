@@ -122,7 +122,7 @@ export function PagePreviewModal({ pages, initialIndex, onClose }: PagePreviewMo
               onClick={() => { setCurrentIndex(i); setZoom(1); }}
               className={`h-14 w-10 shrink-0 overflow-hidden rounded-md border-2 transition-all ${
                 i === currentIndex
-                  ? 'border-violet-500 shadow-lg shadow-violet-500/30'
+                  ? 'border-amber-500 shadow-lg shadow-amber-500/30'
                   : 'border-transparent opacity-50 hover:opacity-80'
               }`}
             >

@@ -53,7 +53,7 @@ export function StudioHeader() {
             href={`/@${user.username}`}
             className="flex items-center gap-2 rounded-full border border-zinc-200 dark:border-transparent bg-zinc-100 dark:bg-white/[0.04] px-3 py-1.5 text-sm text-zinc-700 dark:text-zinc-400 transition-colors hover:bg-zinc-200 dark:hover:bg-white/[0.08] hover:text-zinc-900 dark:hover:text-zinc-200"
           >
-            <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-xs font-bold text-white shadow-sm">
+            <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-xs font-bold text-white shadow-sm">
               {user.avatarUrl ? (
                 <img src={user.avatarUrl} alt={user.displayName} className="h-full w-full object-cover" />
               ) : (

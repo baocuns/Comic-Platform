@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { CreateComicDto, UpdateComicDto, ComicQueryDto } from './dto/comic.dto';
+import { CreateComicDto, UpdateComicDto, ComicQueryDto, RecommendationQueryDto } from './dto/comic.dto';
 import { ComicStatus, ContentRating, ApprovalStatus, Prisma, ModerationTargetType } from '@prisma/client';
 import { ModerationService } from '../moderation/moderation.service';
 import slugify from 'slugify';
@@ -150,8 +150,8 @@ export class ComicService {
 
     const data: Prisma.ComicUpdateInput = {};
     if (dto.title) {
-      data.title = dto.title;
-      data.slug = await this.generateUniqueSlug(dto.title);
+      data.title = dto.title.trim();
+      data.slug = await this.generateUniqueSlug(dto.title.trim(), comicId);
     }
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.status) data.status = dto.status;
@@ -177,7 +177,7 @@ export class ComicService {
 
     // Invalidate cache
     await this.redis.del(`comic:${comic.slug}`);
-    if (dto.title) await this.redis.del(`comic:${updated.slug}`);
+    if (updated.slug !== comic.slug) await this.redis.del(`comic:${updated.slug}`);
 
     return this.formatComic(updated);
   }
@@ -337,6 +337,286 @@ export class ComicService {
     return genres;
   }
 
+  // ── Record Search Query ──
+
+  async recordSearch(userId?: string, query?: string) {
+    if (!query || query.trim().length < 2) return;
+    const cleanQuery = query.trim().toLowerCase();
+
+    try {
+      if (userId) {
+        const key = `user:search:${userId}`;
+        const existing = (await this.redis.get<string[]>(key)) || [];
+        const updated = [cleanQuery, ...existing.filter((q) => q !== cleanQuery)].slice(0, 10);
+        await this.redis.set(key, updated, 30 * 86400); // 30 days TTL
+      }
+    } catch (err: any) {
+      this.logger.warn(`Failed to record search query: ${err.message}`);
+    }
+  }
+
+  // ── Get Personalized Recommendations ──
+
+  async getRecommendations(userId: string | undefined, query: RecommendationQueryDto) {
+    const limit = Math.min(Number(query.limit) || 5, 20);
+    const comicId = query.comicId;
+    const guestGenres = query.genres
+      ? query.genres.split(',').map((g) => g.trim().toLowerCase()).filter(Boolean)
+      : [];
+
+    const cacheKey = `rec:${userId || 'guest'}:${comicId || 'none'}:${guestGenres.sort().join('_') || 'none'}:${limit}`;
+    const cached = await this.redis.get<{ data: any[]; reason: string }>(cacheKey);
+    if (cached) return cached;
+
+    const baseInclude = {
+      author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+      genres: { include: { genre: true } },
+    };
+    const baseWhere: any = {
+      deletedAt: null,
+      status: { not: ComicStatus.DRAFT },
+      approvalStatus: ApprovalStatus.APPROVED,
+    };
+
+    let recommendedComics: any[] = [];
+    let recommendationReason = 'Đề xuất dành riêng cho bạn';
+
+    // 1. If User is logged in: Content-based Affinity Scoring
+    if (userId) {
+      try {
+        const [recentHistory, bookmarks, highRatings, userSearches] = await Promise.all([
+          // Recent 40 reads
+          this.prisma.readingHistory.findMany({
+            where: { userId },
+            orderBy: { readAt: 'desc' },
+            take: 40,
+            select: {
+              comicId: true,
+              chapter: {
+                select: {
+                  comic: {
+                    select: {
+                      id: true,
+                      genres: { select: { genre: { select: { id: true, name: true, slug: true } } } },
+                    },
+                  },
+                },
+              },
+            },
+          }),
+          // Bookmarks
+          this.prisma.bookmark.findMany({
+            where: { userId },
+            select: {
+              comicId: true,
+              comic: {
+                select: {
+                  id: true,
+                  genres: { select: { genre: { select: { id: true, name: true, slug: true } } } },
+                },
+              },
+            },
+          }),
+          // Ratings >= 4
+          this.prisma.rating.findMany({
+            where: { userId, score: { gte: 4 } },
+            select: {
+              comicId: true,
+              comic: {
+                select: {
+                  id: true,
+                  genres: { select: { genre: { select: { id: true, name: true, slug: true } } } },
+                },
+              },
+            },
+          }),
+          // Search queries from Redis
+          this.redis.get<string[]>(`user:search:${userId}`),
+        ]);
+
+        const genreScores = new Map<string, { id: string; name: string; score: number }>();
+        const readComicIds = new Set<string>();
+
+        if (comicId) readComicIds.add(comicId);
+
+        const addGenreScore = (genre: { id: string; name: string }, points: number) => {
+          const current = genreScores.get(genre.id) || { id: genre.id, name: genre.name, score: 0 };
+          current.score += points;
+          genreScores.set(genre.id, current);
+        };
+
+        // Score from reading history (+2 points per chap read)
+        for (const item of recentHistory) {
+          if (item.comicId) readComicIds.add(item.comicId);
+          const genres = item.chapter?.comic?.genres || [];
+          for (const g of genres) {
+            addGenreScore(g.genre, 2);
+          }
+        }
+
+        // Score from bookmarks (+5 points)
+        for (const b of bookmarks) {
+          if (b.comicId) readComicIds.add(b.comicId);
+          const genres = b.comic?.genres || [];
+          for (const g of genres) {
+            addGenreScore(g.genre, 5);
+          }
+        }
+
+        // Score from ratings (+4 points)
+        for (const r of highRatings) {
+          if (r.comicId) readComicIds.add(r.comicId);
+          const genres = r.comic?.genres || [];
+          for (const g of genres) {
+            addGenreScore(g.genre, 4);
+          }
+        }
+
+        // Score from search queries (+3 points if matches genre)
+        if (userSearches && userSearches.length > 0) {
+          const allGenres = await this.prisma.genre.findMany({
+            where: { isActive: true },
+            select: { id: true, name: true, slug: true },
+          });
+          for (const q of userSearches) {
+            const matched = allGenres.filter(
+              (g: any) =>
+                g.slug.toLowerCase().includes(q) ||
+                g.name.toLowerCase().includes(q) ||
+                q.includes(g.name.toLowerCase()),
+            );
+            for (const mg of matched) {
+              addGenreScore(mg, 3);
+            }
+          }
+        }
+
+        const sortedGenres = Array.from(genreScores.values()).sort((a, b) => b.score - a.score);
+
+        if (sortedGenres.length > 0) {
+          const topGenreIds = sortedGenres.slice(0, 4).map((g) => g.id);
+          const topGenreNames = sortedGenres.slice(0, 2).map((g) => g.name).join(', ');
+          recommendationReason = `Dựa trên sở thích: ${topGenreNames}`;
+
+          const candidateWhere: any = {
+            ...baseWhere,
+            genres: { some: { genreId: { in: topGenreIds } } },
+          };
+          if (readComicIds.size > 0) {
+            candidateWhere.id = { notIn: Array.from(readComicIds) };
+          }
+
+          const candidates = await this.prisma.comic.findMany({
+            where: candidateWhere,
+            take: limit * 4,
+            include: baseInclude,
+          });
+
+          const scoredCandidates = candidates.map((c) => {
+            const matchedCount = c.genres.filter((cg: any) => topGenreIds.includes(cg.genreId)).length;
+            const qualityScore = Number(c.avgRating) * 2 + Math.log10(c.totalViews + 10);
+            return {
+              comic: c,
+              score: matchedCount * 10 + qualityScore,
+            };
+          });
+
+          scoredCandidates.sort((a, b) => b.score - a.score);
+          recommendedComics = scoredCandidates.slice(0, limit).map((sc) => sc.comic);
+        }
+      } catch (err: any) {
+        this.logger.error(`Personalized recommendation error: ${err.message}`);
+      }
+    }
+
+    // 2. If Guest or Cold-start (recommendedComics not enough):
+    if (recommendedComics.length < limit) {
+      const remainingNeeded = limit - recommendedComics.length;
+      const excludeIds = new Set<string>(recommendedComics.map((c) => c.id));
+      if (comicId) excludeIds.add(comicId);
+
+      let targetGenreIds: string[] = [];
+      if (comicId) {
+        const curComic = await this.prisma.comic.findUnique({
+          where: { id: comicId },
+          include: { genres: true },
+        });
+        if (curComic) {
+          targetGenreIds = curComic.genres.map((cg) => cg.genreId);
+        }
+      }
+
+      if (targetGenreIds.length === 0 && guestGenres.length > 0) {
+        const matchedDbGenres = await this.prisma.genre.findMany({
+          where: { slug: { in: guestGenres } },
+          select: { id: true },
+        });
+        targetGenreIds = matchedDbGenres.map((g) => g.id);
+      }
+
+      if (targetGenreIds.length > 0) {
+        if (!userId) {
+          recommendationReason = 'Có thể bạn sẽ thích (cùng thể loại)';
+        }
+        const similarComics = await this.prisma.comic.findMany({
+          where: {
+            ...baseWhere,
+            id: { notIn: Array.from(excludeIds) },
+            genres: { some: { genreId: { in: targetGenreIds } } },
+          },
+          orderBy: [{ totalViews: 'desc' }, { avgRating: 'desc' }],
+          take: remainingNeeded,
+          include: baseInclude,
+        });
+
+        for (const sc of similarComics) {
+          if (!excludeIds.has(sc.id)) {
+            recommendedComics.push(sc);
+            excludeIds.add(sc.id);
+          }
+        }
+      }
+    }
+
+    // 3. Fallback: Popular comics
+    if (recommendedComics.length < limit) {
+      const remainingNeeded = limit - recommendedComics.length;
+      const excludeIds = new Set<string>(recommendedComics.map((c) => c.id));
+      if (comicId) excludeIds.add(comicId);
+
+      const popularComics = await this.prisma.comic.findMany({
+        where: {
+          ...baseWhere,
+          id: { notIn: Array.from(excludeIds) },
+        },
+        orderBy: [{ totalViews: 'desc' }, { avgRating: 'desc' }],
+        take: remainingNeeded,
+        include: baseInclude,
+      });
+
+      for (const pc of popularComics) {
+        recommendedComics.push(pc);
+      }
+      if (!userId && !comicId) {
+        recommendationReason = 'Truyện nổi bật được yêu thích';
+      }
+    }
+
+    const formatted = recommendedComics.map((c) => ({
+      ...this.formatComic(c),
+      recommendReason: recommendationReason,
+    }));
+
+    const result = {
+      data: formatted,
+      reason: recommendationReason,
+    };
+
+    // Cache in Redis for 3 minutes (180s)
+    await this.redis.set(cacheKey, result, 180);
+    return result;
+  }
+
   // ── Helpers ──
 
   private formatComic(comic: any) {
@@ -373,16 +653,18 @@ export class ComicService {
     };
   }
 
-  private async generateUniqueSlug(title: string): Promise<string> {
-    const base = slugify(title, { lower: true, strict: true, locale: 'vi' });
+  private async generateUniqueSlug(title: string, excludeComicId?: string): Promise<string> {
+    const base = slugify(title, { lower: true, strict: true, locale: 'vi' }) || 'comic';
     let slug = base;
     let counter = 1;
 
-    while (await this.prisma.comic.findUnique({ where: { slug } })) {
+    while (true) {
+      const existing = await this.prisma.comic.findUnique({ where: { slug } });
+      if (!existing || (excludeComicId && existing.id === excludeComicId)) {
+        return slug;
+      }
       slug = `${base}-${counter}`;
       counter++;
     }
-
-    return slug;
   }
 }

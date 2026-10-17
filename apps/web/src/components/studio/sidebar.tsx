@@ -35,10 +35,10 @@ export function StudioSidebar() {
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 border-b border-zinc-200 dark:border-white/[0.06] px-4">
           <Link href="/studio" className="flex items-center gap-2.5">
-            <img src="/aaa_logo.png" alt="Logo" className="h-9 w-9" />
+            <img src="/img/aaa_logo.png" alt="Logo" className="h-9 w-9" />
             {!collapsed && (
               <span className="text-base font-semibold tracking-tight text-zinc-900 dark:text-white animate-fade-in">
-                Studio
+                AAA Studio
               </span>
             )}
           </Link>
@@ -53,12 +53,12 @@ export function StudioSidebar() {
                 key={item.href}
                 href={item.href}
                 className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${active
-                  ? 'bg-violet-500/10 text-violet-600 dark:text-violet-300 shadow-sm shadow-violet-500/5'
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 shadow-sm shadow-amber-500/5'
                   : 'text-zinc-600 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-zinc-300'
                   }`}
                 title={collapsed ? item.label : undefined}
               >
-                <span className={`text-lg ${active ? 'drop-shadow-[0_0_6px_rgba(139,92,246,0.4)]' : ''}`}>{item.icon}</span>
+                <span className={`text-lg ${active ? 'drop-shadow-[0_0_6px_rgba(245,158,11,0.4)]' : ''}`}>{item.icon}</span>
                 {!collapsed && <span>{item.label}</span>}
               </Link>
             );

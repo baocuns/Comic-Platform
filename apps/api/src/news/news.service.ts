@@ -26,14 +26,17 @@ export class NewsService {
       .trim();
   }
 
-  private async ensureUniqueSlug(slug: string): Promise<string> {
+  private async ensureUniqueSlug(slug: string, excludeArticleId?: string): Promise<string> {
     let uniqueSlug = slug;
     let counter = 0;
-    while (await this.prisma.newsArticle.findUnique({ where: { slug: uniqueSlug } })) {
+    while (true) {
+      const existing = await this.prisma.newsArticle.findUnique({ where: { slug: uniqueSlug } });
+      if (!existing || (excludeArticleId && existing.id === excludeArticleId)) {
+        return uniqueSlug;
+      }
       counter++;
       uniqueSlug = `${slug}-${counter}`;
     }
-    return uniqueSlug;
   }
 
   async create(userId: string, dto: CreateNewsDto) {
@@ -117,7 +120,7 @@ export class NewsService {
     const data: Record<string, unknown> = {};
     if (dto.title !== undefined) {
       data.title = dto.title;
-      data.slug = await this.ensureUniqueSlug(this.generateSlug(dto.title));
+      data.slug = await this.ensureUniqueSlug(this.generateSlug(dto.title), id);
     }
     if (dto.excerpt !== undefined) data.excerpt = dto.excerpt;
     if (dto.content !== undefined) data.content = dto.content;

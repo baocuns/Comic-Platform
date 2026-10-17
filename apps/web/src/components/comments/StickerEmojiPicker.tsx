@@ -58,8 +58,8 @@ export function StickerEmojiPicker({
             onClick={() => setActiveTab('sticker')}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${activeTab === 'sticker'
               ? isReaderBgDark
-                ? 'bg-violet-500/20 text-violet-300'
-                : 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300'
+                ? 'bg-amber-500/20 text-amber-300'
+                : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
               : 'opacity-60 hover:opacity-100'
               }`}
           >
@@ -70,8 +70,8 @@ export function StickerEmojiPicker({
             onClick={() => setActiveTab('emoji')}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${activeTab === 'emoji'
               ? isReaderBgDark
-                ? 'bg-violet-500/20 text-violet-300'
-                : 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300'
+                ? 'bg-amber-500/20 text-amber-300'
+                : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
               : 'opacity-60 hover:opacity-100'
               }`}
           >
@@ -124,8 +124,8 @@ export function StickerEmojiPicker({
                     onClick={() => setSelectedStickerCat(cat.id)}
                     className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-all ${selectedStickerCat === cat.id
                       ? isReaderBgDark
-                        ? 'bg-violet-600 text-white font-bold shadow-sm'
-                        : 'bg-zinc-800 text-white font-bold shadow-sm dark:bg-violet-600'
+                        ? 'bg-amber-500 text-white font-bold shadow-sm'
+                        : 'bg-zinc-800 text-white font-bold shadow-sm dark:bg-amber-500'
                       : isReaderBgDark
                         ? 'bg-white/10 text-zinc-300 hover:bg-white/20'
                         : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-white/10 dark:text-zinc-300 dark:hover:bg-white/20'
@@ -162,8 +162,8 @@ export function StickerEmojiPicker({
                     onClose?.();
                   }}
                   className={`group relative flex items-center justify-center aspect-square min-w-0 min-h-0 overflow-hidden rounded-xl border p-1 transition-all active:scale-95 touch-manipulation ${isReaderBgDark
-                    ? 'border-white/5 bg-white/[0.03] hover:border-violet-500/50 hover:bg-violet-500/10'
-                    : 'border-zinc-200/60 bg-zinc-50 hover:border-violet-500/50 hover:bg-violet-50 dark:border-white/5 dark:bg-white/[0.03] dark:hover:border-violet-500/50 dark:hover:bg-violet-500/10'
+                    ? 'border-white/5 bg-white/[0.03] hover:border-amber-500/50 hover:bg-amber-500/10'
+                    : 'border-zinc-200/60 bg-zinc-50 hover:border-amber-500/50 hover:bg-amber-50 dark:border-white/5 dark:bg-white/[0.03] dark:hover:border-amber-500/50 dark:hover:bg-amber-500/10'
                     }`}
                 >
                   <img
@@ -186,8 +186,8 @@ export function StickerEmojiPicker({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={`mb-2 w-full rounded-xl border px-3 py-1.5 text-xs outline-none ${isReaderBgDark
-                ? 'border-white/10 bg-white/5 text-white placeholder-zinc-500 focus:border-violet-400'
-                : 'border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:border-violet-500 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder-zinc-500 dark:focus:border-violet-400'
+                ? 'border-white/10 bg-white/5 text-white placeholder-zinc-500 focus:border-amber-400'
+                : 'border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:border-amber-500 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder-zinc-500 dark:focus:border-amber-400'
                 }`}
             />
             <div className="max-h-52 overflow-y-auto pr-1 space-y-3">
@@ -210,7 +210,7 @@ export function StickerEmojiPicker({
                           onClick={() => {
                             onSelectEmoji(emoji);
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-lg hover:scale-125 transition-transform hover:bg-violet-500/20"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-lg hover:scale-125 transition-transform hover:bg-amber-500/20"
                         >
                           {emoji}
                         </button>

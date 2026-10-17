@@ -224,7 +224,7 @@ export default function CreateNewsPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Nhập tiêu đề hấp dẫn cho bài viết..."
-              className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02] px-4 py-2.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 outline-none transition-colors focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+              className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02] px-4 py-2.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 outline-none transition-colors focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
               required
             />
           </div>
@@ -239,7 +239,7 @@ export default function CreateNewsPage() {
               onChange={(e) => setExcerpt(e.target.value)}
               placeholder="Mô tả ngắn gọn nội dung bài viết (hiển thị trên card bản tin)..."
               rows={2}
-              className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02] px-4 py-2.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 outline-none transition-colors focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+              className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02] px-4 py-2.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 outline-none transition-colors focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
             />
           </div>
 
@@ -252,7 +252,7 @@ export default function CreateNewsPage() {
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02] px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white outline-none cursor-pointer focus:border-violet-500 [&>option]:bg-white [&>option]:text-zinc-900 dark:[&>option]:bg-[#1a1a1a] dark:[&>option]:text-white"
+                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02] px-3.5 py-2.5 text-sm text-zinc-900 dark:text-white outline-none cursor-pointer focus:border-amber-500 [&>option]:bg-white [&>option]:text-zinc-900 dark:[&>option]:bg-[#1a1a1a] dark:[&>option]:text-white"
               >
                 {categoryOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -272,14 +272,14 @@ export default function CreateNewsPage() {
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleAddTag}
                 placeholder="ví dụ: event, manga, update"
-                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02] px-4 py-2.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 outline-none transition-colors focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02] px-4 py-2.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 outline-none transition-colors focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
               />
               {tags.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {tags.map((tag) => (
                     <span
                       key={tag}
-                      className="inline-flex items-center gap-1 rounded-lg bg-violet-500/10 px-2.5 py-1 text-xs font-medium text-violet-600 dark:text-violet-300"
+                      className="inline-flex items-center gap-1 rounded-lg bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-300"
                     >
                       #{tag}
                       <button
@@ -307,7 +307,7 @@ export default function CreateNewsPage() {
                 onClick={() => setCoverMode('upload')}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   coverMode === 'upload'
-                    ? 'bg-violet-600 text-white'
+                    ? 'bg-amber-500 text-white'
                     : 'border border-zinc-200 dark:border-white/[0.08] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06]'
                 }`}
               >
@@ -318,7 +318,7 @@ export default function CreateNewsPage() {
                 onClick={() => setCoverMode('url')}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   coverMode === 'url'
-                    ? 'bg-violet-600 text-white'
+                    ? 'bg-amber-500 text-white'
                     : 'border border-zinc-200 dark:border-white/[0.08] text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06]'
                 }`}
               >
@@ -339,11 +339,11 @@ export default function CreateNewsPage() {
                   type="button"
                   onClick={() => coverFileInputRef.current?.click()}
                   disabled={uploadingCover}
-                  className="flex w-full cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/[0.1] bg-zinc-50/50 dark:bg-white/[0.01] p-6 text-center transition-colors hover:border-violet-500 hover:bg-violet-500/5"
+                  className="flex w-full cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/[0.1] bg-zinc-50/50 dark:bg-white/[0.01] p-6 text-center transition-colors hover:border-amber-500 hover:bg-amber-500/5"
                 >
                   {uploadingCover ? (
-                    <div className="flex items-center gap-2 text-sm text-violet-500">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
+                    <div className="flex items-center gap-2 text-sm text-amber-500">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
                       <span>Đang upload ảnh bìa...</span>
                     </div>
                   ) : (
@@ -361,7 +361,7 @@ export default function CreateNewsPage() {
                 value={coverUrl}
                 onChange={(e) => setCoverUrl(e.target.value)}
                 placeholder="https://example.com/cover-image.jpg"
-                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02] px-4 py-2.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-violet-500"
+                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02] px-4 py-2.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-amber-500"
               />
             )}
 
@@ -388,7 +388,7 @@ export default function CreateNewsPage() {
                 type="checkbox"
                 checked={isPublished}
                 onChange={(e) => setIsPublished(e.target.checked)}
-                className="h-4 w-4 rounded border-zinc-300 text-violet-600 focus:ring-violet-500"
+                className="h-4 w-4 rounded border-zinc-300 text-amber-500 focus:ring-amber-500"
               />
               <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Xuất bản ngay</span>
             </label>
@@ -493,7 +493,7 @@ export default function CreateNewsPage() {
                 <button
                   type="button"
                   onClick={() => setShowImageModal(true)}
-                  className="flex items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs font-semibold text-violet-600 dark:text-violet-300 hover:bg-violet-500/20 transition-colors"
+                  className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600 dark:text-amber-300 hover:bg-amber-500/20 transition-colors"
                 >
                   <i className="fa-solid fa-image" />
                   <span>Chèn / Upload ảnh vào bài</span>
@@ -507,7 +507,7 @@ export default function CreateNewsPage() {
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Nhập nội dung bài viết tin tức tại đây... Hỗ trợ cú pháp Markdown hoặc HTML."
                 rows={16}
-                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02] p-4 text-sm font-mono text-zinc-900 dark:text-white placeholder-zinc-400 outline-none transition-colors focus:border-violet-500 focus:ring-1 focus:ring-violet-500 leading-relaxed"
+                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.02] p-4 text-sm font-mono text-zinc-900 dark:text-white placeholder-zinc-400 outline-none transition-colors focus:border-amber-500 focus:ring-1 focus:ring-amber-500 leading-relaxed"
                 required
               />
             </div>
@@ -516,7 +516,7 @@ export default function CreateNewsPage() {
             <div className="rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/30 dark:bg-white/[0.01] p-6 space-y-6">
               {/* Preview Header */}
               <div>
-                <span className="inline-block rounded-md bg-violet-500/15 px-2.5 py-1 text-xs font-bold text-violet-600 dark:text-violet-300 mb-3">
+                <span className="inline-block rounded-md bg-amber-500/15 px-2.5 py-1 text-xs font-bold text-amber-600 dark:text-amber-300 mb-3">
                   {categoryOptions.find((c) => c.value === category)?.label}
                 </span>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white">
@@ -559,7 +559,7 @@ export default function CreateNewsPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:from-violet-500 hover:to-fuchsia-500 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:from-amber-400 hover:to-orange-400 disabled:opacity-50"
           >
             {submitting ? (
               <>
@@ -596,7 +596,7 @@ export default function CreateNewsPage() {
                 onClick={() => setContentImageMode('upload')}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   contentImageMode === 'upload'
-                    ? 'bg-violet-600 text-white'
+                    ? 'bg-amber-500 text-white'
                     : 'border border-zinc-200 dark:border-white/[0.08] text-zinc-600 dark:text-zinc-400'
                 }`}
               >
@@ -607,7 +607,7 @@ export default function CreateNewsPage() {
                 onClick={() => setContentImageMode('url')}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   contentImageMode === 'url'
-                    ? 'bg-violet-600 text-white'
+                    ? 'bg-amber-500 text-white'
                     : 'border border-zinc-200 dark:border-white/[0.08] text-zinc-600 dark:text-zinc-400'
                 }`}
               >
@@ -624,7 +624,7 @@ export default function CreateNewsPage() {
                 value={contentImageAlt}
                 onChange={(e) => setContentImageAlt(e.target.value)}
                 placeholder="Ví dụ: Hình minh họa sự kiện..."
-                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.02] px-3.5 py-2 text-xs text-zinc-900 dark:text-white outline-none focus:border-violet-500"
+                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.02] px-3.5 py-2 text-xs text-zinc-900 dark:text-white outline-none focus:border-amber-500"
               />
             </div>
 
@@ -641,11 +641,11 @@ export default function CreateNewsPage() {
                   type="button"
                   onClick={() => contentFileInputRef.current?.click()}
                   disabled={uploadingContentImg}
-                  className="flex w-full cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/[0.1] bg-zinc-50 dark:bg-white/[0.01] p-5 text-center hover:border-violet-500"
+                  className="flex w-full cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 dark:border-white/[0.1] bg-zinc-50 dark:bg-white/[0.01] p-5 text-center hover:border-amber-500"
                 >
                   {uploadingContentImg ? (
-                    <div className="flex items-center gap-2 text-xs text-violet-500">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
+                    <div className="flex items-center gap-2 text-xs text-amber-500">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
                       <span>Đang upload...</span>
                     </div>
                   ) : (
@@ -663,12 +663,12 @@ export default function CreateNewsPage() {
                   value={contentImageUrl}
                   onChange={(e) => setContentImageUrl(e.target.value)}
                   placeholder="https://example.com/image.jpg"
-                  className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.02] px-3.5 py-2 text-xs text-zinc-900 dark:text-white outline-none focus:border-violet-500"
+                  className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.02] px-3.5 py-2 text-xs text-zinc-900 dark:text-white outline-none focus:border-amber-500"
                 />
                 <button
                   type="button"
                   onClick={handleInsertUrlImage}
-                  className="w-full rounded-xl bg-violet-600 py-2 text-xs font-semibold text-white hover:bg-violet-500 transition-colors"
+                  className="w-full rounded-xl bg-amber-500 hover:bg-amber-600 py-2 text-xs font-semibold text-white transition-colors"
                 >
                   Chèn ảnh
                 </button>

@@ -126,7 +126,7 @@ export default function StudioComicsPage() {
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 hover:brightness-110"
+          className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110"
         >
           <span className="text-base">+</span>
           Tạo truyện mới
@@ -142,7 +142,7 @@ export default function StudioComicsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm kiếm truyện..."
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] py-2.5 pl-10 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10"
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] py-2.5 pl-10 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/10"
           />
         </div>
 
@@ -154,7 +154,7 @@ export default function StudioComicsPage() {
               onClick={() => setFilter(opt.value)}
               className={`rounded-lg px-3 py-2 text-xs font-medium transition-all ${
                 filter === opt.value
-                  ? 'bg-violet-500/15 text-violet-700 dark:text-violet-300 font-semibold shadow-sm'
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-sm'
                   : 'bg-zinc-100 dark:bg-white/[0.03] text-zinc-600 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-white/[0.06] hover:text-zinc-900 dark:hover:text-zinc-300'
               }`}
             >
@@ -189,7 +189,7 @@ export default function StudioComicsPage() {
       {/* Comics */}
       {loading ? (
         <div className="flex justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-16 text-center shadow-sm dark:shadow-none">
@@ -207,7 +207,7 @@ export default function StudioComicsPage() {
             <Link
               key={comic.id}
               href={`/studio/comics/${comic.id}`}
-              className="group relative overflow-hidden rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] shadow-sm dark:shadow-none transition-all duration-200 hover:border-violet-500/30 dark:hover:border-violet-500/20 hover:bg-zinc-50 dark:hover:bg-white/[0.04] hover:shadow-lg hover:shadow-violet-500/5"
+              className="group relative overflow-hidden rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] shadow-sm dark:shadow-none transition-all duration-200 hover:border-amber-500/30 dark:hover:border-amber-500/20 hover:bg-zinc-50 dark:hover:bg-white/[0.04] hover:shadow-lg hover:shadow-amber-500/5"
             >
               {/* Cover banner */}
               <div className="relative h-32 w-full bg-gradient-to-br from-zinc-200 to-zinc-300 dark:from-zinc-800 dark:to-zinc-900">
@@ -241,7 +241,7 @@ export default function StudioComicsPage() {
                     </button>
                   )}
                 </div>
-                <h3 className="truncate text-base font-semibold text-zinc-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">
+                <h3 className="truncate text-base font-semibold text-zinc-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors">
                   {comic.title}
                 </h3>
                 {comic.approvalStatus === 'REJECTED' && comic.rejectionReason && (
@@ -264,7 +264,7 @@ export default function StudioComicsPage() {
             <Link
               key={comic.id}
               href={`/studio/comics/${comic.id}`}
-              className="group flex items-center gap-4 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-4 shadow-sm dark:shadow-none transition-all duration-200 hover:border-violet-500/30 dark:hover:border-violet-500/20 hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
+              className="group flex items-center gap-4 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-4 shadow-sm dark:shadow-none transition-all duration-200 hover:border-amber-500/30 dark:hover:border-amber-500/20 hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
             >
               <div className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-zinc-800">
                 {comic.coverUrl ? (
@@ -275,7 +275,7 @@ export default function StudioComicsPage() {
               </div>
               <div className="flex-1 overflow-hidden">
                 <div className="flex items-center gap-2">
-                  <h3 className="truncate text-sm font-semibold text-zinc-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">
+                  <h3 className="truncate text-sm font-semibold text-zinc-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors">
                     {comic.title}
                   </h3>
                   <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${approvalBadge[comic.approvalStatus || 'DRAFT']?.class || approvalBadge.DRAFT.class}`}>
@@ -329,7 +329,7 @@ export default function StudioComicsPage() {
                 onChange={(e) => setNewComic((p) => ({ ...p, title: e.target.value }))}
                 placeholder="Nhập tên truyện"
                 autoFocus
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10"
+                className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/10"
               />
             </div>
             <div>
@@ -339,7 +339,7 @@ export default function StudioComicsPage() {
                 onChange={(e) => setNewComic((p) => ({ ...p, description: e.target.value }))}
                 placeholder="Mô tả nội dung truyện..."
                 rows={4}
-                className="w-full resize-none rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10"
+                className="w-full resize-none rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/10"
               />
             </div>
           </div>
@@ -354,7 +354,7 @@ export default function StudioComicsPage() {
             <button
               onClick={handleCreate}
               disabled={creating || !newComic.title.trim()}
-              className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 disabled:opacity-50"
+              className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 disabled:opacity-50"
             >
               {creating ? 'Đang tạo...' : 'Tạo truyện'}
             </button>

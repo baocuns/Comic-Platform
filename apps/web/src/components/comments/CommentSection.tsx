@@ -20,7 +20,7 @@ interface CommentSectionProps {
   readOnlyMessage?: string;
   title?: string;
   isReaderBgDark?: boolean;
-  accentColor?: 'violet' | 'emerald';
+  accentColor?: 'amber' | 'violet' | 'emerald';
 }
 
 export function CommentSection({
@@ -38,7 +38,7 @@ export function CommentSection({
   readOnlyMessage,
   title = 'Bình luận',
   isReaderBgDark = false,
-  accentColor = 'violet',
+  accentColor = 'amber',
 }: CommentSectionProps) {
   return (
     <div
@@ -94,7 +94,9 @@ export function CommentSection({
             href="/login"
             className={`inline-flex items-center gap-2 rounded px-5 py-2.5 text-xs font-semibold text-white shadow-lg transition-all hover:brightness-110 ${accentColor === 'emerald'
               ? 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-500/25'
-              : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 shadow-violet-500/25'
+              : accentColor === 'violet'
+              ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 shadow-violet-500/25'
+              : 'bg-gradient-to-r from-amber-500 to-orange-500 shadow-amber-500/25'
               }`}
           >
             Đăng nhập ngay

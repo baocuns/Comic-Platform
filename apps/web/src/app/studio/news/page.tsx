@@ -160,7 +160,7 @@ export default function StudioNewsPage() {
         </div>
         <Link
           href="/studio/news/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:from-violet-500 hover:to-fuchsia-500"
+          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:from-amber-400 hover:to-orange-400"
         >
           <i className="fa-solid fa-plus" />
           <span>Viết bài mới</span>
@@ -169,7 +169,7 @@ export default function StudioNewsPage() {
 
       {/* Stats */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={<i className="fa-solid fa-newspaper"></i>} label="Tổng bài viết" value={articles.length} gradient="from-violet-500 to-fuchsia-500" />
+        <StatCard icon={<i className="fa-solid fa-newspaper"></i>} label="Tổng bài viết" value={articles.length} gradient="from-amber-500 to-orange-500" />
         <StatCard icon={<i className="fa-solid fa-circle-check"></i>} label="Đã xuất bản" value={publishedCount} gradient="from-emerald-500 to-teal-500" />
         <StatCard icon={<i className="fa-solid fa-file-pen"></i>} label="Bản nháp" value={draftCount} gradient="from-amber-500 to-orange-500" />
         <StatCard icon={<i className="fa-solid fa-thumbtack"></i>} label="Đã ghim" value={pinnedCount} gradient="from-pink-500 to-rose-500" />
@@ -183,7 +183,7 @@ export default function StudioNewsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm kiếm bài viết theo tiêu đề..."
-            className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] py-2.5 pl-10 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 outline-none transition-colors focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+            className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] py-2.5 pl-10 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 outline-none transition-colors focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
           />
           <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-xs text-zinc-400" />
         </form>
@@ -246,7 +246,7 @@ export default function StudioNewsPage() {
       {/* Content */}
       {loading ? (
         <div className="flex min-h-[300px] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
         </div>
       ) : articles.length === 0 ? (
         <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-zinc-50/50 dark:bg-white/[0.01] p-8 text-center">
@@ -257,7 +257,7 @@ export default function StudioNewsPage() {
           </p>
           <Link
             href="/studio/news/new"
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-500"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:brightness-110"
           >
             <i className="fa-solid fa-plus" />
             <span>Viết bài ngay</span>
@@ -314,7 +314,7 @@ export default function StudioNewsPage() {
 
                 {/* Content */}
                 <div className="flex flex-1 flex-col p-5">
-                  <h3 className="line-clamp-2 text-base font-bold text-zinc-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                  <h3 className="line-clamp-2 text-base font-bold text-zinc-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                     {article.title}
                   </h3>
                   {article.excerpt && (
@@ -370,7 +370,7 @@ export default function StudioNewsPage() {
                       )}
                       <Link
                         href={`/studio/news/${article.id}`}
-                        className="rounded-lg p-1.5 text-xs text-zinc-400 transition-colors hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:text-violet-600 dark:hover:text-violet-400"
+                        className="rounded-lg p-1.5 text-xs text-zinc-400 transition-colors hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:text-amber-600 dark:hover:text-amber-400"
                         title="Chỉnh sửa bài viết"
                       >
                         <i className="fa-regular fa-pen-to-square" />

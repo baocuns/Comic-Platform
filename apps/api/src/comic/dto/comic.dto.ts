@@ -78,3 +78,23 @@ export class ComicQueryDto {
   @IsOptional()
   limit?: number;
 }
+
+export class RecommendationQueryDto {
+  @IsOptional()
+  @IsString()
+  comicId?: string;
+
+  @IsOptional()
+  @IsString()
+  genres?: string;
+
+  @IsOptional()
+  limit?: number;
+}
+
+export class RecordSearchDto {
+  @IsString()
+  @IsNotEmpty()
+  query!: string;
+}
+

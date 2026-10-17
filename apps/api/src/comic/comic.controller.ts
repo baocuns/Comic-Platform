@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ComicService } from './comic.service';
-import { CreateComicDto, UpdateComicDto, ComicQueryDto } from './dto/comic.dto';
+import { CreateComicDto, UpdateComicDto, ComicQueryDto, RecommendationQueryDto, RecordSearchDto } from './dto/comic.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -28,7 +28,14 @@ export class ComicController {
 
   @Public()
   @Get('search')
-  async search(@Query('q') q: string, @Query('page') page?: string) {
+  async search(
+    @Query('q') q: string,
+    @Query('page') page?: string,
+    @CurrentUser('sub') userId?: string,
+  ) {
+    if (q && q.trim().length >= 2) {
+      this.comicService.recordSearch(userId, q).catch(() => {});
+    }
     const result = await this.comicService.search(q, Number(page) || 1);
     return { success: true, ...result };
   }
@@ -45,6 +52,26 @@ export class ComicController {
   async myComics(@CurrentUser('sub') userId: string) {
     const comics = await this.comicService.findByAuthor(userId);
     return { success: true, data: comics };
+  }
+
+  @Public()
+  @Get('recommendations')
+  async getRecommendations(
+    @Query() query: RecommendationQueryDto,
+    @CurrentUser('sub') userId?: string,
+  ) {
+    const result = await this.comicService.getRecommendations(userId, query);
+    return { success: true, data: result.data, reason: result.reason };
+  }
+
+  @Public()
+  @Post('search/record')
+  async recordSearch(
+    @Body() dto: RecordSearchDto,
+    @CurrentUser('sub') userId?: string,
+  ) {
+    await this.comicService.recordSearch(userId, dto.query);
+    return { success: true };
   }
 
   // ⚠️ Wildcard :slug route MUST be after all named routes

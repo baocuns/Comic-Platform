@@ -92,7 +92,7 @@ export default function ComicsPage() {
                 type="button"
                 onClick={() => setSort(opt.value)}
                 className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors cursor-pointer ${sort === opt.value
-                  ? 'bg-violet-500/10 text-violet-600 dark:text-violet-300 font-semibold'
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold'
                   : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5'
                   }`}
               >
@@ -106,8 +106,8 @@ export default function ComicsPage() {
         <button
           onClick={() => setSelectedGenre(null)}
           className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${!selectedGenre
-            ? 'bg-violet-600 text-white font-semibold shadow-sm shadow-violet-500/30'
-            : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-violet-300 dark:hover:border-violet-500/40 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-300 hover:shadow-xs'
+            ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
+            : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-amber-300 dark:hover:border-amber-500/40 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:shadow-xs'
             }`}
         >
           Tất cả
@@ -125,8 +125,8 @@ export default function ComicsPage() {
               key={g.id}
               onClick={() => setSelectedGenre(g.slug)}
               className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${selectedGenre === g.slug
-                ? 'bg-violet-600 text-white font-semibold shadow-sm shadow-violet-500/30'
-                : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-violet-300 dark:hover:border-violet-500/40 hover:bg-violet-50 dark:hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-300 hover:shadow-xs'
+                ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
+                : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-amber-300 dark:hover:border-amber-500/40 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:shadow-xs'
                 }`}
             >
               {g.icon} {g.name}
@@ -156,14 +156,14 @@ export default function ComicsPage() {
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {comics.map((comic) => (
             <Link key={comic.id} href={`/comics/${comic.slug}`} className="group">
-              <div className="mb-2 aspect-[3/4] overflow-hidden rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 transition-all group-hover:border-violet-500/30 group-hover:shadow-lg group-hover:shadow-violet-500/5 dark:group-hover:shadow-violet-500/10">
+              <div className="mb-2 aspect-[3/4] overflow-hidden rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 transition-all group-hover:border-amber-500/40 group-hover:shadow-lg group-hover:shadow-amber-500/10">
                 {comic.coverUrl ? (
                   <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover transition-transform group-hover:scale-105 duration-500 ease-in-out" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-3xl font-bold text-zinc-400 dark:text-zinc-600">{comic.title[0]}</div>
                 )}
               </div>
-              <h3 className="line-clamp-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-violet-600 dark:group-hover:text-violet-300">{comic.title}</h3>
+              <h3 className="line-clamp-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{comic.title}</h3>
               <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{comic.author.displayName}</p>
               <div className="mt-1 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-500">
                 <span><i className="fa-light fa-image"></i> {comic.stats.totalChapters}</span>

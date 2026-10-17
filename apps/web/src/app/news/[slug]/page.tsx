@@ -214,7 +214,7 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
         <p className="text-zinc-500 dark:text-zinc-400 mb-6">Bài viết này không tồn tại hoặc đã bị xóa.</p>
         <Link
           href="/news"
-          className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25"
+          className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:brightness-110 transition-all"
         >
           ← Quay lại tin tức
         </Link>
@@ -226,14 +226,14 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
     <div className="relative min-h-screen overflow-hidden">
       {/* Background effects */}
       <div className="pointer-events-none fixed inset-0">
-        <div className="absolute left-1/2 top-1/4 h-96 w-96 -translate-x-1/2 rounded-full bg-emerald-500/5 dark:bg-emerald-600/10 blur-[150px]" />
+        <div className="absolute left-1/2 top-1/4 h-96 w-96 -translate-x-1/2 rounded-full bg-amber-500/5 dark:bg-amber-600/10 blur-[150px]" />
       </div>
 
       <article className="relative mx-auto max-w-4xl px-4 pt-8 pb-16">
         {/* Back link */}
         <Link
           href="/news"
-          className="inline-flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-300 transition-colors mb-8"
+          className="inline-flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors mb-8"
         >
           <i className="fa-light fa-arrow-left" />
           Quay lại tin tức
@@ -241,7 +241,7 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
 
         {/* Article Header */}
         <header className="mb-8">
-          <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-300 uppercase tracking-wider mb-4">
+          <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-4">
             {CATEGORY_MAP[article.category] || article.category}
           </span>
 
@@ -252,7 +252,7 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
           {/* Author & Meta */}
           <div className="flex flex-wrap items-center gap-4 text-sm text-zinc-500 dark:text-zinc-400">
             <Link href={`/@${article.author.username}`} className="flex items-center gap-2.5 hover:text-zinc-900 dark:hover:text-white transition-colors">
-              <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-bold text-white shadow-sm">
+              <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-sm font-bold text-white shadow-sm">
                 {article.author.avatarUrl ? (
                   <img src={article.author.avatarUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
@@ -293,7 +293,7 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
               <Link
                 key={tag}
                 href={`/news?tag=${encodeURIComponent(tag)}`}
-                className="rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 py-1 text-xs text-zinc-500 dark:text-zinc-400 transition-all hover:border-emerald-500/30 hover:bg-emerald-500/5 hover:text-emerald-600 dark:hover:text-emerald-300"
+                className="rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 py-1 text-xs text-zinc-500 dark:text-zinc-400 transition-all hover:border-amber-500/30 hover:bg-amber-500/5 hover:text-amber-600 dark:hover:text-amber-400"
               >
                 #{tag}
               </Link>
@@ -331,7 +331,7 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
             onSubmitComment={handlePostComment}
             onDeleteComment={(commentId) => handleDeleteComment(commentId)}
             isSubmitting={isSubmitting}
-            accentColor="emerald"
+            accentColor="amber"
           />
         </section>
 
@@ -346,22 +346,22 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
                 <Link
                   key={r.id}
                   href={`/news/${r.slug}`}
-                  className="group overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.02] transition-all hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5"
+                  className="group overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.02] transition-all hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5"
                 >
                   <div className="aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
                     {r.coverUrl ? (
                       <img src={r.coverUrl} alt={r.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     ) : (
-                      <div className="flex h-full items-center justify-center bg-gradient-to-br from-emerald-500/10 to-teal-500/10">
+                      <div className="flex h-full items-center justify-center bg-gradient-to-br from-amber-500/10 to-orange-500/10">
                         <i className="fa-light fa-newspaper text-2xl text-zinc-300 dark:text-zinc-600" />
                       </div>
                     )}
                   </div>
                   <div className="p-4">
-                    <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-300 uppercase tracking-wider">
+                    <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
                       {CATEGORY_MAP[r.category] || r.category}
                     </span>
-                    <h4 className="text-sm font-bold text-zinc-900 dark:text-white line-clamp-2 mt-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors">
+                    <h4 className="text-sm font-bold text-zinc-900 dark:text-white line-clamp-2 mt-1 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                       {r.title}
                     </h4>
                     <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-2">

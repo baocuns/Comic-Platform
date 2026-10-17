@@ -93,7 +93,7 @@ export default function AvatarCropModal({ imageSrc, onCropComplete, onClose }: P
             step={0.1}
             value={zoom}
             onChange={(e) => setZoom(Number(e.target.value))}
-            className="flex-1 accent-violet-500"
+            className="flex-1 accent-amber-500"
           />
         </div>
 
@@ -106,7 +106,7 @@ export default function AvatarCropModal({ imageSrc, onCropComplete, onClose }: P
           </button>
           <button
             onClick={handleConfirm}
-            className="flex-1 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:brightness-110 cursor-pointer"
+            className="flex-1 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:brightness-110 cursor-pointer"
           >
             Xác nhận
           </button>

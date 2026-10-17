@@ -46,14 +46,14 @@ export default function HistoryPage() {
     return acc;
   }, []);
 
-  if (!isHydrated || !user) return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" /></div>;
+  if (!isHydrated || !user) return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" /></div>;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold text-zinc-900 dark:text-white"><i className="fa-light fa-clock-rotate-left"></i> Lịch sử đọc</h1>
 
       {loading ? (
-        <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" /></div>
+        <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" /></div>
       ) : groupedHistory.length === 0 ? (
         <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] p-16 text-center">
           <div className="text-4xl mb-4">📖</div>
@@ -75,7 +75,7 @@ export default function HistoryPage() {
               <Link
                 key={item.id}
                 href={`/read/${item.chapter.id}`}
-                className="flex items-start sm:items-center gap-3 sm:gap-4 rounded border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-3 sm:p-4 transition-all hover:border-violet-500/30 hover:bg-violet-500/5 hover:shadow-sm"
+                className="flex items-start sm:items-center gap-3 sm:gap-4 rounded border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-3 sm:p-4 transition-all hover:border-amber-500/30 hover:bg-amber-500/5 hover:shadow-sm"
               >
                 <div className="h-20 w-14 sm:h-24 sm:w-16 flex-shrink-0 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
                   {item.chapter.comic.coverUrl ? (
@@ -88,7 +88,7 @@ export default function HistoryPage() {
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <h3 className="line-clamp-1 text-sm sm:text-base font-semibold text-zinc-900 dark:text-white">{item.chapter.comic.title}</h3>
                     {hasNewChapter ? (
-                      <span className="self-start sm:self-auto shrink-0 rounded bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-violet-600 dark:text-violet-300 dark:bg-violet-500/20">
+                      <span className="self-start sm:self-auto shrink-0 rounded bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-amber-600 dark:text-amber-400 dark:bg-amber-500/20">
                         ✨ Có chương mới
                       </span>
                     ) : isLatestRead ? (

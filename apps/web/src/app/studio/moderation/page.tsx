@@ -38,7 +38,7 @@ interface ModerationLogItem {
 }
 
 const typeBadges: Record<string, { label: string; class: string; icon: string }> = {
-  COMIC: { label: 'Truyện tranh', class: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/20', icon: '📚' },
+  COMIC: { label: 'Truyện tranh', class: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/20', icon: '📚' },
   CHAPTER: { label: 'Chương truyện', class: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/20', icon: '📖' },
   NEWS: { label: 'Tin tức', class: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20', icon: '📰' },
 };
@@ -205,18 +205,18 @@ export default function StudioModerationPage() {
           onClick={() => setActiveTab('PENDING')}
           className={`pb-3 text-sm font-semibold transition-all relative ${
             activeTab === 'PENDING'
-              ? 'text-violet-600 dark:text-violet-400'
+              ? 'text-amber-600 dark:text-amber-400'
               : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
           }`}
         >
           ⏳ Hàng chờ phê duyệt
           {items.length > 0 && (
-            <span className="ml-2 rounded-full bg-violet-500/20 text-violet-600 dark:text-violet-300 px-2 py-0.5 text-xs font-bold">
+            <span className="ml-2 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-300 px-2 py-0.5 text-xs font-bold">
               {items.length}
             </span>
           )}
           {activeTab === 'PENDING' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-500 rounded-full animate-fade-in" />
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 rounded-full animate-fade-in" />
           )}
         </button>
 
@@ -224,13 +224,13 @@ export default function StudioModerationPage() {
           onClick={() => setActiveTab('LOGS')}
           className={`pb-3 text-sm font-semibold transition-all relative ${
             activeTab === 'LOGS'
-              ? 'text-violet-600 dark:text-violet-400'
+              ? 'text-amber-600 dark:text-amber-400'
               : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
           }`}
         >
           📜 Lịch sử kiểm duyệt
           {activeTab === 'LOGS' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-500 rounded-full animate-fade-in" />
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 rounded-full animate-fade-in" />
           )}
         </button>
       </div>
@@ -244,7 +244,7 @@ export default function StudioModerationPage() {
               onClick={() => setFilterType('ALL')}
               className={`cursor-pointer rounded-xl border p-4 transition-all ${
                 filterType === 'ALL'
-                  ? 'border-violet-500 bg-violet-500/10 dark:bg-violet-500/15 shadow-md shadow-violet-500/10'
+                  ? 'border-amber-500 bg-amber-500/10 dark:bg-amber-500/15 shadow-md shadow-amber-500/10'
                   : 'border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:border-zinc-300'
               }`}
             >
@@ -259,7 +259,7 @@ export default function StudioModerationPage() {
               onClick={() => setFilterType('COMIC')}
               className={`cursor-pointer rounded-xl border p-4 transition-all ${
                 filterType === 'COMIC'
-                  ? 'border-violet-500 bg-violet-500/10 dark:bg-violet-500/15 shadow-md shadow-violet-500/10'
+                  ? 'border-amber-500 bg-amber-500/10 dark:bg-amber-500/15 shadow-md shadow-amber-500/10'
                   : 'border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:border-zinc-300'
               }`}
             >
@@ -310,7 +310,7 @@ export default function StudioModerationPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm theo tiêu đề hoặc tên tác giả..."
-                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] py-2.5 pl-10 pr-4 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-violet-500/50"
+                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] py-2.5 pl-10 pr-4 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-amber-500/50"
               />
             </div>
           </div>
@@ -318,7 +318,7 @@ export default function StudioModerationPage() {
           {/* Pending List */}
           {loading ? (
             <div className="flex justify-center py-20">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" />
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
             </div>
           ) : filteredItems.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-16 text-center shadow-sm dark:shadow-none">
@@ -337,7 +337,7 @@ export default function StudioModerationPage() {
                 return (
                   <div
                     key={`${item.targetType}-${item.targetId}`}
-                    className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 shadow-sm dark:shadow-none transition-all duration-200 hover:border-violet-500/30 hover:shadow-lg hover:shadow-violet-500/5"
+                    className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 shadow-sm dark:shadow-none transition-all duration-200 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5"
                   >
                     <div className="flex items-start gap-4">
                       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800">
@@ -357,7 +357,7 @@ export default function StudioModerationPage() {
                           <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${badge.class}`}>
                             {badge.icon} {badge.label}
                           </span>
-                          <h3 className="text-sm font-bold text-zinc-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">
+                          <h3 className="text-sm font-bold text-zinc-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors">
                             {item.title}
                           </h3>
                         </div>
@@ -410,7 +410,7 @@ export default function StudioModerationPage() {
                 onClick={() => setLogActionFilter('ALL')}
                 className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
                   logActionFilter === 'ALL'
-                    ? 'bg-violet-600 text-white shadow-sm'
+                    ? 'bg-amber-500 text-white shadow-sm'
                     : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10'
                 }`}
               >
@@ -445,7 +445,7 @@ export default function StudioModerationPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm tiêu đề hoặc tên Mod..."
-                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] py-2 pl-9 pr-3 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-violet-500/50"
+                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] py-2 pl-9 pr-3 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-amber-500/50"
               />
             </div>
           </div>
@@ -453,7 +453,7 @@ export default function StudioModerationPage() {
           {/* Logs List */}
           {logsLoading ? (
             <div className="flex justify-center py-20">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" />
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
             </div>
           ) : filteredLogs.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-16 text-center shadow-sm dark:shadow-none">
@@ -565,7 +565,7 @@ export default function StudioModerationPage() {
               {/* 1. COMIC PREVIEW */}
               {previewItem.targetType === 'COMIC' && (
                 <div className="space-y-5">
-                  <div className="relative h-44 w-full rounded-2xl overflow-hidden bg-gradient-to-r from-violet-900 to-zinc-900 border border-zinc-200 dark:border-white/10">
+                  <div className="relative h-44 w-full rounded-2xl overflow-hidden bg-gradient-to-r from-amber-950 to-zinc-900 border border-zinc-200 dark:border-white/10">
                     {previewItem.extraInfo?.bannerUrl && (
                       <img src={previewItem.extraInfo.bannerUrl} alt="" className="h-full w-full object-cover opacity-50" />
                     )}
@@ -593,7 +593,7 @@ export default function StudioModerationPage() {
                       <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">Thể loại</h4>
                       <div className="flex flex-wrap gap-1.5">
                         {previewItem.extraInfo.genres.map((g: string) => (
-                          <span key={g} className="rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-300 border border-violet-500/20 px-2.5 py-1 text-xs font-medium">
+                          <span key={g} className="rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-500/20 px-2.5 py-1 text-xs font-medium">
                             {g}
                           </span>
                         ))}

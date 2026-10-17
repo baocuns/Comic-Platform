@@ -15,7 +15,6 @@ export function Header() {
   const pathname = usePathname();
 
   const [isVisible, setIsVisible] = useState(true);
-  const [isScrolled, setIsScrolled] = useState(false);
   const lastScrollY = useRef(0);
 
   const [showDropdown, setShowDropdown] = useState(false);
@@ -25,8 +24,6 @@ export function Header() {
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-
-      setIsScrolled(currentScrollY > 0);
 
       if (currentScrollY <= 50) {
         setIsVisible(true);
@@ -66,17 +63,14 @@ export function Header() {
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-all duration-300 ${isVisible ? 'translate-y-0' : '-translate-y-full'
-        } ${isScrolled
-          ? 'border-b border-zinc-200 dark:border-white/10 bg-white/85 dark:bg-[#0a0a0a]/80 backdrop-blur-xl'
-          : 'border-b border-transparent bg-transparent backdrop-blur-none'
+      className={`sticky top-0 z-50 transition-all duration-300 border-b border-zinc-200 dark:border-white/10 bg-white/85 dark:bg-[#0a0a0a]/80 backdrop-blur-xl ${isVisible ? 'translate-y-0' : '-translate-y-full'
         }`}
     >
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5">
-          <img src="/owoc_banner_black.png" className="h-14 w-auto dark:hidden" alt="Owoc Logo" />
-          <img src="/owoc_banner_white.png" className="h-14 w-auto hidden dark:block" alt="Owoc Logo" />
+          <img src="/img/owoc_banner_black.png" className="h-14 w-auto dark:hidden" alt="Owoc Logo" />
+          <img src="/img/owoc_banner_white.png" className="h-14 w-auto hidden dark:block" alt="Owoc Logo" />
         </Link>
 
         {/* Navigation Links */}
@@ -97,10 +91,24 @@ export function Header() {
           {/* Search */}
           <button
             onClick={openSearch}
-            className="flex items-center gap-2 rounded-full bg-zinc-100 dark:bg-white/5 px-2 py-2 text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 hover:dark:text-white cursor-pointer"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 hover:dark:text-white cursor-pointer"
+            title="Tìm kiếm"
+            aria-label="Tìm kiếm"
           >
-            <i className="fa-light fa-magnifying-glass" />
+            <i className="fal fa-search text-sm"></i>
           </button>
+
+          {/* Theme Toggle (Guest) */}
+          {!user && (
+            <button
+              onClick={toggleTheme}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 hover:dark:text-white cursor-pointer"
+              title={theme === 'dark' ? 'Chuyển sang giao diện Sáng' : 'Chuyển sang giao diện Tối'}
+              aria-label="Chuyển chế độ sáng/tối"
+            >
+              <i className={`fa-light ${theme === 'dark' ? 'fa-sun-bright' : 'fa-moon'} text-sm`} />
+            </button>
+          )}
 
           {/* Notifications */}
           {user && <NotificationBell />}
@@ -112,7 +120,7 @@ export function Header() {
                 onClick={() => setShowDropdown(!showDropdown)}
                 className="flex items-center gap-2 rounded-full bg-zinc-100 dark:bg-white/5 p-1 pr-3 text-sm text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 hover:dark:text-white"
               >
-                <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-xs font-bold text-white shadow-sm">
+                <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-xs font-bold text-white shadow-sm">
                   {user.avatarUrl ? (
                     <img src={user.avatarUrl} alt={user.displayName} className="h-full w-full object-cover" />
                   ) : (
@@ -129,7 +137,7 @@ export function Header() {
                   {/* User Profile Header */}
                   <div className="px-3.5 py-3 border-b border-zinc-100 dark:border-white/5">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-base font-bold text-white shadow-inner">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-base font-bold text-white shadow-inner">
                         {user.avatarUrl ? (
                           <img src={user.avatarUrl} alt={user.displayName} className="h-full w-full object-cover" />
                         ) : (
@@ -200,7 +208,7 @@ export function Header() {
                         <i className={`fa-light ${theme === 'dark' ? 'fa-moon' : 'fa-sun-bright'} w-4 text-center text-zinc-400 text-base`} />
                         <span>Giao diện: {theme === 'dark' ? 'Tối' : 'Sáng'}</span>
                       </div>
-                      <span className={`h-1.5 w-1.5 rounded-full ${theme === 'dark' ? 'bg-indigo-500 shadow-indigo-500/50' : 'bg-amber-500 shadow-amber-500/50'} shadow-sm`} />
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-amber-500/50 shadow-sm" />
                     </div>
 
                     <Link
@@ -240,7 +248,7 @@ export function Header() {
               </Link>
               <Link
                 href="/register"
-                className="hidden rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 hover:brightness-110"
+                className="hidden rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110"
               >
                 Đăng ký
               </Link>

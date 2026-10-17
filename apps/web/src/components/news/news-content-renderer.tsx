@@ -57,7 +57,7 @@ function parseBlockMarkdown(text: string): React.ReactNode[] {
     return [
       <blockquote
         key="bq"
-        className="my-4 border-l-4 border-violet-500 bg-violet-500/5 dark:bg-violet-500/10 p-4 rounded-r-xl italic text-zinc-700 dark:text-zinc-300"
+        className="my-4 border-l-4 border-amber-500 bg-amber-500/5 dark:bg-amber-500/10 p-4 rounded-r-xl italic text-zinc-700 dark:text-zinc-300"
       >
         {text.replace(/^>\s+/, '')}
       </blockquote>,

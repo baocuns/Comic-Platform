@@ -13,7 +13,7 @@ interface CommentEditorProps {
   userAvatarUrl?: string | null;
   userDisplayName?: string;
   isReaderBgDark?: boolean;
-  accentColor?: 'violet' | 'emerald';
+  accentColor?: 'amber' | 'violet' | 'emerald';
   compact?: boolean;
 }
 
@@ -27,7 +27,7 @@ export function CommentEditor({
   userAvatarUrl,
   userDisplayName,
   isReaderBgDark = false,
-  accentColor = 'violet',
+  accentColor = 'amber',
   compact = false,
 }: CommentEditorProps) {
   const [text, setText] = useState<string>(initialValue);
@@ -80,7 +80,9 @@ export function CommentEditor({
   const buttonGradient =
     accentColor === 'emerald'
       ? 'from-emerald-600 to-teal-600 hover:shadow-emerald-500/30'
-      : 'from-violet-600 to-fuchsia-600 hover:shadow-violet-500/30';
+      : accentColor === 'violet'
+      ? 'from-violet-600 to-fuchsia-600 hover:shadow-violet-500/30'
+      : 'from-amber-500 to-orange-500 hover:shadow-amber-500/30';
 
   return (
     <div className={`relative ${compact ? '' : 'mb-6'}`}>
@@ -91,7 +93,9 @@ export function CommentEditor({
             className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full font-bold text-sm text-white ${
               accentColor === 'emerald'
                 ? 'bg-gradient-to-br from-emerald-500 to-teal-500 shadow-md shadow-emerald-500/20'
-                : 'bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-500/20'
+                : accentColor === 'violet'
+                ? 'bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-md shadow-violet-500/20'
+                : 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-md shadow-amber-500/20'
             }`}
           >
             {userAvatarUrl ? (
@@ -108,10 +112,12 @@ export function CommentEditor({
             <div
               className={`group relative rounded-2xl border transition-all duration-200 ${
                 isReaderBgDark
-                  ? 'border-white/10 bg-white/[0.04] focus-within:border-violet-500/50 focus-within:ring-2 focus-within:ring-violet-500/20'
+                  ? 'border-white/10 bg-white/[0.04] focus-within:border-amber-500/50 focus-within:ring-2 focus-within:ring-amber-500/20'
                   : accentColor === 'emerald'
                   ? 'border-zinc-200 bg-zinc-50 focus-within:border-emerald-500/50 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/20 dark:border-white/10 dark:bg-zinc-900/60 dark:focus-within:bg-zinc-900'
-                  : 'border-zinc-200 bg-zinc-50 focus-within:border-violet-500/50 focus-within:bg-white focus-within:ring-2 focus-within:ring-violet-500/20 dark:border-white/10 dark:bg-zinc-900/60 dark:focus-within:bg-zinc-900'
+                  : accentColor === 'violet'
+                  ? 'border-zinc-200 bg-zinc-50 focus-within:border-violet-500/50 focus-within:bg-white focus-within:ring-2 focus-within:ring-violet-500/20 dark:border-white/10 dark:bg-zinc-900/60 dark:focus-within:bg-zinc-900'
+                  : 'border-zinc-200 bg-zinc-50 focus-within:border-amber-500/50 focus-within:bg-white focus-within:ring-2 focus-within:ring-amber-500/20 dark:border-white/10 dark:bg-zinc-900/60 dark:focus-within:bg-zinc-900'
               }`}
             >
               <textarea
@@ -170,7 +176,9 @@ export function CommentEditor({
                       showPicker
                         ? accentColor === 'emerald'
                           ? 'bg-emerald-500/20 text-emerald-500'
-                          : 'bg-violet-500/20 text-violet-500'
+                          : accentColor === 'violet'
+                          ? 'bg-violet-500/20 text-violet-500'
+                          : 'bg-amber-500/20 text-amber-500'
                         : isReaderBgDark
                         ? 'text-zinc-400 hover:bg-white/10 hover:text-white'
                         : 'text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white'

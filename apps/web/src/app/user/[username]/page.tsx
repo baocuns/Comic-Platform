@@ -152,7 +152,7 @@ export default function UserProfilePage() {
   if (!isHydrated || loading) {
     return (
       <div className="flex min-h-[calc(100vh-64px)] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
       </div>
     );
   }
@@ -163,7 +163,7 @@ export default function UserProfilePage() {
         <div className="text-6xl">😵</div>
         <h1 className="text-2xl font-bold text-white">Không tìm thấy người dùng</h1>
         <p className="text-sm text-zinc-500">@{username} không tồn tại</p>
-        <Link href="/" className="mt-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-2.5 text-sm font-semibold text-white">
+        <Link href="/" className="mt-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25">
           Về trang chủ
         </Link>
       </div>
@@ -279,7 +279,7 @@ export default function UserProfilePage() {
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end">
             {/* Avatar */}
             <div className="group relative">
-              <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded bg-gradient-to-br from-violet-500 to-fuchsia-500 text-4xl font-bold text-white shadow-xl sm:h-32 sm:w-32">
+              <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded bg-gradient-to-br from-amber-500 to-orange-500 text-4xl font-bold text-white shadow-xl sm:h-32 sm:w-32">
                 {profileUser.avatarUrl ? (
                   <img src={profileUser.avatarUrl} alt={profileUser.displayName} className="h-full w-full object-cover" />
                 ) : (
@@ -321,7 +321,7 @@ export default function UserProfilePage() {
                 <>
                   <button
                     onClick={() => setShowEditModal(true)}
-                    className="rounded bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-violet-500/40 hover:brightness-110 cursor-pointer"
+                    className="rounded bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110 cursor-pointer"
                   >
                     Chỉnh sửa
                   </button>
@@ -338,7 +338,7 @@ export default function UserProfilePage() {
                   disabled={followLoading}
                   className={`rounded px-6 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer ${isFollowing
                     ? 'border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400'
-                    : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:brightness-110'
+                    : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:brightness-110'
                     }`}
                 >
                   {followLoading ? '...' : isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
@@ -352,13 +352,13 @@ export default function UserProfilePage() {
         <div className="mt-4 flex items-center gap-5 px-4 sm:px-6">
           <button
             onClick={() => openFollowModal('followers')}
-            className="text-sm text-zinc-500 dark:text-zinc-400 transition-colors hover:text-violet-600 dark:hover:text-violet-400 cursor-pointer"
+            className="text-sm text-zinc-500 dark:text-zinc-400 transition-colors hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer"
           >
             <span className="font-bold text-zinc-900 dark:text-white">{stats.followerCount}</span> người theo dõi
           </button>
           <button
             onClick={() => openFollowModal('following')}
-            className="text-sm text-zinc-500 dark:text-zinc-400 transition-colors hover:text-violet-600 dark:hover:text-violet-400 cursor-pointer"
+            className="text-sm text-zinc-500 dark:text-zinc-400 transition-colors hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer"
           >
             <span className="font-bold text-zinc-900 dark:text-white">{stats.followingCount}</span> đang theo dõi
           </button>
@@ -453,7 +453,7 @@ export default function UserProfilePage() {
                 <Link
                   key={comic.id}
                   href={`/comics/${comic.slug}`}
-                  className="flex items-center gap-3 rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-3 transition-all hover:border-violet-500/30 hover:bg-violet-500/5"
+                  className="flex items-center gap-3 rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-3 transition-all hover:border-amber-500/30 hover:bg-amber-500/5"
                 >
                   <div className="h-20 w-14 flex-shrink-0 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
                     {comic.coverUrl ? (
@@ -502,7 +502,7 @@ export default function UserProfilePage() {
             <div className="mt-4">
               {loadingTab ? (
                 <div className="flex justify-center py-16">
-                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" />
+                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
                 </div>
               ) : activeTab === 'bookmarks' ? (
                 bookmarks.length === 0 ? (
@@ -511,7 +511,7 @@ export default function UserProfilePage() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     {bookmarks.map((bm) => (
                       <Link key={bm.id} href={`/comics/${bm.comic.slug}`}
-                        className="flex items-center gap-3 rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-3 transition-all hover:border-violet-500/30 hover:bg-violet-500/5">
+                        className="flex items-center gap-3 rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-3 transition-all hover:border-amber-500/30 hover:bg-amber-500/5">
                         <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
                           {bm.comic.coverUrl ? <img src={bm.comic.coverUrl} alt={bm.comic.title} className="h-full w-full object-cover" /> :
                             <div className="flex h-full items-center justify-center text-lg font-bold text-zinc-400 dark:text-zinc-600">{bm.comic.title[0]}</div>}
@@ -545,7 +545,7 @@ export default function UserProfilePage() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     {groupedUserHistory.map((h) => (
                       <Link key={h.id} href={`/read/${h.chapter.id}`}
-                        className="flex items-center gap-3 rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-3 transition-all hover:border-violet-500/30 hover:bg-violet-500/5">
+                        className="flex items-center gap-3 rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-3 transition-all hover:border-amber-500/30 hover:bg-amber-500/5">
                         <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
                           {h.chapter.comic.coverUrl ? <img src={h.chapter.comic.coverUrl} alt={h.chapter.comic.title} className="h-full w-full object-cover" /> :
                             <div className="flex h-full items-center justify-center text-lg font-bold text-zinc-400 dark:text-zinc-600">{h.chapter.comic.title[0]}</div>}
@@ -592,7 +592,7 @@ export default function UserProfilePage() {
             <div className="max-h-[60vh] overflow-y-auto p-3">
               {followListLoading && followList.length === 0 ? (
                 <div className="flex justify-center py-12">
-                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" />
+                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
                 </div>
               ) : followList.length === 0 ? (
                 <div className="py-12 text-center">
@@ -611,7 +611,7 @@ export default function UserProfilePage() {
                         onClick={() => setFollowModal({ ...followModal, open: false })}
                         className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all hover:bg-zinc-100 dark:hover:bg-white/5"
                       >
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-bold text-white">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-sm font-bold text-white">
                           {u.avatarUrl ? (
                             <img src={u.avatarUrl} alt={u.displayName} className="h-full w-full object-cover" />
                           ) : (
@@ -659,7 +659,7 @@ function StatCard({ icon, label, value }: { icon: string; label: string; value: 
 function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick}
-      className={`flex-1 rounded px-4 py-2.5 text-sm font-medium transition-all cursor-pointer ${active ? 'bg-white dark:bg-white/10 text-violet-600 dark:text-white font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}>
+      className={`flex-1 rounded px-4 py-2.5 text-sm font-medium transition-all cursor-pointer ${active ? 'bg-white dark:bg-white/10 text-amber-600 dark:text-amber-400 font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}>
       {label}
     </button>
   );
@@ -671,7 +671,7 @@ function EmptyState({ icon, title, desc, link, linkText }: { icon: string; title
       <div className="mb-3 text-4xl">{icon}</div>
       <h3 className="text-base font-semibold text-zinc-900 dark:text-white">{title}</h3>
       <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">{desc}</p>
-      <Link href={link} className="mt-4 inline-block rounded bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/25">
+      <Link href={link} className="mt-4 inline-block rounded bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25">
         {linkText}
       </Link>
     </div>

@@ -48,7 +48,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
                 : toast.type === 'error'
                 ? 'border-red-500/20 bg-red-500/10 text-red-300'
-                : 'border-violet-500/20 bg-violet-500/10 text-violet-300'
+                : 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300'
             }`}
           >
             <span className="text-sm">

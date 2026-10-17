@@ -23,21 +23,26 @@ interface Comic {
 }
 
 import { useSearchStore } from '@/stores/search-store';
+import { useAuthStore } from '@/stores/auth-store';
+import { trackSearch, trackComicView, getRecentSearches, clearRecentSearches } from '@/lib/recommendation-tracker';
 
 export function SearchModal() {
   const { isOpen, close: onClose } = useSearchStore();
+  const { accessToken } = useAuthStore();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [results, setResults] = useState<Comic[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Focus input when modal opens
+  // Focus input and load recent searches when modal opens
   useEffect(() => {
     if (isOpen) {
+      setRecentSearches(getRecentSearches());
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -153,7 +158,7 @@ export function SearchModal() {
           <div className="absolute right-4 flex items-center gap-2">
             {/* Loading Indicator */}
             {loading && (
-              <svg className="animate-spin h-5 w-5 text-violet-500" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
@@ -177,6 +182,39 @@ export function SearchModal() {
           </div>
         </div>
 
+        {/* Recent searches section (when query is empty) */}
+        {!query.trim() && recentSearches.length > 0 && (
+          <div className="p-4 border-b border-white/5">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+                <i className="fa-light fa-clock-rotate-left text-xs" />
+                Tìm kiếm gần đây
+              </span>
+              <button
+                onClick={() => {
+                  clearRecentSearches();
+                  setRecentSearches([]);
+                }}
+                className="text-[11px] text-zinc-500 hover:text-red-400 transition-colors"
+              >
+                Xóa lịch sử
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {recentSearches.map((term, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setQuery(term)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/5 text-xs text-zinc-300 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  <i className="fa-light fa-magnifying-glass text-[10px] text-zinc-500" />
+                  {term}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Results / Empty / Error Section */}
         {query.trim().length > 0 && (
           <div className="max-h-[50vh] overflow-y-auto divide-y divide-white/5">
@@ -199,7 +237,11 @@ export function SearchModal() {
                   <Link
                     key={comic.id}
                     href={`/comics/${comic.slug}`}
-                    onClick={onClose}
+                    onClick={() => {
+                      trackSearch(query, accessToken || undefined);
+                      trackComicView(comic);
+                      onClose();
+                    }}
                     className="flex items-center gap-3.5 p-3 rounded-xl hover:bg-white/5 transition-all duration-200 group"
                   >
                     {/* Cover image */}
@@ -219,7 +261,7 @@ export function SearchModal() {
 
                     {/* Comic details */}
                     <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-sm text-zinc-200 group-hover:text-violet-400 transition-colors line-clamp-1">
+                      <div className="font-semibold text-sm text-zinc-200 group-hover:text-amber-400 transition-colors line-clamp-1">
                         {comic.title}
                       </div>
 
@@ -268,7 +310,7 @@ export function SearchModal() {
                     </div>
 
                     {/* Arrow action */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity pr-2 flex-shrink-0 text-zinc-500 group-hover:text-violet-400">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity pr-2 flex-shrink-0 text-zinc-500 group-hover:text-amber-400">
                       <i className="fa-light fa-chevron-right text-sm" />
                     </div>
                   </Link>

@@ -144,7 +144,7 @@ export function NotificationBell() {
         className="relative flex items-center justify-center rounded-full bg-zinc-100 dark:bg-white/5 p-2 text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
         aria-label="Thông báo"
       >
-        <i className={`fa-light fa-bell text-[17px] ${isOpen ? 'text-violet-500' : ''}`} />
+        <i className={`fa-light fa-bell text-[17px] ${isOpen ? 'text-amber-500' : ''}`} />
 
         {/* Badge */}
         {unreadCount > 0 && (
@@ -160,13 +160,13 @@ export function NotificationBell() {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-zinc-100 dark:border-white/5 px-4 py-3">
             <h3 className="text-sm font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
-              <i className="fa-solid fa-bell text-violet-500 text-xs" />
+              <i className="fa-solid fa-bell text-amber-500 text-xs" />
               Thông báo
             </h3>
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-xs font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400 transition-colors cursor-pointer"
+                className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors cursor-pointer"
               >
                 Đọc tất cả
               </button>
@@ -203,7 +203,7 @@ export function NotificationBell() {
                     key={n.id}
                     onClick={() => handleNotificationClick(n)}
                     className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-white/[0.03] cursor-pointer ${
-                      !n.isRead ? 'bg-violet-50/50 dark:bg-violet-500/[0.04]' : ''
+                      !n.isRead ? 'bg-amber-50/50 dark:bg-amber-500/[0.04]' : ''
                     }`}
                   >
                     {/* Icon */}
@@ -225,14 +225,14 @@ export function NotificationBell() {
                           {n.content}
                         </p>
                       )}
-                      <p className={`mt-1 text-[11px] ${!n.isRead ? 'text-violet-500 font-medium' : 'text-zinc-400 dark:text-zinc-600'}`}>
+                      <p className={`mt-1 text-[11px] ${!n.isRead ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-zinc-400 dark:text-zinc-600'}`}>
                         {timeAgo(n.createdAt)}
                       </p>
                     </div>
 
                     {/* Unread dot */}
                     {!n.isRead && (
-                      <div className="mt-2 h-2 w-2 shrink-0 rounded-full bg-violet-500 shadow-sm shadow-violet-500/50" />
+                      <div className="mt-2 h-2 w-2 shrink-0 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50" />
                     )}
                   </button>
                 );
@@ -247,7 +247,7 @@ export function NotificationBell() {
                 setIsOpen(false);
                 router.push('/notifications');
               }}
-              className="flex w-full items-center justify-center gap-2 py-3 text-sm font-medium text-violet-500 hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors cursor-pointer"
+              className="flex w-full items-center justify-center gap-2 py-3 text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors cursor-pointer"
             >
               Xem tất cả thông báo
               <i className="fa-solid fa-arrow-right text-xs" />

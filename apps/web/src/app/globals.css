@@ -22,6 +22,11 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+::selection {
+  background-color: rgba(245, 158, 11, 0.3);
+  color: inherit;
+}
+
 /* Class-based dark mode variant for Tailwind CSS v4 */
 @variant dark (&:where(.dark, .dark *));
 

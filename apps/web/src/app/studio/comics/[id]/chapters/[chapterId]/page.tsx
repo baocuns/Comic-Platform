@@ -87,7 +87,7 @@ function SortablePageThumb({
       style={style}
       className={`group relative flex-shrink-0 cursor-grab select-none overflow-hidden rounded-xl border-2 transition-all duration-200 active:cursor-grabbing ${
         isSelected
-          ? 'border-violet-500 bg-violet-500/10 shadow-lg shadow-violet-500/20'
+          ? 'border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/20'
           : 'border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] shadow-sm dark:shadow-none hover:border-zinc-300 dark:hover:border-white/[0.15]'
       }`}
       onClick={(e) => onSelect(page.id, e.ctrlKey || e.metaKey)}
@@ -130,7 +130,7 @@ function SortablePageThumb({
 
       {/* Selection check */}
       {isSelected && (
-        <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-[10px] text-white shadow-lg">
+        <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] text-white shadow-lg">
           ✓
         </div>
       )}
@@ -148,7 +148,7 @@ function DragOverlayThumb({ page, zoom, viewMode }: { page: PageData; zoom: numb
   const w = viewMode === 'grid' ? Math.round(120 * zoom) : Math.round(280 * zoom);
   return (
     <div
-      className="overflow-hidden rounded-xl border-2 border-violet-500 bg-violet-500/10 shadow-2xl shadow-violet-500/30"
+      className="overflow-hidden rounded-xl border-2 border-amber-500 bg-amber-500/10 shadow-2xl shadow-amber-500/30"
       style={{ width: `${w}px` }}
     >
       <div className={`w-full overflow-hidden bg-zinc-100 dark:bg-zinc-900 ${viewMode === 'grid' ? 'aspect-[3/4]' : ''}`}>
@@ -468,7 +468,7 @@ export default function CanvasEditorPage() {
 
   const activePage = activeId ? pages.find((p) => p.id === activeId) : null;
 
-  if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500/30 border-t-violet-500" /></div>;
+  if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" /></div>;
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col" onDragOver={handlePageDragOver} onDragLeave={handlePageDragLeave} onDrop={handlePageDrop}>
@@ -581,7 +581,7 @@ export default function CanvasEditorPage() {
             <button
               onClick={handleSaveOrder}
               disabled={savingOrder}
-              className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-violet-500/25 disabled:opacity-50"
+              className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-amber-500/25 disabled:opacity-50"
             >
               {savingOrder ? 'Đang lưu...' : '💾 Lưu thứ tự'}
             </button>
@@ -604,11 +604,11 @@ export default function CanvasEditorPage() {
           <div className="flex h-full items-center justify-center">
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="cursor-pointer rounded-2xl border-2 border-dashed border-zinc-300 dark:border-white/[0.1] bg-white dark:bg-transparent p-16 text-center shadow-sm dark:shadow-none transition-all hover:border-violet-500/50 hover:bg-violet-500/[0.03]"
+              className="cursor-pointer rounded-2xl border-2 border-dashed border-zinc-300 dark:border-white/[0.1] bg-white dark:bg-transparent p-16 text-center shadow-sm dark:shadow-none transition-all hover:border-amber-500/50 hover:bg-amber-500/[0.03]"
             >
               <div className="mb-4 text-5xl">🎨</div>
               <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">Bắt đầu với Canvas Editor</h3>
-              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Kéo thả ảnh vào đây hoặc <span className="text-violet-600 dark:text-violet-400 underline font-medium">click để chọn</span></p>
+              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Kéo thả ảnh vào đây hoặc <span className="text-amber-600 dark:text-amber-400 underline font-medium">click để chọn</span></p>
               <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-600">JPEG, PNG, WebP, GIF — tối đa 10MB/ảnh</p>
             </div>
           </div>
@@ -659,10 +659,10 @@ export default function CanvasEditorPage() {
               </h3>
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="cursor-pointer rounded-xl border-2 border-dashed border-zinc-300 dark:border-white/[0.08] bg-zinc-50 dark:bg-transparent p-8 text-center transition-all hover:border-violet-500/50 hover:bg-violet-500/[0.03]"
+                className="cursor-pointer rounded-xl border-2 border-dashed border-zinc-300 dark:border-white/[0.08] bg-zinc-50 dark:bg-transparent p-8 text-center transition-all hover:border-amber-500/50 hover:bg-amber-500/[0.03]"
               >
                 <div className="text-3xl">🖼️</div>
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Kéo thả ảnh hoặc <span className="text-violet-600 dark:text-violet-400 underline font-medium">click để chọn</span></p>
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Kéo thả ảnh hoặc <span className="text-amber-600 dark:text-amber-400 underline font-medium">click để chọn</span></p>
                 <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-600">Ảnh mới sẽ được thêm vào sau các trang hiện có</p>
               </div>
 
@@ -674,7 +674,7 @@ export default function CanvasEditorPage() {
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium"
+                        className="text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 font-medium"
                       >
                         + Thêm ảnh
                       </button>
@@ -706,14 +706,14 @@ export default function CanvasEditorPage() {
                     <button
                       onClick={handleUploadPages}
                       disabled={uploading}
-                      className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 disabled:opacity-50"
+                      className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 disabled:opacity-50"
                     >
                       {uploading ? 'Đang upload...' : `Upload ${selectedFiles.length} trang`}
                     </button>
                     {uploadProgress > 0 && (
                       <div className="flex-1">
                         <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
-                          <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500" style={{ width: `${uploadProgress}%` }} />
+                          <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500" style={{ width: `${uploadProgress}%` }} />
                         </div>
                       </div>
                     )}
@@ -728,10 +728,10 @@ export default function CanvasEditorPage() {
 
       {/* ── Full-page drag overlay ── */}
       {isDragOver && (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-violet-500/10 backdrop-blur-sm">
-          <div className="rounded-2xl border-2 border-dashed border-violet-400/50 bg-violet-500/10 p-16 text-center">
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-amber-500/10 backdrop-blur-sm">
+          <div className="rounded-2xl border-2 border-dashed border-amber-400/50 bg-amber-500/10 p-16 text-center">
             <div className="text-5xl">📂</div>
-            <p className="mt-3 text-lg font-semibold text-violet-700 dark:text-violet-300">Thả ảnh vào đây để thêm trang</p>
+            <p className="mt-3 text-lg font-semibold text-amber-700 dark:text-amber-300">Thả ảnh vào đây để thêm trang</p>
           </div>
         </div>
       )}

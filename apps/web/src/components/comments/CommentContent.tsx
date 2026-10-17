@@ -70,8 +70,8 @@ export function CommentContent({ content, className = '', isReaderBgDark = false
                     alt={s.alt}
                     loading="lazy"
                     className={`max-h-20 sm:max-h-24 w-auto rounded object-contain border p-1 transition-all hover:scale-105 ${isReaderBgDark
-                        ? 'border-white/10 bg-white/[0.04] shadow-md shadow-black/50 hover:border-violet-500/50'
-                        : 'border-zinc-200 bg-zinc-50 shadow-sm shadow-zinc-200/80 hover:border-violet-500/50'
+                        ? 'border-white/10 bg-white/[0.04] shadow-md shadow-black/50 hover:border-amber-500/50'
+                        : 'border-zinc-200 bg-zinc-50 shadow-sm shadow-zinc-200/80 hover:border-amber-500/50'
                       }`}
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';

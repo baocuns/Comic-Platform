@@ -27,6 +27,7 @@ export class ComicController {
   }
 
   @Public()
+  @UseGuards(JwtAuthGuard)
   @Get('search')
   async search(
     @Query('q') q: string,
@@ -55,6 +56,7 @@ export class ComicController {
   }
 
   @Public()
+  @UseGuards(JwtAuthGuard)
   @Get('recommendations')
   async getRecommendations(
     @Query() query: RecommendationQueryDto,
@@ -65,6 +67,7 @@ export class ComicController {
   }
 
   @Public()
+  @UseGuards(JwtAuthGuard)
   @Post('search/record')
   async recordSearch(
     @Body() dto: RecordSearchDto,

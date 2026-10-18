@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, IsNotEmpty, IsInt, Min } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsNotEmpty, IsInt, Min, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ModerationTargetType, ApprovalStatus } from '@prisma/client';
 
@@ -46,4 +46,13 @@ export class ModerationLogsQueryDto {
   @IsOptional()
   @IsEnum(ApprovalStatus)
   action?: ApprovalStatus;
+}
+
+export class SetTrustDto {
+  @IsBoolean()
+  isTrusted!: boolean;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }

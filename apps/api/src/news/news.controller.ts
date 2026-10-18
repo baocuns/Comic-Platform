@@ -53,6 +53,7 @@ export class NewsController {
   }
 
   @Public()
+  @UseGuards(JwtAuthGuard)
   @Get(':slug')
   async findBySlug(@Param('slug') slug: string, @CurrentUser('sub') userId?: string) {
     const data = await this.newsService.findBySlug(slug, userId);

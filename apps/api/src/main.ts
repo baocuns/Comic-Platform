@@ -14,12 +14,18 @@ async function bootstrap() {
   app.setGlobalPrefix('v1');
 
   // CORS
-  const origins = process.env.APP_URL
+  const isDev = process.env.NODE_ENV !== 'production';
+  const configuredOrigins = process.env.APP_URL
     ? process.env.APP_URL.split(',').map((url) => url.trim())
     : ['http://localhost:3000'];
 
   app.enableCors({
-    origin: origins,
+    origin: isDev
+      ? (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+          // In dev mode, allow any origin (localhost, LAN IPs, Cloudflare tunnels, etc.)
+          callback(null, true);
+        }
+      : configuredOrigins,
     credentials: true,
   });
 

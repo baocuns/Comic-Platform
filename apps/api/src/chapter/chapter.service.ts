@@ -100,9 +100,13 @@ export class ChapterService {
     if (chapter.approvalStatus !== ApprovalStatus.APPROVED || chapter.comic.approvalStatus !== ApprovalStatus.APPROVED) {
       let canAccess = false;
       if (userId) {
-        const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-        if (user && (user.role === 'ADMIN' || user.role === 'MODERATOR' || chapter.comic.authorId === userId)) {
+        if (chapter.comic.authorId === userId) {
           canAccess = true;
+        } else {
+          const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+          if (user && (user.role === 'ADMIN' || user.role === 'MODERATOR')) {
+            canAccess = true;
+          }
         }
       }
       if (!canAccess) {

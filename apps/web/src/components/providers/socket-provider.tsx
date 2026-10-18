@@ -5,7 +5,15 @@ import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useNotificationStore, NotificationItem } from '@/stores/notification-store';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/v1', '') || 'http://localhost:4000';
+function getSocketUrl(): string {
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname } = window.location;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return `${protocol}//${hostname}:4000`;
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL?.replace('/v1', '') || 'http://localhost:4000';
+}
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const { user, accessToken } = useAuthStore();
@@ -26,7 +34,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     // Avoid duplicate connections
     if (socketRef.current?.connected) return;
 
-    const socket = io(SOCKET_URL, {
+    const socket = io(getSocketUrl(), {
       auth: { token: accessToken },
       transports: ['websocket', 'polling'],
       reconnection: true,

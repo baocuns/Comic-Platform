@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { StudioSidebar } from '@/components/studio/sidebar';
@@ -9,6 +9,7 @@ import { StudioHeader } from '@/components/studio/studio-header';
 export default function StudioLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, isHydrated } = useAuthStore();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (isHydrated && !user) {
@@ -34,10 +35,10 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
 
   return (
     <div className="flex min-h-screen bg-zinc-50 dark:bg-[#0a0a0a] text-zinc-900 dark:text-white transition-colors duration-200">
-      <StudioSidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <StudioHeader />
-        <main className="flex-1 overflow-y-auto">
+      <StudioSidebar mobileOpen={mobileMenuOpen} onCloseMobile={() => setMobileMenuOpen(false)} />
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+        <StudioHeader onOpenMobileMenu={() => setMobileMenuOpen(true)} />
+        <main className="flex-1 overflow-y-auto min-w-0">
           {children}
         </main>
       </div>

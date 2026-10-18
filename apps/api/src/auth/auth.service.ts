@@ -286,6 +286,8 @@ export class AuthService {
       experience: user.experience,
       level: user.level,
       loginStreak: user.loginStreak,
+      isVerified: user.isVerified ?? false,
+      isTrusted: user.isTrusted ?? false,
       createdAt: user.createdAt,
     };
   }

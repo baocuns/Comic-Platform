@@ -32,18 +32,18 @@ export function StatCard({ icon, label, value, suffix = '', gradient = 'from-amb
   }, [value]);
 
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 shadow-sm dark:shadow-none transition-all duration-300 hover:border-zinc-300 dark:hover:border-white/[0.12] hover:bg-zinc-50 dark:hover:bg-white/[0.04] cursor-pointer">
+    <div className="group relative overflow-hidden rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-3 sm:p-5 shadow-sm dark:shadow-none transition-all duration-300 hover:border-zinc-300 dark:hover:border-white/[0.12] hover:bg-zinc-50 dark:hover:bg-white/[0.04] cursor-pointer">
       {/* Gradient glow on hover */}
       <div className={`pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br ${gradient} opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-20`} />
 
       <div className="relative">
-        <div className="mb-3 flex items-center gap-2.5">
-          <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br ${gradient} text-lg text-white shadow-lg shadow-amber-500/10`}>
+        <div className="mb-2 sm:mb-3 flex items-center gap-2 sm:gap-2.5">
+          <div className={`flex h-7 w-7 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${gradient} text-sm sm:text-lg text-white shadow-lg shadow-amber-500/10`}>
             {icon}
           </div>
-          <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">{label}</span>
+          <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 truncate">{label}</span>
         </div>
-        <div className="text-2xl font-bold text-zinc-900 dark:text-white tabular-nums">
+        <div className="text-base sm:text-2xl font-bold text-zinc-900 dark:text-white tabular-nums tracking-tight">
           {displayValue.toLocaleString('vi-VN')}{suffix}
         </div>
       </div>

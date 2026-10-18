@@ -88,6 +88,7 @@ model User {
   socialLinks     Json      @default("{}") @map("social_links")
   isVerified      Boolean   @default(false) @map("is_verified")
   emailVerifiedAt DateTime? @map("email_verified_at")
+  isTrusted       Boolean   @default(false) @map("is_trusted")
 
   // OAuth
   oauthProvider String? @map("oauth_provider") @db.VarChar(50)

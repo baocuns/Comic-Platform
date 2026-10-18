@@ -226,6 +226,8 @@ export class UserService {
       coins: user.coins,
       experience: user.experience,
       level: user.level,
+      isVerified: user.isVerified ?? false,
+      isTrusted: user.isTrusted ?? false,
       createdAt: user.createdAt,
     };
   }
@@ -241,6 +243,8 @@ export class UserService {
       bio: user.bio,
       socialLinks: user.socialLinks,
       level: user.level,
+      isVerified: user.isVerified ?? false,
+      isTrusted: user.isTrusted ?? false,
       createdAt: user.createdAt,
     };
   }

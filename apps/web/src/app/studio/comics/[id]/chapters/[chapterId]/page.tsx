@@ -221,8 +221,9 @@ export default function CanvasEditorPage() {
     if (!accessToken || !chapterId) return;
     setLoading(true);
 
-    api
-      .get<{ data: ChapterInfo & { pages: PageData[] } }>(`/chapters/${chapterId}`)
+    apiWithRetry((token) =>
+      api.get<{ data: ChapterInfo & { pages: PageData[] } }>(`/chapters/${chapterId}`, { token })
+    )
       .then((res) => {
         setChapter({
           id: res.data.id,
@@ -235,8 +236,9 @@ export default function CanvasEditorPage() {
 
         const targetComicId = res.data.comic?.id || comicId;
         if (targetComicId) {
-          api
-            .get<{ data: ChapterItem[] }>(`/comics/${targetComicId}/chapters`)
+          apiWithRetry((token) =>
+            api.get<{ data: ChapterItem[] }>(`/comics/${targetComicId}/chapters`, { token })
+          )
             .then((chRes) => {
               const sorted = (chRes.data || []).sort(
                 (a, b) => (parseFloat(a.number) || 0) - (parseFloat(b.number) || 0)
@@ -246,9 +248,12 @@ export default function CanvasEditorPage() {
             .catch(() => {});
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error('Failed to load chapter data:', err);
+        setErrorMsg('Không thể tải dữ liệu chương.');
+      })
       .finally(() => setLoading(false));
-  }, [accessToken, chapterId, comicId]);
+  }, [accessToken, chapterId, comicId, apiWithRetry]);
 
   // ── Chapter Navigation ──
   const navigateToChapter = (targetChapterId: string) => {
@@ -364,7 +369,9 @@ export default function CanvasEditorPage() {
 
       setUploadProgress(80);
 
-      const res = await api.get<{ data: ChapterInfo & { pages: PageData[] } }>(`/chapters/${chapterId}`);
+      const res = await apiWithRetry((token) =>
+        api.get<{ data: ChapterInfo & { pages: PageData[] } }>(`/chapters/${chapterId}`, { token })
+      );
       if (res.data?.pages) {
         setPages(res.data.pages.sort((a, b) => a.pageNumber - b.pageNumber));
         if (chapter) {
@@ -482,24 +489,24 @@ export default function CanvasEditorPage() {
       />
 
       {/* ── Toolbar ── */}
-      <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 dark:border-white/[0.06] bg-white/80 dark:bg-[#0c0c0f]/60 px-4 py-2 backdrop-blur-xl transition-colors duration-200">
-        <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 dark:border-white/[0.06] bg-white/80 dark:bg-[#0c0c0f]/60 px-2.5 sm:px-4 py-2 backdrop-blur-xl transition-colors duration-200 overflow-x-auto no-scrollbar gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <Link
             href={`/studio/comics/${comicId}`}
-            className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-400 transition-colors hover:text-zinc-900 dark:hover:text-white"
+            className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] px-2.5 sm:px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-400 transition-colors hover:text-zinc-900 dark:hover:text-white shrink-0"
             title="Quay lại chi tiết truyện"
           >
-            ← Quay lại
+            ← <span className="hidden xs:inline">Quay lại</span>
           </Link>
 
-          <div className="h-4 w-px bg-zinc-200 dark:bg-white/10" />
+          <div className="h-4 w-px bg-zinc-200 dark:bg-white/10 shrink-0" />
 
           {/* Chapter Navigation: Trước, Select Dropdown, Sau */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             <button
               onClick={() => prevChapter && navigateToChapter(prevChapter.id)}
               disabled={!prevChapter}
-              className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] px-2 sm:px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
               title={prevChapter ? `Chương ${prevChapter.number}` : 'Không có chương trước'}
             >
               <i className="fa-solid fa-chevron-left text-[10px]" />
@@ -510,7 +517,7 @@ export default function CanvasEditorPage() {
             <select
               value={chapterId}
               onChange={(e) => navigateToChapter(e.target.value)}
-              className="max-w-[150px] sm:max-w-[220px] truncate rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] py-1.5 px-2.5 text-xs font-semibold text-zinc-900 dark:text-white outline-none cursor-pointer transition-colors hover:bg-zinc-200 dark:hover:bg-white/[0.08] [&>option]:bg-white [&>option]:text-zinc-900 dark:[&>option]:bg-[#1a1a1a] dark:[&>option]:text-white"
+              className="max-w-[120px] xs:max-w-[160px] sm:max-w-[220px] truncate rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] py-1.5 px-2 text-xs font-semibold text-zinc-900 dark:text-white outline-none cursor-pointer transition-colors hover:bg-zinc-200 dark:hover:bg-white/[0.08] [&>option]:bg-white [&>option]:text-zinc-900 dark:[&>option]:bg-[#1a1a1a] dark:[&>option]:text-white shrink-0"
               title="Danh sách chương"
             >
               {chaptersList.map((ch) => (
@@ -523,7 +530,7 @@ export default function CanvasEditorPage() {
             <button
               onClick={() => nextChapter && navigateToChapter(nextChapter.id)}
               disabled={!nextChapter}
-              className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] px-2 sm:px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
               title={nextChapter ? `Chương ${nextChapter.number}` : 'Không có chương sau'}
             >
               <span className="hidden sm:inline">Sau</span>
@@ -531,32 +538,32 @@ export default function CanvasEditorPage() {
             </button>
           </div>
 
-          <span className="hidden md:inline-block rounded-full bg-zinc-100 dark:bg-white/[0.06] px-2 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-500">
+          <span className="hidden md:inline-block rounded-full bg-zinc-100 dark:bg-white/[0.06] px-2 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-500 shrink-0">
             {pages.length} trang
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* View mode toggle */}
-          <div className="flex rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02]">
+          <div className="flex rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] shrink-0">
             <button
               onClick={() => setViewMode('grid')}
-              className={`rounded-l-lg px-2.5 py-1 text-xs transition-colors ${viewMode === 'grid' ? 'bg-zinc-200 dark:bg-white/[0.08] text-zinc-900 dark:text-white font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
+              className={`rounded-l-lg px-2 sm:px-2.5 py-1 text-xs transition-colors ${viewMode === 'grid' ? 'bg-zinc-200 dark:bg-white/[0.08] text-zinc-900 dark:text-white font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
               title="Lưới ngang"
             >
               ▦
             </button>
             <button
               onClick={() => setViewMode('column')}
-              className={`rounded-r-lg px-2.5 py-1 text-xs transition-colors ${viewMode === 'column' ? 'bg-zinc-200 dark:bg-white/[0.08] text-zinc-900 dark:text-white font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
+              className={`rounded-r-lg px-2 sm:px-2.5 py-1 text-xs transition-colors ${viewMode === 'column' ? 'bg-zinc-200 dark:bg-white/[0.08] text-zinc-900 dark:text-white font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'}`}
               title="Dọc liền mạch"
             >
               ☰
             </button>
           </div>
 
-          {/* Zoom controls */}
-          <div className="flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] px-1">
+          {/* Zoom controls (hidden on small mobile) */}
+          <div className="hidden sm:flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] px-1 shrink-0">
             <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))} className="rounded px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" disabled={zoom <= 0.5}>−</button>
             <span className="min-w-[3rem] text-center text-xs text-zinc-600 dark:text-zinc-400">{Math.round(zoom * 100)}%</span>
             <button onClick={() => setZoom((z) => Math.min(2, z + 0.25))} className="rounded px-2 py-1 text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white" disabled={zoom >= 2}>+</button>
@@ -564,14 +571,14 @@ export default function CanvasEditorPage() {
 
           {/* Select all */}
           {pages.length > 0 && (
-            <button onClick={selectedIds.size === pages.length ? clearSelection : selectAll} className="rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white">
+            <button onClick={selectedIds.size === pages.length ? clearSelection : selectAll} className="rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.03] px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs text-zinc-700 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white shrink-0">
               {selectedIds.size === pages.length ? 'Bỏ chọn' : 'Chọn tất cả'}
             </button>
           )}
 
           {/* Delete selected */}
           {selectedIds.size > 0 && (
-            <button onClick={handleDeleteSelected} className="rounded-lg bg-red-500/15 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/25">
+            <button onClick={handleDeleteSelected} className="rounded-lg bg-red-500/15 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/25 shrink-0">
               🗑️ Xóa {selectedIds.size} trang
             </button>
           )}
@@ -581,9 +588,9 @@ export default function CanvasEditorPage() {
             <button
               onClick={handleSaveOrder}
               disabled={savingOrder}
-              className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-amber-500/25 disabled:opacity-50"
+              className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-3 sm:px-4 py-1 sm:py-1.5 text-xs font-semibold text-white shadow-lg shadow-amber-500/25 disabled:opacity-50 shrink-0"
             >
-              {savingOrder ? 'Đang lưu...' : '💾 Lưu thứ tự'}
+              {savingOrder ? 'Đang lưu...' : '💾 Lưu'}
             </button>
           )}
         </div>
@@ -598,7 +605,7 @@ export default function CanvasEditorPage() {
       )}
 
       {/* ── Canvas Area ── */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-3.5 sm:p-6">
         {pages.length === 0 && selectedFiles.length === 0 ? (
           /* Empty state */
           <div className="flex h-full items-center justify-center">

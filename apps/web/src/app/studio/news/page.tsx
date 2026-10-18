@@ -147,20 +147,20 @@ export default function StudioNewsPage() {
   const pinnedCount = articles.filter((a) => a.isPinned).length;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-7xl px-3.5 py-4 sm:px-6 sm:py-8">
       {/* Header */}
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 sm:mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white sm:text-3xl">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
             Quản lý Tin tức
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
             Tạo, chỉnh sửa và quản lý các bài viết tin tức, thông báo, sự kiện trên hệ thống
           </p>
         </div>
         <Link
           href="/studio/news/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:from-amber-400 hover:to-orange-400"
+          className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:from-amber-400 hover:to-orange-400 shrink-0"
         >
           <i className="fa-solid fa-plus" />
           <span>Viết bài mới</span>
@@ -168,7 +168,7 @@ export default function StudioNewsPage() {
       </div>
 
       {/* Stats */}
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 sm:mb-8 grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
         <StatCard icon={<i className="fa-solid fa-newspaper"></i>} label="Tổng bài viết" value={articles.length} gradient="from-amber-500 to-orange-500" />
         <StatCard icon={<i className="fa-solid fa-circle-check"></i>} label="Đã xuất bản" value={publishedCount} gradient="from-emerald-500 to-teal-500" />
         <StatCard icon={<i className="fa-solid fa-file-pen"></i>} label="Bản nháp" value={draftCount} gradient="from-amber-500 to-orange-500" />
@@ -176,7 +176,7 @@ export default function StudioNewsPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 sm:mb-6 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
           <input
             type="text"

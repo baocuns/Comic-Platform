@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ModerationService } from './moderation.service';
-import { PendingQueryDto, RejectDto, ModerationLogsQueryDto } from './dto/moderation.dto';
+import { PendingQueryDto, RejectDto, ModerationLogsQueryDto, SetTrustDto } from './dto/moderation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -43,6 +43,16 @@ export class ModerationController {
     @Body() dto: RejectDto,
   ) {
     const data = await this.moderationService.rejectItem(moderatorId, targetType, targetId, dto.reason);
+    return { success: true, data };
+  }
+
+  @Patch('users/:userId/trust')
+  async setUserTrust(
+    @CurrentUser('sub') moderatorId: string,
+    @Param('userId') targetUserId: string,
+    @Body() dto: SetTrustDto,
+  ) {
+    const data = await this.moderationService.setUserTrust(moderatorId, targetUserId, dto.isTrusted, dto.reason);
     return { success: true, data };
   }
 }

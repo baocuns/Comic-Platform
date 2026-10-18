@@ -14,6 +14,8 @@ interface PendingItem {
     displayName: string;
     avatarUrl: string | null;
     username: string;
+    isVerified?: boolean;
+    isTrusted?: boolean;
   };
   createdAt: string;
   updatedAt: string;
@@ -143,6 +145,34 @@ export default function StudioModerationPage() {
     setSubmittingReject(false);
   };
 
+  const handleToggleTrust = async (targetUserId: string, currentTrust: boolean) => {
+    if (!accessToken) return;
+    const nextState = !currentTrust;
+    const confirmMsg = nextState
+      ? 'Cấp quyền "Tác giả Uy tín" cho người dùng này?\n\nMọi tác phẩm/chương truyện tiếp theo của tác giả sẽ được TỰ ĐỘNG PHÊ DUYỆT và xuất bản ngay lập tức.'
+      : 'Hủy quyền "Tác giả Uy tín" của người dùng này?\n\nCác tác phẩm/chương truyện tiếp theo sẽ phải qua hàng đợi kiểm duyệt.';
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      await api.patch(`/admin/moderation/users/${targetUserId}/trust`, { isTrusted: nextState }, { token: accessToken });
+      setItems((prev) =>
+        prev.map((item) =>
+          item.author?.id === targetUserId
+            ? { ...item, author: { ...item.author, isTrusted: nextState } }
+            : item
+        )
+      );
+      if (previewItem && previewItem.author?.id === targetUserId) {
+        setPreviewItem({
+          ...previewItem,
+          author: { ...previewItem.author, isTrusted: nextState },
+        });
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Không thể cập nhật trạng thái uy tín');
+    }
+  };
+
   if (user && !isAdminOrMod) {
     return (
       <div className="mx-auto max-w-4xl px-6 py-20 text-center">
@@ -180,30 +210,30 @@ export default function StudioModerationPage() {
   });
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
+    <div className="mx-auto max-w-6xl px-3.5 py-4 sm:px-6 sm:py-8">
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-            🛡️ Trung tâm Kiểm duyệt Nội dung
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+            🛡️ Trung tâm Kiểm duyệt
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Phê duyệt bài đăng và tra cứu Lịch sử nhật ký kiểm duyệt của Kiểm duyệt viên
+          <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+            Phê duyệt bài đăng và tra cứu Lịch sử nhật ký kiểm duyệt
           </p>
         </div>
         <button
           onClick={activeTab === 'PENDING' ? fetchPending : fetchLogs}
-          className="inline-flex items-center gap-2 rounded-xl bg-zinc-100 dark:bg-white/[0.06] px-4 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300 transition-all hover:bg-zinc-200 dark:hover:bg-white/[0.1]"
+          className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-xl bg-zinc-100 dark:bg-white/[0.06] px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300 transition-all hover:bg-zinc-200 dark:hover:bg-white/[0.1]"
         >
           🔄 Làm mới dữ liệu
         </button>
       </div>
 
       {/* Primary Tab Switcher */}
-      <div className="mb-6 border-b border-zinc-200 dark:border-white/10 flex items-center gap-6">
+      <div className="mb-4 sm:mb-6 border-b border-zinc-200 dark:border-white/10 flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('PENDING')}
-          className={`pb-3 text-sm font-semibold transition-all relative ${
+          className={`pb-2.5 sm:pb-3 text-xs sm:text-sm font-semibold transition-all relative shrink-0 ${
             activeTab === 'PENDING'
               ? 'text-amber-600 dark:text-amber-400'
               : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
@@ -211,7 +241,7 @@ export default function StudioModerationPage() {
         >
           ⏳ Hàng chờ phê duyệt
           {items.length > 0 && (
-            <span className="ml-2 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-300 px-2 py-0.5 text-xs font-bold">
+            <span className="ml-1.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-300 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-bold">
               {items.length}
             </span>
           )}
@@ -222,7 +252,7 @@ export default function StudioModerationPage() {
 
         <button
           onClick={() => setActiveTab('LOGS')}
-          className={`pb-3 text-sm font-semibold transition-all relative ${
+          className={`pb-2.5 sm:pb-3 text-xs sm:text-sm font-semibold transition-all relative shrink-0 ${
             activeTab === 'LOGS'
               ? 'text-amber-600 dark:text-amber-400'
               : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
@@ -239,154 +269,166 @@ export default function StudioModerationPage() {
       {activeTab === 'PENDING' && (
         <>
           {/* Counter Stats Cards */}
-          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="mb-4 sm:mb-6 grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-4">
             <div
               onClick={() => setFilterType('ALL')}
-              className={`cursor-pointer rounded-xl border p-4 transition-all ${
+              className={`cursor-pointer rounded-xl border p-3 sm:p-4 transition-all ${
                 filterType === 'ALL'
                   ? 'border-amber-500 bg-amber-500/10 dark:bg-amber-500/15 shadow-md shadow-amber-500/10'
                   : 'border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:border-zinc-300'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Tất cả yêu cầu</span>
-                <span className="text-lg">📋</span>
+                <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-medium">Tất cả yêu cầu</span>
+                <span className="text-base sm:text-lg">📋</span>
               </div>
-              <div className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{items.length}</div>
+              <div className="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">{items.length}</div>
             </div>
 
             <div
               onClick={() => setFilterType('COMIC')}
-              className={`cursor-pointer rounded-xl border p-4 transition-all ${
+              className={`cursor-pointer rounded-xl border p-3 sm:p-4 transition-all ${
                 filterType === 'COMIC'
                   ? 'border-amber-500 bg-amber-500/10 dark:bg-amber-500/15 shadow-md shadow-amber-500/10'
                   : 'border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:border-zinc-300'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Truyện mới</span>
-                <span className="text-lg">📚</span>
+                <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-medium">Truyện mới</span>
+                <span className="text-base sm:text-lg">📚</span>
               </div>
-              <div className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{comicCount}</div>
+              <div className="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">{comicCount}</div>
             </div>
 
             <div
               onClick={() => setFilterType('CHAPTER')}
-              className={`cursor-pointer rounded-xl border p-4 transition-all ${
+              className={`cursor-pointer rounded-xl border p-3 sm:p-4 transition-all ${
                 filterType === 'CHAPTER'
                   ? 'border-blue-500 bg-blue-500/10 dark:bg-blue-500/15 shadow-md shadow-blue-500/10'
                   : 'border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:border-zinc-300'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Chương mới</span>
-                <span className="text-lg">📖</span>
+                <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-medium">Chương mới</span>
+                <span className="text-base sm:text-lg">📖</span>
               </div>
-              <div className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{chapterCount}</div>
+              <div className="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">{chapterCount}</div>
             </div>
 
             <div
               onClick={() => setFilterType('NEWS')}
-              className={`cursor-pointer rounded-xl border p-4 transition-all ${
+              className={`cursor-pointer rounded-xl border p-3 sm:p-4 transition-all ${
                 filterType === 'NEWS'
                   ? 'border-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/15 shadow-md shadow-emerald-500/10'
                   : 'border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:border-zinc-300'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Bài viết News</span>
-                <span className="text-lg">📰</span>
+                <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-medium">Bài viết News</span>
+                <span className="text-base sm:text-lg">📰</span>
               </div>
-              <div className="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{newsCount}</div>
+              <div className="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">{newsCount}</div>
             </div>
           </div>
 
           {/* Search bar */}
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative flex-1 max-w-md">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400">🔍</span>
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400">🔍</span>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm theo tiêu đề hoặc tên tác giả..."
-                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] py-2.5 pl-10 pr-4 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-amber-500/50"
+                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] py-2 sm:py-2.5 pl-9 sm:pl-10 pr-3 sm:pr-4 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-amber-500/50"
               />
             </div>
           </div>
 
           {/* Pending List */}
           {loading ? (
-            <div className="flex justify-center py-20">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
+            <div className="flex justify-center py-16 sm:py-20">
+              <div className="h-7 w-7 sm:h-8 sm:w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
             </div>
           ) : filteredItems.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-16 text-center shadow-sm dark:shadow-none">
-              <div className="mb-3 text-4xl">🎉</div>
-              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+            <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-10 sm:p-16 text-center shadow-sm dark:shadow-none">
+              <div className="mb-2 sm:mb-3 text-3xl sm:text-4xl">🎉</div>
+              <h3 className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-white">
                 {searchQuery ? 'Không tìm thấy kết quả phù hợp' : 'Hàng chờ kiểm duyệt đang trống'}
               </h3>
-              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
                 {searchQuery ? 'Thử thay đổi từ khóa tìm kiếm' : 'Toàn bộ nội dung gửi lên đã được xử lý xong!'}
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5 sm:space-y-3">
               {filteredItems.map((item) => {
                 const badge = typeBadges[item.targetType] || { label: item.targetType, class: 'bg-zinc-500/15 text-zinc-600', icon: '📄' };
                 return (
                   <div
                     key={`${item.targetType}-${item.targetId}`}
-                    className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 shadow-sm dark:shadow-none transition-all duration-200 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5"
+                    className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-3.5 sm:p-5 shadow-sm dark:shadow-none transition-all duration-200 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5"
                   >
-                    <div className="flex items-start gap-4">
-                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800">
+                    <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+                      <div className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800">
                         {item.extraInfo?.coverUrl ? (
                           <img src={item.extraInfo.coverUrl} alt="" className="h-full w-full object-cover" />
                         ) : item.author?.avatarUrl ? (
                           <img src={item.author.avatarUrl} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center font-bold text-lg text-zinc-400">
+                          <div className="flex h-full w-full items-center justify-center font-bold text-base sm:text-lg text-zinc-400">
                             {badge.icon}
                           </div>
                         )}
                       </div>
 
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${badge.class}`}>
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                          <span className={`rounded-full border px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold shrink-0 ${badge.class}`}>
                             {badge.icon} {badge.label}
                           </span>
-                          <h3 className="text-sm font-bold text-zinc-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors">
+                          <h3 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors truncate max-w-full">
                             {item.title}
                           </h3>
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
-                          <span>Tác giả: <strong className="text-zinc-700 dark:text-zinc-300">{item.author?.displayName}</strong> (@{item.author?.username})</span>
-                          <span>Gửi lúc: {new Date(item.updatedAt).toLocaleString('vi-VN')}</span>
+                        <div className="flex items-center gap-2 sm:gap-4 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 flex-wrap">
+                          <span className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+                            Tác giả: <strong className="text-zinc-700 dark:text-zinc-300">{item.author?.displayName}</strong> (@{item.author?.username})
+                            {item.author?.isTrusted && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-amber-600 dark:text-amber-400 border border-amber-500/20" title="Tác giả uy tín - Tự động duyệt">
+                                ⭐ Uy tín
+                              </span>
+                            )}
+                            {item.author?.isVerified && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" title="Email đã xác thực">
+                                ✓ Email
+                              </span>
+                            )}
+                          </span>
+                          <span>{new Date(item.updatedAt).toLocaleString('vi-VN')}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-end sm:self-center">
+                    <div className="flex items-center gap-1.5 sm:gap-2 self-end sm:self-center shrink-0">
                       <button
                         onClick={() => setPreviewItem(item)}
-                        className="rounded-lg bg-zinc-100 dark:bg-white/[0.06] hover:bg-zinc-200 dark:hover:bg-white/[0.1] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors"
+                        className="rounded-lg bg-zinc-100 dark:bg-white/[0.06] hover:bg-zinc-200 dark:hover:bg-white/[0.1] px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors"
                       >
-                        👁️ Xem trước & Nội dung
+                        👁️ <span className="hidden xs:inline">Xem</span> trước
                       </button>
 
                       <button
                         onClick={() => handleApprove(item)}
                         disabled={approvingId === item.targetId}
-                        className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm shadow-emerald-500/20 transition-all disabled:opacity-50"
+                        className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-xs font-semibold text-white shadow-sm shadow-emerald-500/20 transition-all disabled:opacity-50"
                       >
-                        {approvingId === item.targetId ? '...' : '✅ Phê duyệt'}
+                        {approvingId === item.targetId ? '...' : '✅ Duyệt'}
                       </button>
 
                       <button
                         onClick={() => { setRejectingItem(item); setRejectionReason(''); }}
-                        className="rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 px-3.5 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 transition-all"
+                        className="rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 transition-all"
                       >
                         ❌ Từ chối
                       </button>
@@ -552,8 +594,38 @@ export default function StudioModerationPage() {
                     )}
                   </div>
                   <div>
-                    <p className="font-semibold text-zinc-900 dark:text-white">{previewItem.author?.displayName}</p>
-                    <p>@{previewItem.author?.username}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="font-semibold text-zinc-900 dark:text-white">{previewItem.author?.displayName}</p>
+                      {previewItem.author?.isTrusted && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          ⭐ Uy tín
+                        </span>
+                      )}
+                      {previewItem.author?.isVerified && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          ✓ Email
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-zinc-500 dark:text-zinc-400">@{previewItem.author?.username}</p>
+                      {previewItem.author?.id && (
+                        <>
+                          <span>•</span>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleTrust(previewItem.author.id, !!previewItem.author?.isTrusted)}
+                            className={`text-xs font-medium underline transition-colors cursor-pointer ${
+                              previewItem.author?.isTrusted
+                                ? 'text-red-500 hover:text-red-600'
+                                : 'text-amber-600 hover:text-amber-500 dark:text-amber-400'
+                            }`}
+                          >
+                            {previewItem.author?.isTrusted ? 'Hủy quyền uy tín' : 'Cấp quyền Tác giả Uy tín ⭐'}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">

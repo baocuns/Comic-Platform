@@ -117,92 +117,94 @@ export default function StudioComicsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
+    <div className="mx-auto max-w-6xl px-3.5 py-4 sm:px-6 sm:py-8">
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 sm:mb-6 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Truyện của tôi</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{comics.length} truyện</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">Truyện của tôi</h1>
+          <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">{comics.length} truyện</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110"
+          className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110 shrink-0"
         >
-          <span className="text-base">+</span>
+          <span className="text-sm sm:text-base font-bold">+</span>
           Tạo truyện mới
         </button>
       </div>
 
       {/* Toolbar */}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="mb-4 sm:mb-6 flex flex-col gap-2.5 sm:flex-row sm:items-center">
         {/* Search */}
         <div className="relative flex-1">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-600">🔍</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs sm:text-sm text-zinc-400 dark:text-zinc-600">🔍</span>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm kiếm truyện..."
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] py-2.5 pl-10 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/10"
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] py-2 sm:py-2.5 pl-9 sm:pl-10 pr-3 sm:pr-4 text-xs sm:text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/10"
           />
         </div>
 
-        {/* Status filter pills */}
-        <div className="flex gap-1.5">
-          {filterOptions.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setFilter(opt.value)}
-              className={`rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-                filter === opt.value
-                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-sm'
-                  : 'bg-zinc-100 dark:bg-white/[0.03] text-zinc-600 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-white/[0.06] hover:text-zinc-900 dark:hover:text-zinc-300'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        {/* Status filter pills & View mode */}
+        <div className="flex items-center justify-between sm:justify-start gap-2 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 overflow-x-auto no-scrollbar py-0.5">
+            {filterOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setFilter(opt.value)}
+                className={`shrink-0 rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-medium transition-all ${
+                  filter === opt.value
+                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-sm'
+                    : 'bg-zinc-100 dark:bg-white/[0.03] text-zinc-600 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-white/[0.06] hover:text-zinc-900 dark:hover:text-zinc-300'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
 
-        {/* View mode */}
-        <div className="flex rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02]">
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`rounded-l-lg px-3 py-2 text-xs transition-colors ${
-              viewMode === 'grid' ? 'bg-zinc-200 dark:bg-white/[0.08] text-zinc-900 dark:text-white font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
-            }`}
-            title="Grid"
-          >
-            ▦
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={`rounded-r-lg px-3 py-2 text-xs transition-colors ${
-              viewMode === 'list' ? 'bg-zinc-200 dark:bg-white/[0.08] text-zinc-900 dark:text-white font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
-            }`}
-            title="List"
-          >
-            ☰
-          </button>
+          {/* View mode */}
+          <div className="flex shrink-0 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02]">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`rounded-l-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs transition-colors ${
+                viewMode === 'grid' ? 'bg-zinc-200 dark:bg-white/[0.08] text-zinc-900 dark:text-white font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
+              }`}
+              title="Grid"
+            >
+              ▦
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`rounded-r-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs transition-colors ${
+                viewMode === 'list' ? 'bg-zinc-200 dark:bg-white/[0.08] text-zinc-900 dark:text-white font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
+              }`}
+              title="List"
+            >
+              ☰
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Comics */}
       {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
+        <div className="flex justify-center py-16 sm:py-20">
+          <div className="h-7 w-7 sm:h-8 sm:w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-16 text-center shadow-sm dark:shadow-none">
-          <div className="mb-3 text-4xl">📭</div>
-          <h3 className="text-base font-semibold text-zinc-900 dark:text-white">
+        <div className="rounded-xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-8 sm:p-16 text-center shadow-sm dark:shadow-none">
+          <div className="mb-2 sm:mb-3 text-3xl sm:text-4xl">📭</div>
+          <h3 className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-white">
             {search || filter !== 'ALL' ? 'Không tìm thấy truyện' : 'Chưa có truyện nào'}
           </h3>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
             {search || filter !== 'ALL' ? 'Thử thay đổi bộ lọc hoặc từ khóa' : 'Hãy tạo truyện đầu tiên!'}
           </p>
         </div>
       ) : viewMode === 'grid' ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((comic) => (
             <Link
               key={comic.id}
@@ -210,46 +212,46 @@ export default function StudioComicsPage() {
               className="group relative overflow-hidden rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] shadow-sm dark:shadow-none transition-all duration-200 hover:border-amber-500/30 dark:hover:border-amber-500/20 hover:bg-zinc-50 dark:hover:bg-white/[0.04] hover:shadow-lg hover:shadow-amber-500/5"
             >
               {/* Cover banner */}
-              <div className="relative h-32 w-full bg-gradient-to-br from-zinc-200 to-zinc-300 dark:from-zinc-800 dark:to-zinc-900">
+              <div className="relative h-24 sm:h-32 w-full bg-gradient-to-br from-zinc-200 to-zinc-300 dark:from-zinc-800 dark:to-zinc-900">
                 {comic.coverUrl && (
                   <img src={comic.coverUrl} alt="" className="h-full w-full object-cover opacity-60 dark:opacity-40 transition-opacity group-hover:opacity-80 dark:group-hover:opacity-50" />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-[#0c0c0f] via-transparent to-transparent" />
-                <div className="absolute right-3 top-3 flex items-center gap-1.5">
-                  <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold backdrop-blur-sm ${approvalBadge[comic.approvalStatus || 'DRAFT']?.class || approvalBadge.DRAFT.class}`}>
+                <div className="absolute right-2.5 top-2.5 sm:right-3 sm:top-3 flex items-center gap-1.5">
+                  <span className={`rounded-full border px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold backdrop-blur-sm ${approvalBadge[comic.approvalStatus || 'DRAFT']?.class || approvalBadge.DRAFT.class}`}>
                     {approvalBadge[comic.approvalStatus || 'DRAFT']?.label || comic.approvalStatus}
                   </span>
                 </div>
               </div>
 
               {/* Info */}
-              <div className="relative -mt-8 px-5 pb-5">
-                <div className="mb-3 flex items-end justify-between">
-                  <div className="h-16 w-12 shrink-0 overflow-hidden rounded-lg border-2 border-white dark:border-[#0c0c0f] bg-zinc-100 dark:bg-zinc-800 shadow-lg">
+              <div className="relative -mt-6 sm:-mt-8 px-3.5 pb-3.5 sm:px-5 sm:pb-5">
+                <div className="mb-2 sm:mb-3 flex items-end justify-between">
+                  <div className="h-14 w-10 sm:h-16 sm:w-12 shrink-0 overflow-hidden rounded-lg border-2 border-white dark:border-[#0c0c0f] bg-zinc-100 dark:bg-zinc-800 shadow-lg">
                     {comic.coverUrl ? (
                       <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-base font-bold text-zinc-400 dark:text-zinc-600">{comic.title[0]}</div>
+                      <div className="flex h-full w-full items-center justify-center text-sm sm:text-base font-bold text-zinc-400 dark:text-zinc-600">{comic.title[0]}</div>
                     )}
                   </div>
                   {(comic.approvalStatus === 'DRAFT' || comic.approvalStatus === 'REJECTED') && (
                     <button
                       onClick={(e) => handleSubmitReview(e, comic.id)}
-                      className="rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-3 py-1 text-xs font-semibold transition-all"
+                      className="rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-2.5 py-1 text-[11px] sm:text-xs font-semibold transition-all"
                     >
                       {comic.approvalStatus === 'REJECTED' ? 'Sửa & Gửi lại' : 'Gửi duyệt'}
                     </button>
                   )}
                 </div>
-                <h3 className="truncate text-base font-semibold text-zinc-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors">
+                <h3 className="truncate text-sm sm:text-base font-semibold text-zinc-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors">
                   {comic.title}
                 </h3>
                 {comic.approvalStatus === 'REJECTED' && comic.rejectionReason && (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400 bg-red-500/10 p-2 rounded border border-red-500/20">
+                  <p className="mt-1 text-[11px] sm:text-xs text-red-600 dark:text-red-400 bg-red-500/10 p-1.5 sm:p-2 rounded border border-red-500/20">
                     <strong>Lý do từ chối:</strong> {comic.rejectionReason}
                   </p>
                 )}
-                <div className="mt-2 flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="mt-1.5 sm:mt-2 flex items-center gap-3 sm:gap-4 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">
                   <span className="flex items-center gap-1">📖 {comic.stats?.totalChapters || 0} chương</span>
                   <span className="flex items-center gap-1">👁️ {(comic.stats?.totalViews || 0).toLocaleString()} đọc</span>
                 </div>

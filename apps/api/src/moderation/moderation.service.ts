@@ -17,10 +17,13 @@ export class ModerationService {
   async submitForReview(userId: string, targetType: ModerationTargetType, targetId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { isVerified: true, role: true },
+      select: { isVerified: true, isTrusted: true, role: true },
     });
 
-    const isAutoApproved = user?.isVerified === true || user?.role === UserRole.ADMIN || user?.role === UserRole.MODERATOR;
+    const isAutoApproved =
+      (user?.isTrusted === true && user?.isVerified === true) ||
+      user?.role === UserRole.ADMIN ||
+      user?.role === UserRole.MODERATOR;
     const nextStatus = isAutoApproved ? ApprovalStatus.APPROVED : ApprovalStatus.PENDING_APPROVAL;
 
     if (targetType === ModerationTargetType.COMIC) {
@@ -111,7 +114,7 @@ export class ModerationService {
         where: { approvalStatus: ApprovalStatus.PENDING_APPROVAL, deletedAt: null },
         orderBy: { updatedAt: 'desc' },
         include: {
-          author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+          author: { select: { id: true, displayName: true, avatarUrl: true, username: true, isVerified: true, isTrusted: true } },
           genres: { include: { genre: true } },
         },
       });
@@ -148,7 +151,7 @@ export class ModerationService {
               title: true,
               slug: true,
               coverUrl: true,
-              author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+              author: { select: { id: true, displayName: true, avatarUrl: true, username: true, isVerified: true, isTrusted: true } },
             },
           },
           pages: { orderBy: { pageNumber: 'asc' } },
@@ -180,7 +183,7 @@ export class ModerationService {
       const news = await this.prisma.newsArticle.findMany({
         where: { approvalStatus: ApprovalStatus.PENDING_APPROVAL, deletedAt: null },
         orderBy: { updatedAt: 'desc' },
-        include: { author: { select: { id: true, displayName: true, avatarUrl: true, username: true } } },
+        include: { author: { select: { id: true, displayName: true, avatarUrl: true, username: true, isVerified: true, isTrusted: true } } },
       });
       news.forEach((n) =>
         items.push({
@@ -251,6 +254,7 @@ export class ModerationService {
       });
 
       await this.redis.del(`comic:${comic.slug}`);
+      this.checkAndPromoteAuthorTrust(comic.authorId).catch(() => {});
       return updated;
     }
 
@@ -290,6 +294,7 @@ export class ModerationService {
       });
 
       await this.redis.del(`comic:${chapter.comic.slug}`);
+      this.checkAndPromoteAuthorTrust(chapter.comic.authorId).catch(() => {});
       return updated;
     }
 
@@ -326,6 +331,7 @@ export class ModerationService {
         },
       });
 
+      this.checkAndPromoteAuthorTrust(article.authorId).catch(() => {});
       return updated;
     }
 
@@ -525,5 +531,73 @@ export class ModerationService {
       data: enrichedLogs,
       meta: { page, limit, total, totalPages: Math.ceil(total / limit), hasNext: skip + limit < total },
     };
+  }
+
+  // ── Auto-promote Author to Trusted after Milestones ──
+  private async checkAndPromoteAuthorTrust(authorId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: authorId },
+        select: { id: true, isTrusted: true, isVerified: true },
+      });
+      if (!user || user.isTrusted || !user.isVerified) return;
+
+      const [approvedComics, approvedChapters, approvedNews] = await Promise.all([
+        this.prisma.comic.count({ where: { authorId, approvalStatus: ApprovalStatus.APPROVED, deletedAt: null } }),
+        this.prisma.chapter.count({
+          where: { comic: { authorId }, approvalStatus: ApprovalStatus.APPROVED, deletedAt: null },
+        }),
+        this.prisma.newsArticle.count({ where: { authorId, approvalStatus: ApprovalStatus.APPROVED, deletedAt: null } }),
+      ]);
+
+      const totalApproved = approvedComics + approvedChapters + approvedNews;
+      // Milestone: 3 approved items
+      if (totalApproved >= 3) {
+        await this.prisma.user.update({
+          where: { id: authorId },
+          data: { isTrusted: true },
+        });
+
+        await this.prisma.notification.create({
+          data: {
+            userId: authorId,
+            type: NotificationType.SYSTEM,
+            title: 'Chứng nhận Tác giả Uy tín ⭐',
+            content: 'Chúc mừng! Bạn đã đạt mốc 3 nội dung được phê duyệt thành công và được nâng cấp thành Tác giả Uy tín. Các truyện và chương tiếp theo của bạn sẽ được tự động xuất bản ngay lập tức.',
+            data: { isTrusted: true, totalApproved },
+          },
+        });
+        this.logger.log(`Author ${authorId} auto-promoted to Trusted Creator (Total approved: ${totalApproved})`);
+      }
+    } catch (err) {
+      this.logger.error(`Failed to check/promote trust for author ${authorId}: ${(err as Error).message}`);
+    }
+  }
+
+  // ── Manually Grant / Revoke Trusted Creator Status ──
+  async setUserTrust(moderatorId: string, targetUserId: string, isTrusted: boolean, reason?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const updated = await this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { isTrusted },
+      select: { id: true, username: true, displayName: true, isVerified: true, isTrusted: true },
+    });
+
+    await this.prisma.notification.create({
+      data: {
+        userId: targetUserId,
+        type: NotificationType.SYSTEM,
+        title: isTrusted ? 'Bạn đã được cấp quyền Tác giả Uy tín ⭐' : 'Thông báo trạng thái kiểm duyệt',
+        content: isTrusted
+          ? 'Quản trị viên đã cấp quyền Tác giả Uy tín cho tài khoản của bạn. Các tác phẩm tiếp theo sẽ được tự động phê duyệt.'
+          : `Trạng thái Tác giả Uy tín của bạn đã bị hủy${reason ? `: ${reason}` : '.'} Các tác phẩm mới sẽ cần được kiểm duyệt trước khi xuất bản.`,
+        data: { isTrusted, reason },
+      },
+    });
+
+    this.logger.log(`Moderator ${moderatorId} set isTrusted=${isTrusted} for user ${targetUserId}`);
+    return updated;
   }
 }

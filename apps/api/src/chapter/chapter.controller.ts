@@ -18,6 +18,7 @@ export class ChapterController {
   }
 
   @Public()
+  @UseGuards(JwtAuthGuard)
   @Get('chapters/:id')
   async findOne(@Param('id') id: string, @CurrentUser('sub') userId?: string) {
     const chapter = await this.chapterService.findOne(id, userId);

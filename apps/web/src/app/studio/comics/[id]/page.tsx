@@ -234,40 +234,40 @@ export default function StudioComicDetailPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8">
+    <div className="mx-auto max-w-5xl px-3.5 py-4 sm:px-6 sm:py-8">
       {/* Comic Header */}
-      <div className="mb-6 overflow-hidden rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] shadow-sm dark:shadow-none">
+      <div className="mb-4 sm:mb-6 overflow-hidden rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] shadow-sm dark:shadow-none">
         {/* Banner */}
         {comic.bannerUrl && (
-          <div className="relative h-36 w-full">
+          <div className="relative h-28 sm:h-36 w-full">
             <img src={comic.bannerUrl} alt="" className="h-full w-full object-cover" style={{ objectPosition: `center ${comic.bannerPosition ?? 50}%` }} />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white dark:to-[#0c0c0f]" />
           </div>
         )}
-        <div className={`flex items-start gap-5 p-6 ${comic.bannerUrl ? '-mt-10 relative' : ''}`}>
+        <div className={`flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3.5 sm:gap-5 p-4 sm:p-6 ${comic.bannerUrl ? '-mt-10 sm:-mt-10 relative' : ''}`}>
           <div className="shrink-0">
             {comic.coverUrl ? (
-              <img src={comic.coverUrl} alt={comic.title} className="h-28 w-20 rounded-lg border-2 border-white dark:border-[#0c0c0f] object-cover shadow-lg" />
+              <img src={comic.coverUrl} alt={comic.title} className="h-24 w-18 sm:h-28 sm:w-20 rounded-lg border-2 border-white dark:border-[#0c0c0f] object-cover shadow-lg" />
             ) : (
-              <div className="flex h-28 w-20 items-center justify-center rounded-lg border border-dashed border-zinc-300 dark:border-white/20 bg-zinc-100 dark:bg-white/5 text-2xl text-zinc-400 dark:text-zinc-600">📖</div>
+              <div className="flex h-24 w-18 sm:h-28 sm:w-20 items-center justify-center rounded-lg border border-dashed border-zinc-300 dark:border-white/20 bg-zinc-100 dark:bg-white/5 text-2xl text-zinc-400 dark:text-zinc-600">📖</div>
             )}
           </div>
-          <div className="flex-1">
-            <div className="mb-1 flex items-center gap-3">
-              <h1 className="text-xl font-bold text-zinc-900 dark:text-white">{comic.title}</h1>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium border ${statusColor[comic.status] || statusColor.DRAFT}`}>
+          <div className="flex-1 min-w-0">
+            <div className="mb-1.5 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <h1 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white truncate max-w-full">{comic.title}</h1>
+              <span className={`rounded-full px-2 py-0.5 text-[11px] sm:text-xs font-medium border ${statusColor[comic.status] || statusColor.DRAFT}`}>
                 {statusLabel[comic.status] || comic.status}
               </span>
             </div>
-            {comic.description && <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2">{comic.description}</p>}
-            <div className="flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
+            {comic.description && <p className="mb-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2">{comic.description}</p>}
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 sm:gap-4 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">
               <span>📖 {comic.stats.totalChapters} chương</span>
               <span>👁️ {comic.stats.totalViews.toLocaleString()} đọc</span>
               <span>⭐ {comic.stats.avgRating}</span>
               <span>🔖 {comic.stats.totalBookmarks}</span>
             </div>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 gap-2 w-full sm:w-auto justify-center sm:justify-start pt-2 sm:pt-0">
             {comic.status === 'DRAFT' && (
               <button onClick={handlePublish} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-500">
                 🚀 Xuất bản
@@ -281,12 +281,12 @@ export default function StudioComicDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-1 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.02] p-1">
+      <div className="mb-4 sm:mb-6 flex gap-1 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-white/[0.02] p-1">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all duration-200 ${
+            className={`flex-1 rounded-lg py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-all duration-200 ${
               activeTab === tab.key
                 ? 'bg-white dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-sm'
                 : 'text-zinc-600 dark:text-zinc-500 hover:bg-zinc-200/60 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-zinc-300'
@@ -446,11 +446,11 @@ export default function StudioComicDetailPage() {
 
       {activeTab === 'chapters' && (
         <div className="animate-fade-in">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Danh sách chương ({chapters.length})</h2>
+          <div className="mb-3 sm:mb-4 flex items-center justify-between gap-2">
+            <h2 className="text-base sm:text-lg font-semibold text-zinc-900 dark:text-white">Danh sách chương ({chapters.length})</h2>
             <button
               onClick={() => { setNewChapter({ number: chapters.length + 1, title: '' }); setShowAddChapter(true); }}
-              className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-amber-500/25"
+              className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-amber-500/25 shrink-0"
             >
               + Thêm chương
             </button>
@@ -458,33 +458,37 @@ export default function StudioComicDetailPage() {
 
           {/* Add chapter form */}
           {showAddChapter && (
-            <div className="mb-4 rounded-xl border border-amber-500/30 dark:border-amber-500/20 bg-amber-500/10 dark:bg-amber-500/5 p-4 animate-slide-up">
-              <div className="flex gap-3">
-                <input type="number" value={newChapter.number} onChange={(e) => setNewChapter((n) => ({ ...n, number: Number(e.target.value) }))} placeholder="Số" className="w-24 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] px-3 py-2.5 text-sm text-zinc-900 dark:text-white outline-none" />
-                <input value={newChapter.title} onChange={(e) => setNewChapter((n) => ({ ...n, title: e.target.value }))} placeholder="Tiêu đề (tùy chọn)" className="flex-1 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] px-3 py-2.5 text-sm text-zinc-900 dark:text-white outline-none" />
-                <button onClick={handleAddChapter} disabled={addingChapter} className="rounded-lg bg-amber-500 hover:bg-amber-600 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50">{addingChapter ? '...' : 'Thêm'}</button>
-                <button onClick={() => setShowAddChapter(false)} className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">Hủy</button>
+            <div className="mb-4 rounded-xl border border-amber-500/30 dark:border-amber-500/20 bg-amber-500/10 dark:bg-amber-500/5 p-3 sm:p-4 animate-slide-up">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <div className="flex gap-2 flex-1">
+                  <input type="number" value={newChapter.number} onChange={(e) => setNewChapter((n) => ({ ...n, number: Number(e.target.value) }))} placeholder="Số" className="w-20 sm:w-24 shrink-0 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] px-3 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white outline-none" />
+                  <input value={newChapter.title} onChange={(e) => setNewChapter((n) => ({ ...n, title: e.target.value }))} placeholder="Tiêu đề (tùy chọn)" className="flex-1 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] px-3 py-2 text-xs sm:text-sm text-zinc-900 dark:text-white outline-none" />
+                </div>
+                <div className="flex items-center justify-end gap-2 shrink-0">
+                  <button onClick={handleAddChapter} disabled={addingChapter} className="rounded-lg bg-amber-500 hover:bg-amber-600 px-4 py-2 text-xs sm:text-sm font-medium text-white disabled:opacity-50">{addingChapter ? '...' : 'Thêm'}</button>
+                  <button onClick={() => setShowAddChapter(false)} className="text-xs sm:text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 px-2 py-1">Hủy</button>
+                </div>
               </div>
             </div>
           )}
 
           {chapters.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-16 text-center shadow-sm dark:shadow-none">
-              <div className="mb-3 text-4xl">📄</div>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">Chưa có chương nào. Thêm chương đầu tiên!</p>
+            <div className="rounded-xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-10 sm:p-16 text-center shadow-sm dark:shadow-none">
+              <div className="mb-2 sm:mb-3 text-3xl sm:text-4xl">📄</div>
+              <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">Chưa có chương nào. Thêm chương đầu tiên!</p>
             </div>
           ) : (
             <div className="space-y-2">
               {chapters.map((ch) => (
                 <div
                   key={ch.id}
-                  className="flex items-center justify-between rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] px-5 py-4 shadow-sm dark:shadow-none transition-all duration-200 hover:border-zinc-300 dark:hover:border-white/[0.1] hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-3 sm:px-5 sm:py-4 shadow-sm dark:shadow-none transition-all duration-200 hover:border-zinc-300 dark:hover:border-white/[0.1] hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
                 >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-zinc-900 dark:text-white">Chương {ch.number}</span>
-                      {ch.title && <span className="text-sm text-zinc-500">— {ch.title}</span>}
-                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                      <span className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white">Chương {ch.number}</span>
+                      {ch.title && <span className="text-xs sm:text-sm text-zinc-500 truncate max-w-[160px] sm:max-w-xs">— {ch.title}</span>}
+                      <span className={`rounded-full border px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold ${
                         ch.approvalStatus === 'APPROVED'
                           ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                           : ch.approvalStatus === 'PENDING_APPROVAL'
@@ -497,29 +501,29 @@ export default function StudioComicDetailPage() {
                       </span>
                     </div>
                     {ch.approvalStatus === 'REJECTED' && ch.rejectionReason && (
-                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                      <p className="mt-1 text-[11px] sm:text-xs text-red-600 dark:text-red-400 bg-red-500/10 p-1.5 rounded border border-red-500/20">
                         Lý do từ chối: {ch.rejectionReason}
                       </p>
                     )}
-                    <div className="mt-1 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+                    <div className="mt-1 flex flex-wrap items-center gap-2.5 sm:gap-3 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">
                       <span>📄 {ch.totalPages} trang</span>
                       <span>👁️ {ch.views} views</span>
                       {ch.publishedAt && <span>📅 {new Date(ch.publishedAt).toLocaleDateString('vi-VN')}</span>}
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2 self-end sm:self-auto shrink-0">
                     <Link
                       href={`/studio/comics/${params.id}/chapters/${ch.id}`}
-                      className="rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 transition-colors hover:bg-amber-500/25"
+                      className="rounded-lg bg-amber-500/15 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 transition-colors hover:bg-amber-500/25"
                     >
-                      🎨 Canvas Editor
+                      🎨 Editor
                     </Link>
                     {(ch.approvalStatus === 'DRAFT' || ch.approvalStatus === 'REJECTED' || !ch.approvalStatus) && (
-                      <button onClick={() => handlePublishChapter(ch.id)} className="rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 transition-colors hover:bg-amber-500/25 border border-amber-500/30">
+                      <button onClick={() => handlePublishChapter(ch.id)} className="rounded-lg bg-amber-500/15 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 transition-colors hover:bg-amber-500/25 border border-amber-500/30">
                         {ch.approvalStatus === 'REJECTED' ? 'Sửa & Gửi lại' : 'Gửi duyệt'}
                       </button>
                     )}
-                    <button onClick={() => handleDeleteChapter(ch.id)} className="rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 transition-colors hover:bg-red-500/20">
+                    <button onClick={() => handleDeleteChapter(ch.id)} className="rounded-lg bg-red-500/10 px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium text-red-600 dark:text-red-400 transition-colors hover:bg-red-500/20">
                       Xóa
                     </button>
                   </div>
@@ -532,25 +536,25 @@ export default function StudioComicDetailPage() {
 
       {activeTab === 'stats' && (
         <div className="animate-fade-in">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 text-center shadow-sm dark:shadow-none">
-              <div className="text-2xl font-bold text-zinc-900 dark:text-white">{comic.stats.totalViews.toLocaleString()}</div>
-              <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Lượt đọc</div>
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-4">
+            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-3.5 sm:p-5 text-center shadow-sm dark:shadow-none">
+              <div className="text-lg sm:text-2xl font-bold text-zinc-900 dark:text-white tabular-nums">{comic.stats.totalViews.toLocaleString()}</div>
+              <div className="mt-1 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">Lượt đọc</div>
             </div>
-            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 text-center shadow-sm dark:shadow-none">
-              <div className="text-2xl font-bold text-zinc-900 dark:text-white">{comic.stats.totalChapters}</div>
-              <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Chương</div>
+            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-3.5 sm:p-5 text-center shadow-sm dark:shadow-none">
+              <div className="text-lg sm:text-2xl font-bold text-zinc-900 dark:text-white tabular-nums">{comic.stats.totalChapters}</div>
+              <div className="mt-1 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">Chương</div>
             </div>
-            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 text-center shadow-sm dark:shadow-none">
-              <div className="text-2xl font-bold text-zinc-900 dark:text-white">⭐ {comic.stats.avgRating}</div>
-              <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Đánh giá TB</div>
+            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-3.5 sm:p-5 text-center shadow-sm dark:shadow-none">
+              <div className="text-lg sm:text-2xl font-bold text-zinc-900 dark:text-white tabular-nums">⭐ {comic.stats.avgRating}</div>
+              <div className="mt-1 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">Đánh giá TB</div>
             </div>
-            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-5 text-center shadow-sm dark:shadow-none">
-              <div className="text-2xl font-bold text-zinc-900 dark:text-white">{comic.stats.totalBookmarks}</div>
-              <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Bookmark</div>
+            <div className="rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-3.5 sm:p-5 text-center shadow-sm dark:shadow-none">
+              <div className="text-lg sm:text-2xl font-bold text-zinc-900 dark:text-white tabular-nums">{comic.stats.totalBookmarks}</div>
+              <div className="mt-1 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">Bookmark</div>
             </div>
           </div>
-          <p className="mt-8 text-center text-sm text-zinc-500 dark:text-zinc-400">Thống kê chi tiết sẽ được cập nhật trong phiên bản tiếp theo.</p>
+          <p className="mt-6 sm:mt-8 text-center text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">Thống kê chi tiết sẽ được cập nhật trong phiên bản tiếp theo.</p>
         </div>
       )}
     </div>

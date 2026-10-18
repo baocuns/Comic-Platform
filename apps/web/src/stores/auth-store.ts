@@ -22,6 +22,8 @@ interface User {
   experience: number;
   level: number;
   loginStreak: number;
+  isVerified?: boolean;
+  isTrusted?: boolean;
   createdAt: string;
 }
 

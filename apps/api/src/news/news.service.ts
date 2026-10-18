@@ -45,9 +45,12 @@ export class NewsService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { isVerified: true, role: true },
+      select: { isVerified: true, isTrusted: true, role: true },
     });
-    const isAutoApproved = user?.isVerified === true || user?.role === UserRole.ADMIN || user?.role === UserRole.MODERATOR;
+    const isAutoApproved =
+      (user?.isTrusted === true && user?.isVerified === true) ||
+      user?.role === UserRole.ADMIN ||
+      user?.role === UserRole.MODERATOR;
 
     let approvalStatus: ApprovalStatus = ApprovalStatus.DRAFT;
     let isPublished = false;
@@ -113,9 +116,12 @@ export class NewsService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { isVerified: true, role: true },
+      select: { isVerified: true, isTrusted: true, role: true },
     });
-    const isAutoApproved = user?.isVerified === true || user?.role === UserRole.ADMIN || user?.role === UserRole.MODERATOR;
+    const isAutoApproved =
+      (user?.isTrusted === true && user?.isVerified === true) ||
+      user?.role === UserRole.ADMIN ||
+      user?.role === UserRole.MODERATOR;
 
     const data: Record<string, unknown> = {};
     if (dto.title !== undefined) {

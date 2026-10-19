@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { NotificationBell } from './notification-bell';
 import { useSearchStore } from '@/stores/search-store';
 import { useTheme } from '@/components/providers/theme-provider';
+import { MobileDrawer } from './mobile-drawer';
 
 export function Header() {
   const { user, logout } = useAuthStore();
@@ -18,6 +19,7 @@ export function Header() {
   const lastScrollY = useRef(0);
 
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const openSearch = useSearchStore((state) => state.open);
 
@@ -43,13 +45,17 @@ export function Header() {
   }, []);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   if (pathname?.startsWith('/read/') || pathname?.startsWith('/studio')) {
@@ -67,11 +73,23 @@ export function Header() {
         }`}
     >
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5">
-          <img src="/img/owoc_banner_black.png" className="h-14 w-auto dark:hidden" alt="Owoc Logo" />
-          <img src="/img/owoc_banner_white.png" className="h-14 w-auto hidden dark:block" alt="Owoc Logo" />
-        </Link>
+        {/* Logo & Mobile Menu Toggle */}
+        <div className="flex items-center gap-2.5 sm:gap-3.5">
+          <button
+            type="button"
+            onClick={() => setIsMobileDrawerOpen(true)}
+            className="flex md:hidden p-1.5 sm:p-2 items-center justify-center text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 hover:dark:text-white active:scale-95 transition-colors cursor-pointer"
+            title="Mở menu"
+            aria-label="Mở menu điều hướng"
+          >
+            <i className="fa-light fa-bars text-[22px]" />
+          </button>
+
+          <Link href="/" className="flex items-center gap-2">
+            <img src="/img/owoc_banner_black.png" className="h-11 sm:h-14 w-auto dark:hidden object-contain" alt="Owoc Logo" />
+            <img src="/img/owoc_banner_white.png" className="h-11 sm:h-14 w-auto hidden dark:block object-contain" alt="Owoc Logo" />
+          </Link>
+        </div>
 
         {/* Navigation Links */}
         <div className="hidden items-center gap-6 md:flex">
@@ -87,26 +105,26 @@ export function Header() {
         </div>
 
         {/* Auth Actions */}
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-2.5 sm:gap-4 md:gap-5">
           {/* Search */}
           <button
             onClick={openSearch}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 hover:dark:text-white cursor-pointer"
+            className="flex p-1.5 sm:p-2 items-center justify-center text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 hover:dark:text-white cursor-pointer"
             title="Tìm kiếm"
             aria-label="Tìm kiếm"
           >
-            <i className="fal fa-search text-sm"></i>
+            <i className="fal fa-search text-[21px]"></i>
           </button>
 
           {/* Theme Toggle (Guest) */}
           {!user && (
             <button
               onClick={toggleTheme}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 hover:dark:text-white cursor-pointer"
+              className="flex p-1.5 sm:p-2 items-center justify-center text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 hover:dark:text-white cursor-pointer"
               title={theme === 'dark' ? 'Chuyển sang giao diện Sáng' : 'Chuyển sang giao diện Tối'}
               aria-label="Chuyển chế độ sáng/tối"
             >
-              <i className={`fa-light ${theme === 'dark' ? 'fa-sun-bright' : 'fa-moon'} text-sm`} />
+              <i className={`fa-light ${theme === 'dark' ? 'fa-sun-bright' : 'fa-moon'} text-[21px]`} />
             </button>
           )}
 
@@ -118,7 +136,7 @@ export function Header() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2 rounded-full bg-zinc-100 dark:bg-white/5 p-1 pr-3 text-sm text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 hover:dark:text-white"
+                className="flex items-center gap-2 p-1 text-sm text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 hover:dark:text-white cursor-pointer"
               >
                 <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-xs font-bold text-white shadow-sm">
                   {user.avatarUrl ? (
@@ -133,7 +151,7 @@ export function Header() {
 
               {/* Dropdown Menu */}
               {showDropdown && (
-                <div className="absolute right-0 mt-2 w-64 origin-top-right overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white/95 dark:bg-[#121212]/95 p-1.5 shadow-2xl backdrop-blur-xl animate-slide-up z-50">
+                <div className="absolute right-0 mt-2 w-64 origin-top-right overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121212] p-1.5 shadow-2xl animate-slide-up z-50">
                   {/* User Profile Header */}
                   <div className="px-3.5 py-3 border-b border-zinc-100 dark:border-white/5">
                     <div className="flex items-center gap-3">
@@ -239,23 +257,20 @@ export function Header() {
               )}
             </div>
           ) : (
-            <>
-              <Link
-                href="/login"
-                className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 dark:hover:text-white"
-              >
-                Đăng nhập
-              </Link>
-              <Link
-                href="/register"
-                className="hidden rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110"
-              >
-                Đăng ký
-              </Link>
-            </>
+            <Link
+              href="/login"
+              className="flex p-1.5 sm:p-2 items-center justify-center text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 hover:dark:text-white cursor-pointer"
+              title="Đăng nhập"
+              aria-label="Đăng nhập"
+            >
+              <i className="fa-light fa-user text-[21px]" />
+            </Link>
           )}
         </div>
       </nav>
+
+      {/* Mobile Off-canvas Drawer */}
+      <MobileDrawer isOpen={isMobileDrawerOpen} onClose={() => setIsMobileDrawerOpen(false)} />
     </header>
   );
 }

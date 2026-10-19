@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { NotificationBell } from './notification-bell';
 import { useSearchStore } from '@/stores/search-store';
 import { useTheme } from '@/components/providers/theme-provider';
+import './mechanical-shell.css';
 
 export function Header() {
   const { user, logout } = useAuthStore();
@@ -63,7 +64,7 @@ export function Header() {
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-all duration-300 border-b border-zinc-200 dark:border-white/10 bg-white/85 dark:bg-[#0a0a0a]/80 backdrop-blur-xl ${isVisible ? 'translate-y-0' : '-translate-y-full'
+      className={`mech-header sticky top-0 z-50 transition-all duration-300 border-b border-zinc-200 dark:border-white/10 bg-white/85 dark:bg-[#0a0a0a]/80 backdrop-blur-xl ${isVisible ? 'translate-y-0' : '-translate-y-full'
         }`}
     >
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
@@ -118,6 +119,8 @@ export function Header() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
+                aria-expanded={showDropdown}
+                aria-label="Mở menu tài khoản"
                 className="flex items-center gap-2 rounded-full bg-zinc-100 dark:bg-white/5 p-1 pr-3 text-sm text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 hover:dark:text-white"
               >
                 <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-xs font-bold text-white shadow-sm">
@@ -200,7 +203,8 @@ export function Header() {
 
                   <div className="py-1">
                     {/* Theme Toggle */}
-                    <div
+                    <button
+                      type="button"
                       onClick={toggleTheme}
                       className="flex items-center justify-between px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer select-none"
                     >
@@ -209,7 +213,7 @@ export function Header() {
                         <span>Giao diện: {theme === 'dark' ? 'Tối' : 'Sáng'}</span>
                       </div>
                       <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-amber-500/50 shadow-sm" />
-                    </div>
+                    </button>
 
                     <Link
                       href={`/@${user.username}`}
@@ -256,6 +260,11 @@ export function Header() {
           )}
         </div>
       </nav>
+      <div className="mechanical-mobile-nav" aria-label="Điều hướng chính">
+        <Link href="/" aria-current={pathname === '/' ? 'page' : undefined}>Trang chủ</Link>
+        <Link href="/comics" aria-current={pathname?.startsWith('/comics') ? 'page' : undefined}>Truyện tranh</Link>
+        <Link href="/news" aria-current={pathname?.startsWith('/news') ? 'page' : undefined}>Tin tức</Link>
+      </div>
     </header>
   );
 }

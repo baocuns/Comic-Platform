@@ -1,0 +1,555 @@
+/* Cinematic paper theatre: independent nested planes retain their own 3D axes. */
+.manga-cinema {
+  position: relative;
+  min-width: 0;
+  color: #f1eadb;
+}
+.cinema-topline {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 15px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid #e6d4af33;
+  font: 9px monospace;
+  letter-spacing: 2px;
+  color: #c4b69b;
+}
+.cinema-viewport {
+  height: 480px;
+  position: relative;
+  perspective: 1100px;
+}
+.cinema-scroll,
+.cinema-camera {
+  position: absolute;
+  width: 560px;
+  height: 480px;
+  left: 50%;
+  margin-left: -280px;
+  transform-style: preserve-3d;
+}
+.cinema-camera {
+  left: 0;
+  margin-left: 0;
+}
+.cinema-word {
+  position: absolute;
+  top: -28px;
+  right: 0;
+  font: 900 148px/1.2 serif;
+  color: #b4a27a17;
+  writing-mode: vertical-rl;
+  transform: translateZ(-160px);
+  user-select: none;
+}
+.cinema-frame {
+  position: absolute;
+  top: 17px;
+  left: 115px;
+  width: 290px;
+  height: 355px;
+  transform: rotateY(-15deg) rotateZ(-5deg);
+  transform-style: preserve-3d;
+}
+.cinema-cover {
+  display: block;
+  position: absolute;
+  inset: 0;
+  background: #2e585c;
+  transform-style: preserve-3d;
+  box-shadow: 20px 35px 55px #0008;
+  transform-origin: left center;
+}
+.cinema-cover:before {
+  content: '';
+  position: absolute;
+  inset: 5px -9px -5px 0;
+  background: repeating-linear-gradient(#c6bda6 0 1px, #746e60 1px 2px);
+  transform: translateZ(-8px);
+  border: 2px solid #222c2c;
+}
+.cinema-cover > img,
+.cinema-cover > svg,
+.slice-surface > img,
+.slice-surface > svg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 1px solid #e9d8af80;
+}
+.story-art {
+  color: #42716d;
+}
+.art-1 {
+  color: #8a4c3f;
+}
+.art-2 {
+  color: #7f7853;
+}
+.cover-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #06141905 20%, #08182088 55%, #061319 100%);
+}
+.cover-typeset {
+  position: absolute;
+  bottom: 22px;
+  left: 24px;
+  right: 17px;
+  transform: translateZ(22px);
+}
+.cover-typeset > span {
+  font: 7px monospace;
+  letter-spacing: 1.4px;
+  color: #f2d69e;
+}
+.cover-typeset > strong {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 12px 0 19px;
+  font:
+    700 34px/1.08 Georgia,
+    serif;
+  letter-spacing: -1.3px;
+  white-space: pre-line;
+  color: #fff7e6;
+  text-shadow: 0 2px 12px #0008;
+}
+.cover-typeset > b {
+  display: block;
+  font: 8px monospace;
+  letter-spacing: 1.3px;
+  color: #f0dfbe;
+}
+.cover-spine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  background: linear-gradient(90deg, #0008, #ffffff22, #0004);
+}
+.cinema-slice {
+  position: absolute;
+  transform-style: preserve-3d;
+}
+.slice-far {
+  width: 175px;
+  height: 275px;
+  top: 15px;
+  left: 29px;
+  transform: translateZ(-95px) rotateY(29deg) rotateZ(-14deg);
+}
+.slice-near {
+  width: 147px;
+  height: 231px;
+  right: 5px;
+  top: 115px;
+  transform: translateZ(75px) rotateY(-24deg) rotateZ(12deg);
+}
+.slice-surface {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform-origin: left;
+  box-shadow: 10px 20px 25px #0005;
+}
+.slice-far .slice-surface:after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #142d2c66;
+}
+.slice-surface > span {
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  writing-mode: vertical-rl;
+  font: 8px monospace;
+  letter-spacing: 3px;
+  color: #fff5d7;
+  z-index: 1;
+}
+.slice-near .slice-surface {
+  clip-path: polygon(10% 0, 100% 8%, 94% 94%, 0 100%);
+}
+.slice-near img,
+.slice-near svg {
+  filter: saturate(0.45);
+  object-position: 65% center;
+}
+.slice-near .slice-surface:after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(transparent, #091f29ed);
+}
+.slice-surface > strong {
+  position: absolute;
+  z-index: 1;
+  bottom: 26px;
+  left: 15px;
+  font:
+    900 italic 24px/0.9 Arial,
+    sans-serif;
+  letter-spacing: -1px;
+  transform: translateZ(18px);
+  color: #fff3cf;
+}
+.slice-surface em {
+  font-size: 17px;
+}
+.cinema-sound {
+  position: absolute;
+  right: 15px;
+  top: 35px;
+  font: 900 italic 34px serif;
+  transform: translateZ(110px) rotate(14deg);
+  color: #e4ad64;
+  text-shadow: 3px 3px 0 #111e23;
+  user-select: none;
+}
+.folio {
+  position: absolute;
+  left: 65px;
+  top: 325px;
+  width: 315px;
+  height: 193px;
+  transform: translateZ(115px) rotateX(45deg) rotateY(5deg) rotateZ(-12deg);
+  transform-style: preserve-3d;
+}
+.folio-binding {
+  position: absolute;
+  inset: -5px -6px -8px;
+  background: #9d5e43;
+  border: 2px solid #d5ba8a;
+  transform: translateZ(-10px);
+  box-shadow: 10px 30px 35px #0009;
+}
+.folio-binding:after {
+  content: '';
+  position: absolute;
+  inset: 4px -2px -4px;
+  background: repeating-linear-gradient(#eadfc4 0 1px, #b5a78b 1px 2px);
+  transform: translateZ(5px);
+}
+.folio-left,
+.folio-right,
+.folio-leaf {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+.folio-left {
+  left: 0;
+  transform-origin: right;
+  transform: rotateY(9deg);
+}
+.folio-right {
+  left: 50%;
+  transform-origin: left;
+  transform: rotateY(-6deg);
+}
+.folio-leaf {
+  left: 50%;
+  transform-origin: left;
+  will-change: transform;
+}
+.folio-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  transform: translateZ(0.5px);
+}
+.folio-back {
+  transform: rotateY(180deg) translateZ(0.5px);
+}
+.paper-composition {
+  height: 100%;
+  padding: 7px;
+  background: linear-gradient(90deg, #c5b99e, #f4ead3 12%);
+  color: #17272c;
+}
+.paper-running {
+  display: flex;
+  justify-content: space-between;
+  font: 4px monospace;
+  margin-bottom: 5px;
+  letter-spacing: 0.4px;
+}
+.paper-panel {
+  height: 108px;
+  position: relative;
+  border: 2px solid #152b30;
+  overflow: hidden;
+}
+.paper-panel > img,
+.paper-panel > svg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 28%;
+}
+.paper-reverse .paper-panel > img,
+.paper-reverse .paper-panel > svg {
+  transform: scaleX(-1);
+}
+.paper-dialogue {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  border-radius: 50%;
+  border: 1px solid #152b30;
+  padding: 5px 7px;
+  background: #fff8e7;
+  font:
+    700 5px/1.5 Arial,
+    sans-serif;
+  transform: rotate(-7deg);
+}
+.paper-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 4px;
+  height: 51px;
+}
+.paper-panels > div {
+  position: relative;
+  border: 2px solid #152b30;
+  overflow: hidden;
+}
+.paper-panels img,
+.paper-panels svg {
+  width: 100%;
+  height: 180%;
+  object-fit: cover;
+  transform: translateY(-20px);
+}
+.paper-panels > div:last-child {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: repeating-conic-gradient(at 0% 100%, #ebc787 0deg 8deg, #f8ebca 8deg 16deg);
+}
+.paper-panels b {
+  font: italic 900 12px Arial;
+  transform: rotate(-14deg);
+}
+.paper-panels span {
+  margin-top: 7px;
+  font: 3px monospace;
+}
+.folio-gutter {
+  position: absolute;
+  width: 5px;
+  left: calc(50% - 2px);
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #746c59, #efe5cf, #746c59);
+  transform: translateZ(1px);
+}
+.folio-pop {
+  position: absolute;
+  left: 12px;
+  top: 70px;
+  padding: 5px;
+  font:
+    700 10px/0.95 Arial,
+    sans-serif;
+  background: #f7e8be;
+  border: 2px solid #183039;
+  color: #183039;
+  transform-origin: bottom;
+  transform: rotate(-8deg) translateZ(8px);
+  pointer-events: none;
+}
+.cinema-caption {
+  margin: 34px 15px 20px;
+}
+.cinema-caption > span {
+  font: 8px monospace;
+  letter-spacing: 2px;
+  color: #cead70;
+}
+.cinema-caption p {
+  margin: 7px 0 0;
+  font:
+    italic 16px Georgia,
+    serif;
+  color: #e8dfc9;
+}
+.cinema-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 15px;
+  padding-top: 14px;
+  border-top: 1px solid #e6d4af33;
+}
+.cinema-pagination,
+.cinema-buttons {
+  display: flex;
+  gap: 10px;
+}
+.cinema-navigation button {
+  cursor: pointer;
+  background: none;
+  border: 0;
+  color: #e8dfc9;
+  transition:
+    transform 0.25s,
+    opacity 0.25s;
+}
+.cinema-pagination button {
+  padding: 7px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 10px monospace;
+  opacity: 0.45;
+}
+.cinema-pagination i {
+  width: 22px;
+  height: 2px;
+  background: #ddbd79;
+  transform: scaleX(0.35);
+  transform-origin: left;
+  transition: transform 0.4s;
+}
+.cinema-pagination button[aria-pressed='true'] {
+  opacity: 1;
+}
+.cinema-pagination button[aria-pressed='true'] i {
+  transform: scaleX(1);
+}
+.cinema-buttons button {
+  min-height: 36px;
+  padding: 5px;
+  font: 10px monospace;
+}
+.cinema-buttons button:last-child {
+  width: 36px;
+  border: 1px solid #bca57777;
+  border-radius: 50%;
+  font-size: 21px;
+}
+.cinema-buttons button span {
+  margin-left: 6px;
+  font-size: 17px;
+}
+.cinema-navigation button:hover {
+  transform: translateY(-3px);
+  opacity: 1;
+}
+.cinema-navigation button:active {
+  transform: translateY(1px);
+}
+.cinema-navigation button:focus-visible,
+.cinema-cover:focus-visible {
+  outline: 2px solid #f1c176;
+  outline-offset: 5px;
+}
+.cinema-buttons button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.comic-cover {
+  overflow: visible;
+  transform-style: preserve-3d;
+  transform-origin: left;
+  box-shadow: none;
+}
+.comic-cover:before {
+  content: '';
+  position: absolute;
+  inset: 3px -8px -4px 5px;
+  background: repeating-linear-gradient(#d5ceb9 0 1px, #9b927c 1px 3px);
+  border: 1px solid #645d46;
+  transform: translateZ(-10px);
+}
+.comic-cover > img,
+.comic-cover > .cover-placeholder {
+  position: relative;
+}
+.comic-cover > .comic-binding,
+.comic-index,
+.comic-open {
+  transform: translateZ(1px);
+}
+.comic-open {
+  opacity: 0;
+  transform: translateY(10px) translateZ(3px);
+  transition:
+    transform 0.4s,
+    opacity 0.3s;
+}
+.mech-comic:hover .comic-cover,
+.mech-comic:focus-visible .comic-cover {
+  transform: rotateY(-25deg) rotateX(5deg) translateY(-12px) translateZ(20px);
+}
+.mech-comic:hover .comic-open,
+.mech-comic:focus-visible .comic-open {
+  opacity: 1;
+  transform: translateY(0) translateZ(3px);
+}
+@media (max-width: 1100px) and (min-width: 761px) {
+  .cinema-scroll {
+    scale: 0.8;
+    transform-origin: center 30%;
+  }
+  .cinema-viewport {
+    height: 425px;
+  }
+}
+@media (max-width: 480px) {
+  .cinema-topline {
+    margin: 0;
+    font-size: 7px;
+    letter-spacing: 1.2px;
+  }
+  .cinema-scroll {
+    scale: 0.64;
+    transform-origin: center top;
+  }
+  .cinema-viewport {
+    height: 335px;
+  }
+  .cinema-caption {
+    margin: 0 0 20px;
+  }
+  .cinema-caption p {
+    font-size: 15px;
+  }
+  .cinema-navigation {
+    margin: 0;
+    gap: 5px;
+  }
+  .cinema-pagination {
+    gap: 6px;
+  }
+  .cinema-pagination i {
+    width: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cinema-navigation button,
+  .cinema-pagination i,
+  .comic-open {
+    transition: none;
+  }
+  .mech-comic:hover .comic-cover,
+  .mech-comic:focus-visible .comic-cover {
+    transform: none;
+  }
+}
+.motion-paused .mech-comic:hover .comic-cover {
+  transform: none;
+}

@@ -1,10 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { MechanicalScene } from '@/components/home/mechanical-scene';
+import { useNewsMotion } from '@/components/home/use-news-motion';
+import { useGenreMotion } from '@/components/home/use-genre-motion';
+import { useSearchMotion } from '@/components/home/use-search-motion';
 import { api } from '@/lib/api-client';
+import './mechanical.css';
+import '@/components/home/story-engine.css';
 
-interface Comic {
+export interface Comic {
   id: string;
   title: string;
   slug: string;
@@ -14,20 +23,17 @@ interface Comic {
   genres: { id: string; name: string; icon: string | null }[];
   stats: { totalViews: number; avgRating: number; totalChapters: number };
 }
-
 interface HomepageData {
   trending: Comic[];
   latest: Comic[];
   topRated: Comic[];
 }
-
 interface Genre {
   id: string;
   name: string;
   slug: string;
   icon: string;
 }
-
 interface FeaturedNews {
   id: string;
   title: string;
@@ -38,270 +44,444 @@ interface FeaturedNews {
   publishedAt: string;
   author: { displayName: string; avatarUrl: string | null };
 }
-
 interface FeaturedNewsData {
   featured: FeaturedNews | null;
   latest: FeaturedNews[];
 }
 
 export default function Home() {
+  const root = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   const [data, setData] = useState<HomepageData | null>(null);
   const [genres, setGenres] = useState<Genre[]>([]);
-  const [isLoadingGenres, setIsLoadingGenres] = useState(true);
+  const [news, setNews] = useState<FeaturedNewsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [newsLoading, setNewsLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [newsError, setNewsError] = useState(false);
   const [search, setSearch] = useState('');
-  const [newsData, setNewsData] = useState<FeaturedNewsData | null>(null);
-  const [isLoadingNews, setIsLoadingNews] = useState(true);
-
-  // Search placeholder typewriter effect
-  const searchPlaceholders = [
-    'Người trên vạn người',
-    'Đại quản gia là ma hoàng',
-    'Đấu la đại lục',
-    'Chàng rể mạnh nhất lịch sử'
-  ];
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
-  const [displayedPlaceholder, setDisplayedPlaceholder] = useState('');
-  const [isPlaceholderDeleting, setIsPlaceholderDeleting] = useState(false);
+  const [request, setRequest] = useState(0);
+  const [motionPaused, setMotionPaused] = useState(false);
+  useNewsMotion(root, motionPaused, !newsLoading && !newsError && !!news);
+  useGenreMotion(root, motionPaused, genres.length);
+  useSearchMotion(root, motionPaused);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-
-    const handleTyping = () => {
-      const activeWord = searchPlaceholders[placeholderIndex];
-      if (!isPlaceholderDeleting) {
-        if (displayedPlaceholder === activeWord) {
-          timer = setTimeout(() => setIsPlaceholderDeleting(true), 2000);
-        } else {
-          timer = setTimeout(() => {
-            setDisplayedPlaceholder(activeWord.substring(0, displayedPlaceholder.length + 1));
-          }, 80 + Math.random() * 40);
+    let active = true;
+    api
+      .get<{ data: HomepageData }>('/comics/homepage')
+      .then((r) => {
+        if (active) {
+          setData(r.data);
+          setError(false);
         }
-      } else {
-        if (displayedPlaceholder === '') {
-          timer = setTimeout(() => {
-            setIsPlaceholderDeleting(false);
-            setPlaceholderIndex((prev) => (prev + 1) % searchPlaceholders.length);
-          }, 300);
-        } else {
-          timer = setTimeout(() => {
-            setDisplayedPlaceholder(activeWord.substring(0, displayedPlaceholder.length - 1));
-          }, 40);
+      })
+      .catch(() => {
+        if (active) setError(true);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    api
+      .get<{ data: Genre[] }>('/comics/genres')
+      .then((r) => {
+        if (active) setGenres(r.data);
+      })
+      .catch(() => {});
+    api
+      .get<{ data: FeaturedNewsData }>('/news/featured')
+      .then((r) => {
+        if (active) {
+          setNews(r.data);
+          setNewsError(false);
         }
-      }
+      })
+      .catch(() => {
+        if (active) setNewsError(true);
+      })
+      .finally(() => {
+        if (active) setNewsLoading(false);
+      });
+    return () => {
+      active = false;
     };
-
-    handleTyping();
-    return () => clearTimeout(timer);
-  }, [displayedPlaceholder, isPlaceholderDeleting, placeholderIndex]);
+  }, [request]);
 
   useEffect(() => {
-    api.get<{ data: HomepageData }>('/comics/homepage').then((r) => setData(r.data)).catch(() => { });
-    api.get<{ data: Genre[] }>('/comics/genres')
-      .then((r) => setGenres(r.data))
-      .catch(() => { })
-      .finally(() => setIsLoadingGenres(false));
-    api.get<{ data: FeaturedNewsData }>('/news/featured')
-      .then((r) => setNewsData(r.data))
-      .catch(() => { })
-      .finally(() => setIsLoadingNews(false));
-  }, []);
+    gsap.registerPlugin(ScrollTrigger);
+    const media = gsap.matchMedia();
+    media.add(
+      '(prefers-reduced-motion: no-preference)',
+      () => {
+        if (motionPaused) return;
+        gsap
+          .timeline({ defaults: { duration: 0.8, ease: 'expo.out' } })
+          .from('.hero-line', { y: 46, rotationX: -16, opacity: 0, stagger: 0.12 })
+          .from(
+            '.hero-intro, .hero-actions, .search-stage',
+            { y: 22, opacity: 0, stagger: 0.1 },
+            '-=0.5',
+          );
+        return undefined;
+      },
+      root,
+    );
+    return () => media.revert();
+  }, [motionPaused]);
+
+  useEffect(() => {
+    const media = gsap.matchMedia();
+    media.add(
+      '(prefers-reduced-motion: no-preference)',
+      () => {
+        if (motionPaused) return;
+        root.current?.querySelectorAll<HTMLElement>('[data-reveal]').forEach((section) => {
+          const pieces = section.querySelectorAll('[data-piece]');
+          if (!pieces.length) return;
+          gsap.from(pieces, {
+            y: 65,
+            z: -100,
+            opacity: 0,
+            rotationY: -32,
+            rotationX: 18,
+            transformOrigin: 'left bottom',
+            stagger: 0.09,
+            duration: 1.1,
+            ease: 'expo.out',
+            scrollTrigger: { trigger: section, start: 'top 92%', once: true },
+          });
+        });
+        ScrollTrigger.refresh();
+      },
+      root,
+    );
+    return () => media.revert();
+  }, [data, genres, news, loading, newsLoading, motionPaused]);
+
+  const featured = data?.trending[0] || data?.latest[0];
+  const retry = () => {
+    setLoading(true);
+    setNewsLoading(true);
+    setRequest((value) => value + 1);
+  };
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* Hero */}
-      <section className="relative mx-auto max-w-6xl px-4 pb-12 pt-16 text-center">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 px-4 py-1.5 text-sm text-amber-600 dark:text-amber-400 font-medium">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500 dark:bg-amber-400" />
-          O W O C — Beta 1.0
-        </div>
-
-        {/* Search */}
-        <div className="mx-auto max-w-xl">
+    <div ref={root} className={`mech-home${motionPaused ? ' motion-paused' : ''}`}>
+      <section className="mech-hero mech-container" aria-labelledby="hero-title">
+        <div className="hero-copy">
+          <h1 id="hero-title">
+            <span className="hero-line">Mỗi trang truyện.</span>
+            <span className="hero-line">
+              Một <em>vũ trụ</em>
+            </span>
+            <span className="hero-line">đang chuyển động.</span>
+          </h1>
+          <p className="hero-intro">
+            Mở cánh cửa vào thế giới Manga, Manhwa và truyện tranh Việt. Câu chuyện tiếp theo của
+            bạn bắt đầu ở đây.
+          </p>
+          <div className="hero-actions">
+            <Link href="/comics" className="mech-button mech-primary">
+              Khám phá truyện <Arrow />
+            </Link>
+            <Link href="/studio" className="mech-text-link">
+              Không gian sáng tác <i className="fa-light fa-arrow-up-right" aria-hidden="true" />
+            </Link>
+          </div>
+          <div className="search-stage">
           <form
-            onSubmit={(e) => { e.preventDefault(); if (search.trim()) window.location.href = `/comics?search=${encodeURIComponent(search)}`; }}
-            className="relative flex items-center"
+            className="hero-search"
+            role="search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (search.trim()) router.push(`/comics?search=${encodeURIComponent(search.trim())}`);
+            }}
           >
-            <div className="relative flex-1">
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={displayedPlaceholder}
-                className="w-full rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 pl-5 pr-14 py-3.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
-              />
-              <button
-                type="submit"
-                className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer transition-colors"
-              >
-                <i className="fa-light fa-magnifying-glass text-base" />
-              </button>
+            <i className="fa-light fa-magnifying-glass" aria-hidden="true" />
+            <div className="search-field">
+            <input
+              aria-label="Tìm tên truyện hoặc tác giả"
+              placeholder="Bạn muốn bước vào thế giới nào?"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <span className="search-prompt" aria-hidden="true" data-filled={!!search}>
+              {Array.from('Bạn muốn bước vào thế giới nào?').map((letter, index) => (
+                <span className="search-letter" key={index}>
+                  {letter === ' ' ? '\u00a0' : letter}
+                  <span className="search-glint">{letter === ' ' ? '\u00a0' : letter}</span>
+                </span>
+              ))}
+            </span>
             </div>
+            <button type="submit" aria-label="Tìm truyện">
+              <Arrow />
+            </button>
           </form>
+          </div>
+        </div>
+        <div className="hero-machine">
+          <MechanicalScene
+            comic={featured}
+            companions={data?.trending.slice(1, 3)}
+            paused={motionPaused}
+          />
+          <div className="machine-controls">
+            <span>
+              <span className="status-light" /> OWOC · BETA 1.0
+            </span>
+            <button
+              type="button"
+              onClick={() => setMotionPaused((value) => !value)}
+              aria-pressed={motionPaused}
+            >
+              <i
+                className={`fa-light ${motionPaused ? 'fa-play' : 'fa-pause'}`}
+                aria-hidden="true"
+              />{' '}
+              {motionPaused ? 'Bật chuyển động' : 'Dừng chuyển động'}
+            </button>
+          </div>
         </div>
       </section>
 
-      {/* Genre Pills */}
-      {(isLoadingGenres || genres.length > 0) && (
-        <section className="mx-auto max-w-6xl px-4 pb-8">
-          <div className="flex flex-wrap justify-center gap-2">
-            {isLoadingGenres
-              ? Array.from({ length: 10 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`h-7 rounded-full bg-zinc-200/60 dark:bg-zinc-800/60 animate-pulse border border-zinc-200/30 dark:border-white/5 ${i % 5 === 0 ? 'w-20' : i % 5 === 1 ? 'w-28' : i % 5 === 2 ? 'w-24' : i % 5 === 3 ? 'w-32' : 'w-16'
-                    }`}
-                />
-              ))
-              : genres.map((g) => (
-                <Link
-                  key={g.id}
-                  href={`/comics?genre=${g.slug}`}
-                  className="rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-all hover:border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 font-medium"
-                >
-                  {g.icon} {g.name}
+      <div className="mech-genre-rail" data-reveal>
+        <div className="mech-container genre-inner">
+          <span className="genre-label">
+            <i className="fa-light fa-sliders" aria-hidden="true" /> Chọn thế giới
+          </span>
+          <div className="genre-links">
+            {genres.length > 0 ? (
+              genres.map((genre) => (
+                <Link key={genre.id} href={`/comics?genre=${genre.slug}`}>
+                  <span className="genre-plane">
+                    <span className="genre-name">{genre.name}</span>
+                    <span className="genre-arrow" aria-hidden="true">↗</span>
+                  </span>
                 </Link>
-              ))}
-          </div>
-        </section>
-      )}
-
-      {/* news */}
-      <section>
-        <div className="px-4 sm:px-8 md:px-12 lg:px-16 pb-10">
-          <div className="flex justify-between pb-3 md:py-6">
-            <h2 className="text-3xl lg:text-5xl font-bold dark:text-white">
-              Chuyện gì đang xảy ra vậy?
-            </h2>
-            <Link href="/news" className="hidden lg:block text-3xl text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300 transition-colors">
-              <i className="fa-duotone fa-solid fa-chevrons-right"></i>
-            </Link>
-          </div>
-          <div className="py-6">
-            {isLoadingNews ? (
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                <div className="md:col-span-3 aspect-[4/3] lg:aspect-auto rounded bg-zinc-200/60 dark:bg-zinc-800/60 animate-pulse" />
-                <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-none md:grid-rows-4 gap-4">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="h-24 rounded bg-zinc-200/60 dark:bg-zinc-800/60 animate-pulse" />
-                  ))}
-                </div>
-              </div>
-            ) : newsData && (newsData.featured || newsData.latest.length > 0) ? (
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                {/* Featured large card */}
-                {newsData.featured && (
-                  <div className="md:col-span-3 relative transition duration-500 ease-in-out hover:scale-105 z-10">
-                    <div className="w-full h-full">
-                      {newsData.featured.coverUrl ? (
-                        <img src={newsData.featured.coverUrl} alt={newsData.featured.title} className="h-[201px] md:h-[496px] w-full rounded object-cover" />
-                      ) : (
-                        <div className="h-full w-full rounded bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center min-h-[300px]">
-                          <i className="fa-light fa-newspaper text-6xl text-zinc-300 dark:text-zinc-600" />
-                        </div>
-                      )}
-                    </div>
-                    <Link href={`/news/${newsData.featured.slug}`}>
-                      <span aria-hidden="true" className="absolute inset-0"></span>
-                      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black to-transparent px-6 md:px-12 py-5 md:py-10 rounded-b">
-                        <p className="text-white font-bold text-sm md:text-3xl">{newsData.featured.title}</p>
-                      </div>
-                    </Link>
-                  </div>
-                )}
-                {/* Side cards */}
-                {newsData.latest.length > 0 && (
-                  <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-none md:grid-rows-4 gap-4">
-                    {newsData.latest.map((item) => (
-                      <div key={item.id} className="grid grid-cols-3 gap-4 relative transition duration-500 ease-in-out hover:scale-105 shadow rounded dark:shadow-gray-700">
-                        <div style={{ clipPath: "polygon(0 0,100% 0,85% 100%,0 100%)" }}>
-                          {item.coverUrl ? (
-                            <img src={item.coverUrl} alt={item.title} className="h-[88px] md:h-[112px] w-full rounded-l object-cover" />
-                          ) : (
-                            <div className="h-full w-full rounded-l bg-gradient-to-br from-amber-500/10 to-orange-500/10 flex items-center justify-center">
-                              <i className="fa-light fa-newspaper text-xl text-zinc-300 dark:text-zinc-600" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="col-span-2 p-2">
-                          <Link href={`/news/${item.slug}`}>
-                            <span aria-hidden="true" className="absolute inset-0"></span>
-                            <p className="font-bold line-clamp-1 md:line-clamp-2 dark:text-white">{item.title}</p>
-                          </Link>
-                          <div>
-                            <p className="line-clamp-2 font-light dark:text-white">{item.excerpt || ''}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              ))
             ) : (
-              <div className="text-center py-12">
-                <div className="text-4xl mb-3">📰</div>
-                <p className="text-zinc-500 dark:text-zinc-400">Chưa có tin tức nào.</p>
-              </div>
+              <Link href="/comics">
+                Khám phá tất cả thể loại <Arrow />
+              </Link>
             )}
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Trending */}
-      {data && data.trending.length > 0 && (
-        <ComicSection title="TRUYỆN ĐANG THỊNH HÀNH" comics={data.trending} />
-      )}
+      <div className="mech-container mech-content">
+        {loading ? (
+          <section className="mech-loading" aria-label="Đang tải truyện" aria-busy="true">
+            <div className="loading-rail" />
+            <p>Đang mở kho truyện…</p>
+            <div className="comic-grid">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="comic-skeleton" />
+              ))}
+            </div>
+          </section>
+        ) : error ? (
+          <div className="mech-empty" role="alert">
+            <i className="fa-light fa-plug" aria-hidden="true" />
+            <h2>Chưa kết nối được kho truyện</h2>
+            <p>Dữ liệu chưa tải được. Bạn có thể thử kết nối lại.</p>
+            <button className="mech-button" onClick={retry}>
+              Thử lại <Arrow />
+            </button>
+          </div>
+        ) : data &&
+          (data.trending.length > 0 || data.latest.length > 0 || data.topRated.length > 0) ? (
+          <>
+            {data.trending.length > 0 && (
+              <ComicSection
+                title="Đang được khám phá"
+                subtitle="Những câu chuyện đang thịnh hành trên OWOC."
+                comics={data.trending}
+              />
+            )}
+            {data.latest.length > 0 && (
+              <ComicSection
+                title="Trang mới vừa mở"
+                subtitle="Theo kịp những chương truyện mới cập nhật."
+                comics={data.latest}
+              />
+            )}
+            {data.topRated.length > 0 && (
+              <ComicSection
+                title="Được độc giả yêu thích"
+                subtitle="Những tác phẩm được đánh giá cao."
+                comics={data.topRated}
+              />
+            )}
+          </>
+        ) : (
+          <div className="mech-empty">
+            <i className="fa-light fa-books" aria-hidden="true" />
+            <h2>Vũ trụ đang chờ câu chuyện đầu tiên</h2>
+            <p>Chưa có truyện nào. Hãy là người đầu tiên đăng truyện!</p>
+            <Link className="mech-button mech-primary" href="/studio">
+              Bắt đầu sáng tác <Arrow />
+            </Link>
+          </div>
+        )}
 
-      {/* Latest */}
-      {data && data.latest.length > 0 && (
-        <ComicSection title="TRUYỆN MỚI CẬP NHẬT" comics={data.latest} />
-      )}
-
-      {/* Top Rated */}
-      {data && data.topRated.length > 0 && (
-        <ComicSection title="TRUYỆN ĐƯỢC YÊU THÍCH" comics={data.topRated} />
-      )}
-
-      {/* Empty state */}
-      {data && data.trending.length === 0 && data.latest.length === 0 && (
-        <section className="mx-auto max-w-6xl px-4 py-16 text-center">
-          <div className="text-4xl mb-4">📚</div>
-          <p className="text-zinc-500">Chưa có truyện nào. Hãy là người đầu tiên đăng truyện!</p>
-          <Link
-            href="/studio"
-            className="mt-4 inline-block rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:brightness-110 transition-all"
-          >
-            Bắt đầu sáng tác →
+        <section className="mech-news" data-reveal aria-labelledby="news-title">
+          <div className="mech-section-head" data-piece>
+            <div>
+              <h2 id="news-title">Bên kia trang truyện</h2>
+              <p>Tin tức, cảm hứng và những câu chuyện từ cộng đồng.</p>
+            </div>
+            <Link className="mech-section-link" href="/news">
+              Tất cả tin tức <Arrow />
+            </Link>
+          </div>
+          {newsLoading ? (
+            <div className="news-skeleton" aria-busy="true">
+              Đang tải tin tức…
+            </div>
+          ) : newsError ? (
+            <div className="mech-empty" role="alert">
+              <p>Chưa tải được tin tức.</p>
+              <button className="mech-button" onClick={retry}>
+                Thử lại <Arrow />
+              </button>
+            </div>
+          ) : news && (news.featured || news.latest.length > 0) ? (
+            <div className="mech-news-grid">
+              {news.featured && (
+                <Link href={`/news/${news.featured.slug}`} className="news-feature" data-news-plane>
+                  {news.featured.coverUrl ? (
+                    <img src={news.featured.coverUrl} alt="" loading="lazy" />
+                  ) : (
+                    <div className="news-art">
+                      <i className="fa-light fa-newspaper" aria-hidden="true" />
+                    </div>
+                  )}
+                  <div className="news-feature-copy">
+                    <span className="news-category">{news.featured.category}</span>
+                    <h3>{news.featured.title}</h3>
+                    <span className="news-read">
+                      Đọc câu chuyện <Arrow />
+                    </span>
+                  </div>
+                </Link>
+              )}
+              <div className="news-feed">
+                {news.latest.map((item) => (
+                  <Link className="news-row" data-news-plane href={`/news/${item.slug}`} key={item.id}>
+                    <div className="news-row-image">
+                      {item.coverUrl ? (
+                        <img src={item.coverUrl} alt="" loading="lazy" />
+                      ) : (
+                        <i className="fa-light fa-newspaper" aria-hidden="true" />
+                      )}
+                    </div>
+                    <div>
+                      <span className="news-category">{item.category}</span>
+                      <h3>{item.title}</h3>
+                      <p>{item.excerpt}</p>
+                    </div>
+                    <Arrow />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="mech-empty">
+              <p>Chưa có tin tức nào. Những câu chuyện mới sẽ sớm xuất hiện tại đây.</p>
+              <Link className="mech-text-link" href="/news">
+                Đến trang tin tức <Arrow />
+              </Link>
+            </div>
+          )}
+        </section>
+        <section className="creator-bay" data-reveal>
+          <div className="creator-gear" aria-hidden="true">
+            <i className="fa-light fa-pen-nib" />
+          </div>
+          <div data-piece>
+            <h2>
+              Đừng chỉ đọc thế giới.
+              <br />
+              <em>Hãy tạo nên một thế giới.</em>
+            </h2>
+            <p>Đưa câu chuyện và nét vẽ của bạn đến với cộng đồng OWOC.</p>
+          </div>
+          <Link data-piece href="/studio" className="mech-button mech-primary">
+            Bước vào Studio <Arrow />
           </Link>
         </section>
-      )}
+      </div>
     </div>
   );
 }
 
-function ComicSection({ title, comics }: { title: string; comics: Comic[] }) {
+function Arrow() {
   return (
-    <section className="px-4 sm:px-8 md:px-12 lg:px-16 pb-10">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-bold text-zinc-900 dark:text-white">{title}</h2>
-        <Link href="/comics" className="text-3xl text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300 transition-colors">
-          <i className="fa-duotone fa-solid fa-chevrons-right"></i>
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <path d="M4 12h15M13 5l7 7-7 7" />
+    </svg>
+  );
+}
+
+function ComicSection({
+  title,
+  subtitle,
+  comics,
+}: {
+  title: string;
+  subtitle: string;
+  comics: Comic[];
+}) {
+  return (
+    <section className="mech-comic-section" data-reveal>
+      <div className="mech-section-head" data-piece>
+        <div>
+          <h2>{title}</h2>
+          <p>{subtitle}</p>
+        </div>
+        <Link className="mech-section-link" href="/comics">
+          Xem tất cả <Arrow />
         </Link>
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-        {comics.map((comic) => (
-          <Link key={comic.id} href={`/comics/${comic.slug}`} className="group">
-            <div className="mb-2 aspect-[3/4] overflow-hidden rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 transition-all group-hover:border-amber-500/40 group-hover:shadow-lg group-hover:shadow-amber-500/10">
-              {comic.coverUrl ? (
-                <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover transition-transform group-hover:scale-105 duration-500 ease-in-out" />
-              ) : (
-                <div className="flex h-full items-center justify-center text-3xl font-bold text-zinc-400 dark:text-zinc-600">{comic.title[0]}</div>
-              )}
-            </div>
-            <h3 className="line-clamp-2 text-sm font-bold text-zinc-800 dark:text-zinc-200 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{comic.title}</h3>
-            <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-              <span><i className="fa-light fa-image"></i> {comic.stats.totalChapters}</span>
-              <span><i className="fa-light fa-eye"></i> {comic.stats.totalViews}</span>
-            </div>
-          </Link>
+      <div className="comic-grid">
+        {comics.map((comic, index) => (
+          <div data-piece key={comic.id}>
+            <Link href={`/comics/${comic.slug}`} className="mech-comic">
+              <div className="comic-cover">
+                <div className="comic-binding" />
+                {comic.coverUrl ? (
+                  <img src={comic.coverUrl} alt={comic.title} loading="lazy" />
+                ) : (
+                  <div className="cover-placeholder">{comic.title}</div>
+                )}
+                <span className="comic-index">{String(index + 1).padStart(2, '0')}</span>
+                <span className="comic-open">
+                  <Arrow /> Khám phá
+                </span>
+              </div>
+              <h3>{comic.title}</h3>
+              <p className="comic-author">{comic.author.displayName}</p>
+              <div className="comic-meta">
+                <span>
+                  <i className="fa-light fa-book-open" aria-hidden="true" />{' '}
+                  {comic.stats.totalChapters} chương
+                </span>
+                <span>
+                  <i className="fa-light fa-eye" aria-hidden="true" />{' '}
+                  {comic.stats.totalViews.toLocaleString('vi-VN')}
+                </span>
+              </div>
+            </Link>
+          </div>
         ))}
       </div>
     </section>

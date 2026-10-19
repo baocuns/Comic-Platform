@@ -1,26 +1,45 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import './mechanical-shell.css';
 
 export function Footer() {
-    const pathname = usePathname();
-
-    if (pathname?.startsWith('/studio')) {
-        return null;
-    }
-
-    return (
-        // bg-gradient-to-t from-amber-300/40 via-amber-100/10 to-background dark:from-amber-700/20 dark:via-green-700/5 dark:to-background
-        <footer className="pt-12">
-            <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6">
-                <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-                    <div className="flex items-center gap-2">
-                        <img src="/img/owoc_banner_black.png" className="h-36 w-auto dark:hidden" alt="Owoc Logo" />
-                        <img src="/img/owoc_banner_white.png" className="h-36 w-auto hidden dark:block" alt="Owoc Logo" />
-                    </div>
-                    <p className="text-sm text-zinc-600">© 2026 OWOC. One word one civilization!</p>
-                </div>
-            </div>
-        </footer>
-    );
+  const pathname = usePathname();
+  if (pathname?.startsWith('/studio')) return null;
+  return (
+    <footer className="mech-footer">
+      <div className="mechanical-footer-inner">
+        <div className="footer-brand">
+          <Link href="/" aria-label="OWOC — Trang chủ">
+            <img src="/img/owoc_banner_white.png" alt="OWOC" />
+          </Link>
+          <p>One word. One civilization.</p>
+        </div>
+        <nav aria-label="Điều hướng cuối trang">
+          <Link href="/comics">
+            Khám phá truyện <span aria-hidden="true">↗</span>
+          </Link>
+          <Link href="/news">
+            Tin tức cộng đồng <span aria-hidden="true">↗</span>
+          </Link>
+          <Link href="/studio">
+            Không gian sáng tác <span aria-hidden="true">↗</span>
+          </Link>
+        </nav>
+        <div className="footer-signature">
+          <span aria-hidden="true">✳</span>
+          <p>
+            Mọi thế giới lớn
+            <br />
+            bắt đầu từ một câu chuyện.
+          </p>
+        </div>
+      </div>
+      <div className="footer-bottom">
+        <p>© 2026 OWOC. One word one civilization!</p>
+        <span>ĐƯỢC KẾT NỐI BỞI TRÍ TƯỞNG TƯỢNG</span>
+      </div>
+    </footer>
+  );
 }

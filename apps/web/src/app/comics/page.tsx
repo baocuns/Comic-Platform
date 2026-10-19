@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { ElDropdown, ElMenu } from '@tailwindplus/elements/react';
@@ -32,12 +33,27 @@ const SORT_OPTIONS = [
 ];
 
 export default function ComicsPage() {
+  return <Suspense fallback={<div className="p-8" role="status">Đang mở thế giới truyện…</div>}><ComicsCatalog /></Suspense>;
+}
+
+function ComicsCatalog() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [comics, setComics] = useState<Comic[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
   const [genresLoading, setGenresLoading] = useState(true);
-  const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
-  const [sort, setSort] = useState<string>('updated');
-  const [loading, setLoading] = useState(true);
+  const selectedGenre = searchParams.get('genre');
+  const search = searchParams.get('search') || '';
+  const sort = searchParams.get('sort') || 'updated';
+  const setFilter = (key: string, value: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set(key, value);
+    else params.delete(key);
+    router.push(`/comics${params.size ? `?${params}` : ''}`, { scroll: false });
+  };
+  const requestKey = JSON.stringify([selectedGenre, sort, search]);
+  const [completedRequest, setCompletedRequest] = useState<string | null>(null);
+  const loading = completedRequest !== requestKey;
 
   useEffect(() => {
     api.get<{ data: Genre[] }>('/comics/genres')
@@ -47,17 +63,19 @@ export default function ComicsPage() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
     const params = new URLSearchParams();
     if (selectedGenre) params.set('genre', selectedGenre);
+    if (search) params.set('search', search);
     params.set('sort', sort);
     params.set('limit', '20');
 
     api.get<{ data: Comic[]; meta: unknown }>(`/comics?${params}`)
-      .then((res) => setComics(res.data))
+      .then((res) => { if (!cancelled) setComics(res.data); })
       .catch(() => { })
-      .finally(() => setLoading(false));
-  }, [selectedGenre, sort]);
+      .finally(() => { if (!cancelled) setCompletedRequest(requestKey); });
+    return () => { cancelled = true; };
+  }, [selectedGenre, sort, search, requestKey]);
 
   const currentSortOption = SORT_OPTIONS.find((o) => o.value === sort) || SORT_OPTIONS[0];
 
@@ -90,7 +108,7 @@ export default function ComicsPage() {
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setSort(opt.value)}
+                onClick={() => setFilter('sort', opt.value)}
                 className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors cursor-pointer ${sort === opt.value
                   ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold'
                   : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5'
@@ -104,7 +122,7 @@ export default function ComicsPage() {
 
         {/* Genre pills */}
         <button
-          onClick={() => setSelectedGenre(null)}
+          onClick={() => setFilter('genre', null)}
           className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${!selectedGenre
             ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
             : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-amber-300 dark:hover:border-amber-500/40 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:shadow-xs'
@@ -123,7 +141,7 @@ export default function ComicsPage() {
           genres.map((g) => (
             <button
               key={g.id}
-              onClick={() => setSelectedGenre(g.slug)}
+              onClick={() => setFilter('genre', g.slug)}
               className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${selectedGenre === g.slug
                 ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
                 : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-amber-300 dark:hover:border-amber-500/40 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:shadow-xs'

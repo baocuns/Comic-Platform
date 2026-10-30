@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/auth-store';
 import { ApiError } from '@/lib/api-client';
+import '../supporting-pages.css';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -69,20 +70,20 @@ export default function RegisterPage() {
   const strength = getPasswordStrength();
 
   return (
-    <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4 py-8">
-      {/* Background effects */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -left-40 top-20 h-80 w-80 rounded-full bg-amber-500/20 blur-[120px]" />
-        <div className="absolute -right-40 bottom-20 h-80 w-80 rounded-full bg-orange-500/20 blur-[120px]" />
-      </div>
-
-      <div className="relative w-full max-w-md">
-        <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-white/[0.03] p-8 shadow-2xl backdrop-blur-xl">
+    <div className="ow-support ow-auth">
+      <aside className="ow-auth-story" aria-label="Tham gia OWOC">
+        <div className="ow-auth-brand">OWOC<span>Mở truyện. Mở thế giới.</span></div>
+        <div>
+          <h2>Trang đầu<br />của bạn.</h2>
+          <p>Một tài khoản, một góc truyện riêng. Lưu những bộ yêu thích và cùng cộng đồng khám phá chuyện hay.</p>
+        </div>
+        <span className="ow-auth-caption" aria-hidden="true">Hội mê truyện, có bạn! ✦</span>
+      </aside>
+      <div className="ow-auth-form-wrap">
+        <div className="ow-auth-form">
           {/* Header */}
-          <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-2xl font-bold text-white shadow-lg shadow-amber-500/30">
-              C
-            </div>
+          <div className="ow-auth-heading">
+            <span className="ow-kicker mb-4">Hội mê truyện / Đăng ký</span>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Tạo tài khoản</h1>
             <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
               Tham gia cộng đồng đọc truyện tranh
@@ -91,7 +92,7 @@ export default function RegisterPage() {
 
           {/* Error */}
           {error && (
-            <div className="mb-6 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <div className="ow-auth-error" role="alert">
               {error}
             </div>
           )}
@@ -165,7 +166,9 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  className="ow-password-toggle"
+                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? '🙈' : '👁️'}
                 </button>
@@ -206,11 +209,12 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+              className="ow-action w-full"
+              aria-busy={isLoading}
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  <span className="ow-spinner" aria-hidden="true" />
                   Đang tạo tài khoản...
                 </span>
               ) : (

@@ -6,6 +6,7 @@ import { api, ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { NewsContentRenderer } from '@/components/news/news-content-renderer';
 import { CommentSection } from '@/components/comments';
+import '../../supporting-pages.css';
 
 interface NewsAuthor {
   id: string;
@@ -186,7 +187,7 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
 
   if (isLoading) {
     return (
-      <div className="relative min-h-screen">
+      <div className="ow-support ow-article min-h-screen" role="status" aria-label="Đang tải bài viết">
         <div className="mx-auto max-w-4xl px-4 pt-12 pb-16 animate-pulse">
           <div className="h-4 w-32 rounded-full bg-zinc-200/60 dark:bg-zinc-800/60 mb-6" />
           <div className="h-8 w-3/4 rounded bg-zinc-200/60 dark:bg-zinc-800/60 mb-3" />
@@ -208,13 +209,13 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
 
   if (notFound || !article) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center text-center px-4">
+      <div className="ow-support ow-unavailable flex min-h-[60vh] flex-col items-center justify-center text-center px-4">
         <div className="text-6xl mb-4">📰</div>
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">Không tìm thấy bài viết</h1>
         <p className="text-zinc-500 dark:text-zinc-400 mb-6">Bài viết này không tồn tại hoặc đã bị xóa.</p>
         <Link
           href="/news"
-          className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:brightness-110 transition-all"
+          className="ow-action text-sm font-semibold text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:brightness-110 transition-all"
         >
           ← Quay lại tin tức
         </Link>
@@ -223,11 +224,7 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* Background effects */}
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute left-1/2 top-1/4 h-96 w-96 -translate-x-1/2 rounded-full bg-amber-500/5 dark:bg-amber-600/10 blur-[150px]" />
-      </div>
+    <div className="ow-support ow-article">
 
       <article className="relative mx-auto max-w-4xl px-4 pt-8 pb-16">
         {/* Back link */}
@@ -240,8 +237,8 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
         </Link>
 
         {/* Article Header */}
-        <header className="mb-8">
-          <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-4">
+        <header className="ow-article-header mb-8">
+          <span className="ow-kicker mb-5">
             {CATEGORY_MAP[article.category] || article.category}
           </span>
 
@@ -272,7 +269,7 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
 
         {/* Cover Image */}
         {article.coverUrl && (
-          <div className="mb-10 overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 shadow-sm">
+          <div className="ow-article-cover mb-10">
             <img
               src={article.coverUrl}
               alt={article.title}
@@ -282,7 +279,7 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
         )}
 
         {/* Article Content */}
-        <div className="mb-10">
+        <div className="ow-article-content mb-10">
           <NewsContentRenderer content={article.content} />
         </div>
 
@@ -306,7 +303,9 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
           <button
             onClick={handleLike}
             disabled={!user || isLiking}
-            className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all active:scale-95 cursor-pointer ${
+            aria-pressed={isLiked}
+            aria-label={isLiked ? 'Bỏ thích bài viết' : 'Thích bài viết'}
+            className={`ow-secondary ow-like-button flex items-center gap-2 text-sm ${
               isLiked
                 ? 'bg-rose-500/10 border border-rose-500/30 text-rose-500'
                 : 'bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-rose-500/30 hover:bg-rose-500/5 hover:text-rose-500'
@@ -346,7 +345,7 @@ export default function NewsDetailPage({ params }: { params: Promise<{ slug: str
                 <Link
                   key={r.id}
                   href={`/news/${r.slug}`}
-                  className="group overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.02] transition-all hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5"
+                  className="ow-news-card group"
                 >
                   <div className="aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
                     {r.coverUrl ? (

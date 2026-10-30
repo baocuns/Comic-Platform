@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { api } from '@/lib/api-client';
+import '../supporting-pages.css';
 
 interface BookmarkItem {
   id: string;
@@ -35,20 +36,24 @@ export default function BookmarksPage() {
       .finally(() => setLoading(false));
   }, [accessToken]);
 
-  if (!isHydrated || !user) return <div className="flex min-h-[60vh] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" /></div>;
+  if (!isHydrated || !user) return <div className="ow-support ow-shelf"><div className="ow-state" role="status"><span className="ow-spinner" aria-hidden="true" />Đang mở tủ truyện...</div></div>;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-zinc-900 dark:text-white">📚 Truyện đã lưu</h1>
+    <div className="ow-support ow-shelf">
+      <header className="ow-masthead">
+        <span className="ow-kicker">OWOC / Góc của bạn</span>
+        <h1>Truyện đã lưu<span aria-hidden="true">.</span></h1>
+        <p>Những câu chuyện bạn muốn giữ lại, sẵn sàng cho lần lật trang tiếp theo.</p>
+      </header>
 
       {loading ? (
-        <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" /></div>
+        <div className="ow-state" role="status"><span className="ow-spinner" aria-hidden="true" />Đang mở tủ truyện...</div>
       ) : bookmarks.length === 0 ? (
-        <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] p-16 text-center">
+        <div className="ow-empty">
           <div className="text-4xl mb-4">🔖</div>
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Chưa lưu truyện nào</h2>
           <p className="mt-2 text-sm text-zinc-500">Khám phá và lưu truyện yêu thích!</p>
-          <Link href="/comics" className="mt-4 inline-block rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30 hover:brightness-110 transition-all">
+          <Link href="/comics" className="ow-action mt-5">
             Khám phá truyện →
           </Link>
         </div>
@@ -58,7 +63,7 @@ export default function BookmarksPage() {
             <Link
               key={bm.id}
               href={`/comics/${bm.comic.slug}`}
-              className="flex items-center gap-4 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-4 transition-all hover:border-amber-500/30 hover:bg-amber-500/5 hover:shadow-sm"
+              className="ow-shelf-row items-center"
             >
               <div className="h-20 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
                 {bm.comic.coverUrl ? (
@@ -73,7 +78,7 @@ export default function BookmarksPage() {
                   {bm.isFavorite && <span className="text-xs">❤️</span>}
                 </div>
                 <p className="text-sm text-zinc-555 dark:text-zinc-500">{bm.comic.author.displayName}</p>
-                <div className="mt-1 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-600">
+                <div className="ow-muted mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                   <span>📖 {bm.comic.totalChapters} chương</span>
                   {bm.comic.lastChapterAt && <span>Cập nhật: {new Date(bm.comic.lastChapterAt).toLocaleDateString('vi-VN')}</span>}
                 </div>

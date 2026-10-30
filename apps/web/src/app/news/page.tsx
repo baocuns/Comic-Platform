@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
+import '../supporting-pages.css';
 
 interface NewsAuthor {
   id: string;
@@ -115,25 +116,18 @@ export default function NewsPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* Background effects */}
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute left-1/2 top-1/4 h-96 w-96 -translate-x-1/2 rounded-full bg-amber-500/5 dark:bg-amber-600/10 blur-[150px]" />
-        <div className="absolute bottom-0 right-1/4 h-64 w-64 rounded-full bg-orange-500/5 dark:bg-orange-600/8 blur-[120px]" />
-      </div>
+    <div className="ow-support ow-news">
 
       {/* Page Header */}
-      <section className="relative mx-auto max-w-6xl px-4 pt-12 pb-6">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 px-4 py-1.5 text-sm text-amber-600 dark:text-amber-400">
-          <i className="fa-light fa-newspaper" />
-          Tin tức
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-white">
-          Chuyện gì đang xảy ra vậy?
-        </h1>
-        <p className="mt-2 text-zinc-500 dark:text-zinc-400 max-w-xl">
-          Cập nhật tin tức mới nhất về nền tảng, sự kiện, và cộng đồng OWOC.
-        </p>
+      <section className="mx-auto max-w-6xl px-4 pt-6 pb-6">
+        <header className="ow-masthead">
+          <div className="ow-kicker">
+            <i className="fa-light fa-newspaper" aria-hidden="true" />
+            Bản tin OWOC
+          </div>
+          <h1>Chuyện ngoài trang truyện.</h1>
+          <p>Tin mới, sự kiện hay và những câu chuyện từ cộng đồng OWOC.</p>
+        </header>
       </section>
 
       {/* Hero Featured Article */}
@@ -141,9 +135,9 @@ export default function NewsPage() {
         <section className="mx-auto max-w-6xl px-4 pb-8">
           <Link
             href={`/news/${featured.slug}`}
-            className="group relative block overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10"
+            className="ow-news-feature group"
           >
-            <div className="aspect-[21/9] sm:aspect-[21/8] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+            <div className="ow-feature-image w-full overflow-hidden">
               {featured.coverUrl ? (
                 <img
                   src={featured.coverUrl}
@@ -156,9 +150,8 @@ export default function NewsPage() {
                 </div>
               )}
             </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
-              <span className="inline-flex items-center rounded-full bg-amber-500/20 backdrop-blur-sm px-3 py-1 text-xs font-medium text-amber-300 border border-amber-500/30 mb-3">
+            <div className="ow-feature-copy">
+              <span className="ow-kicker mb-4">
                 {getCategoryInfo(featured.category).label}
               </span>
               <h2 className="text-xl sm:text-3xl font-bold text-white leading-tight line-clamp-2 mb-2">
@@ -169,7 +162,7 @@ export default function NewsPage() {
                   {featured.excerpt}
                 </p>
               )}
-              <div className="flex items-center gap-3 text-sm text-white/60">
+              <div className="ow-muted flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-[10px] font-bold text-white">
                     {featured.author.avatarUrl ? (
@@ -192,11 +185,12 @@ export default function NewsPage() {
 
       {/* Category Filter */}
       <section className="mx-auto max-w-6xl px-4 pb-6">
-        <div className="flex flex-wrap gap-2">
+        <div className="ow-filters" aria-label="Lọc chuyên mục tin tức">
           {CATEGORIES.map((cat) => (
             <button
               key={cat.value}
               onClick={() => handleCategoryChange(cat.value)}
+              aria-pressed={currentCategory === cat.value}
               className={`rounded-full border px-4 py-1.5 text-xs transition-all cursor-pointer ${
                 currentCategory === cat.value
                   ? 'border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium'
@@ -212,9 +206,9 @@ export default function NewsPage() {
       {/* Articles Grid */}
       <section className="mx-auto max-w-6xl px-4 pb-12">
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" role="status" aria-label="Đang tải tin tức">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="animate-pulse rounded-2xl border border-zinc-200/60 dark:border-white/5 overflow-hidden">
+              <div key={i} className="ow-news-card animate-pulse">
                 <div className="aspect-video bg-zinc-200/60 dark:bg-zinc-800/60" />
                 <div className="p-5 space-y-3">
                   <div className="h-4 w-20 rounded-full bg-zinc-200/60 dark:bg-zinc-800/60" />
@@ -227,7 +221,7 @@ export default function NewsPage() {
             ))}
           </div>
         ) : articles.length === 0 ? (
-          <div className="text-center py-20">
+          <div className="ow-empty" role="status">
             <div className="text-5xl mb-4">📰</div>
             <p className="text-zinc-500 dark:text-zinc-400 text-lg">Chưa có tin tức nào.</p>
             <p className="text-zinc-400 dark:text-zinc-500 text-sm mt-1">Hãy quay lại sau nhé!</p>
@@ -239,7 +233,7 @@ export default function NewsPage() {
                 <Link
                   key={article.id}
                   href={`/news/${article.slug}`}
-                  className="group overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.02] transition-all hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 dark:hover:shadow-amber-500/10"
+                  className="ow-news-card group"
                 >
                   {/* Cover Image */}
                   <div className="aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
@@ -260,7 +254,7 @@ export default function NewsPage() {
                   <div className="p-5">
                     {/* Category + Pinned */}
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                      <span className="ow-kicker">
                         {getCategoryInfo(article.category).label}
                       </span>
                       {article.isPinned && (
@@ -281,7 +275,7 @@ export default function NewsPage() {
                     )}
 
                     {/* Meta */}
-                    <div className="flex items-center justify-between text-xs text-zinc-400 dark:text-zinc-500">
+                    <div className="ow-muted flex flex-wrap items-center justify-between gap-2 text-xs">
                       <div className="flex items-center gap-2">
                         <div className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-[8px] font-bold text-white">
                           {article.author.avatarUrl ? (
@@ -308,10 +302,11 @@ export default function NewsPage() {
 
             {/* Pagination */}
             {meta && meta.totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-10">
+              <nav className="ow-pagination flex flex-wrap items-center justify-center gap-2 mt-10" aria-label="Phân trang tin tức">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage <= 1}
+                  aria-label="Trang trước"
                   className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 dark:border-white/10 text-sm text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-zinc-50 dark:hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                 >
                   <i className="fa-light fa-chevron-left" />
@@ -326,6 +321,8 @@ export default function NewsPage() {
                       )}
                       <button
                         onClick={() => handlePageChange(p)}
+                        aria-label={`Trang ${p}`}
+                        aria-current={p === currentPage ? 'page' : undefined}
                         className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm transition-colors cursor-pointer ${
                           p === currentPage
                             ? 'bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-medium'
@@ -340,11 +337,12 @@ export default function NewsPage() {
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={!meta.hasNext}
+                  aria-label="Trang sau"
                   className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 dark:border-white/10 text-sm text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-zinc-50 dark:hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                 >
                   <i className="fa-light fa-chevron-right" />
                 </button>
-              </div>
+              </nav>
             )}
           </>
         )}

@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
+import '../supporting-pages.css';
 import {
   useNotificationStore,
   NotificationType,
@@ -162,17 +163,13 @@ export default function NotificationsPage() {
   if (!user) return null;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+    <div className="ow-support ow-notifications">
       {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
+      <header className="ow-masthead">
+        <span className="ow-kicker">OWOC / Hộp thư truyện</span>
+        <div className="ow-notifications-heading flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/20">
-                <i className="fa-solid fa-bell text-white text-sm" />
-              </div>
-              Trung tâm thông báo
-            </h1>
+            <h1>Thông báo<span aria-hidden="true">!</span></h1>
             <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-500">
               {unreadCount > 0
                 ? `Bạn có ${unreadCount} thông báo chưa đọc`
@@ -183,23 +180,24 @@ export default function NotificationsPage() {
           {unreadCount > 0 && (
             <button
               onClick={markAllAsRead}
-              className="flex items-center gap-2 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-600 dark:text-amber-400 transition-all hover:bg-amber-100 dark:hover:bg-amber-500/20 hover:shadow-sm cursor-pointer"
+              className="ow-secondary shrink-0"
             >
               <i className="fa-solid fa-check-double text-xs" />
               Đọc tất cả
             </button>
           )}
         </div>
-      </div>
+      </header>
 
       {/* Filter Tabs */}
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="ow-filters mb-6" aria-label="Lọc thông báo">
         {FILTER_TABS.map((tab) => {
           const isActive = activeFilter === tab.key;
           return (
             <button
               key={tab.key}
               onClick={() => setFilter(tab.key)}
+              aria-pressed={isActive}
               className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all cursor-pointer ${
                 isActive
                   ? 'bg-amber-500 text-white shadow-md shadow-amber-500/25'
@@ -221,7 +219,7 @@ export default function NotificationsPage() {
             {[...Array(6)].map((_, i) => (
               <div
                 key={i}
-                className="flex gap-4 rounded-2xl border border-zinc-100 dark:border-white/[0.04] bg-white dark:bg-white/[0.02] p-4"
+                className="ow-notice flex gap-4 p-4"
               >
                 <div className="h-11 w-11 shrink-0 rounded-full bg-zinc-100 dark:bg-white/5 animate-pulse" />
                 <div className="flex-1 space-y-2.5">
@@ -234,7 +232,7 @@ export default function NotificationsPage() {
           </div>
         ) : notifications.length === 0 ? (
           // Empty state
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 dark:border-white/10 py-20 text-center">
+          <div className="ow-empty flex flex-col items-center justify-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-white/[0.04] mb-4">
               <i className="fa-light fa-bell-slash text-2xl text-zinc-400 dark:text-zinc-600" />
             </div>
@@ -267,13 +265,15 @@ export default function NotificationsPage() {
                   return (
                     <div
                       key={n.id}
-                      className={`group relative flex items-start gap-4 rounded-2xl border p-4 transition-all duration-200 ${
-                        !n.isRead
-                          ? `border-amber-100 dark:border-amber-500/10 bg-amber-50/40 dark:bg-amber-500/[0.03] shadow-sm`
-                          : 'border-zinc-100 dark:border-white/[0.04] bg-white dark:bg-white/[0.02] hover:border-zinc-200 dark:hover:border-white/[0.08]'
-                      } ${url ? 'cursor-pointer hover:shadow-md' : ''}`}
-                      onClick={() => handleClick(n)}
+                      className="ow-notice group relative flex items-start gap-3 sm:gap-4 p-4"
+                      data-unread={!n.isRead}
                     >
+                      <button
+                        type="button"
+                        className="ow-notice-open"
+                        aria-label={`${url ? 'Mở thông báo' : 'Đánh dấu đã đọc'}: ${n.title}`}
+                        onClick={() => handleClick(n)}
+                      />
                       {/* Icon / Avatar */}
                       <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${config.bg} ${config.border}`}>
                         {n.data?.actorAvatar ? (
@@ -291,7 +291,7 @@ export default function NotificationsPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <p
-                            className={`text-sm leading-relaxed ${
+                            className={`ow-notice-title text-sm leading-relaxed ${
                               !n.isRead
                                 ? 'text-zinc-900 dark:text-white font-medium'
                                 : 'text-zinc-700 dark:text-zinc-300'
@@ -337,7 +337,8 @@ export default function NotificationsPage() {
                             e.stopPropagation();
                             deleteNotification(n.id);
                           }}
-                          className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 dark:text-zinc-600 opacity-0 transition-all group-hover:opacity-100 hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:text-zinc-600 dark:hover:text-zinc-400 cursor-pointer"
+                          className="ow-notice-delete absolute right-1 top-1 z-10 flex items-center justify-center cursor-pointer"
+                          aria-label={`Xóa thông báo: ${n.title}`}
                           title="Xóa thông báo"
                         >
                           <i className="fa-light fa-xmark text-sm" />
@@ -358,7 +359,8 @@ export default function NotificationsPage() {
           <button
             onClick={() => fetchNotifications(false)}
             disabled={isLoading}
-            className="flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.02] px-6 py-2.5 text-sm font-medium text-zinc-600 dark:text-zinc-400 transition-all hover:border-zinc-300 dark:hover:border-white/20 hover:bg-zinc-50 dark:hover:bg-white/[0.04] hover:shadow-sm disabled:opacity-50 cursor-pointer"
+            className="ow-secondary"
+            aria-busy={isLoading}
           >
             {isLoading ? (
               <>

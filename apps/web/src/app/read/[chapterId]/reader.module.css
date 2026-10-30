@@ -1,0 +1,271 @@
+/* Scope to controls only: the reading canvas, page sizing and images stay untouched. */
+.chrome {
+  --reader-paper: #fff9ed;
+  --reader-surface: #fffef8;
+  --reader-ink: #25251f;
+  --reader-line: #25251f;
+  --reader-shadow: #25251f;
+  color: var(--reader-ink);
+  font-family: var(--font-body), sans-serif;
+}
+
+/* Chrome follows the existing reader background choice, not the document theme. */
+.chrome[data-reader-dark="true"] {
+  --reader-paper: #22251f;
+  --reader-surface: #2d3129;
+  --reader-ink: #fff9ed;
+  --reader-line: #d8dbc9;
+  --reader-shadow: #10140e;
+}
+
+.header,
+.footer {
+  border-color: var(--reader-line);
+  border-width: 0;
+  background: var(--reader-paper);
+  backdrop-filter: none;
+}
+
+.header {
+  border-bottom-width: 2px;
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--reader-shadow) 14%, transparent);
+}
+
+.footer {
+  border-top-width: 2px;
+}
+
+.toolbar {
+  min-height: 48px;
+  height: auto;
+  gap: 12px;
+  padding-block: 2px;
+}
+
+.control,
+.dialog button,
+.dialog [data-ch] {
+  min-width: 44px;
+  min-height: 44px;
+  border: 2px solid var(--reader-line, var(--ow-line));
+  border-radius: 9px;
+  background: var(--reader-surface, var(--ow-surface));
+  color: var(--reader-ink, var(--ow-ink));
+  box-shadow: 2px 2px 0 var(--reader-shadow, var(--ow-shadow));
+  font-weight: 700;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.back {
+  max-width: 30%;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.back > span,
+.chapterTrigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chapterTrigger {
+  min-width: 0;
+  max-width: 60%;
+  font-family: var(--font-display), sans-serif;
+  font-weight: 800;
+}
+
+.settingsTrigger,
+.nextChapter {
+  background: var(--ow-yellow);
+  color: #25251f;
+}
+
+.footer .toolbar {
+  min-height: 80px;
+}
+
+.pagination {
+  flex-wrap: wrap;
+  justify-content: center;
+  padding-inline: 12px;
+}
+
+.pagination > span {
+  color: var(--reader-ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.control:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+  box-shadow: none;
+}
+
+.backdrop {
+  background: rgb(19 23 16 / 72%);
+  backdrop-filter: blur(5px);
+  font-family: var(--font-body), sans-serif;
+}
+
+.dialog {
+  border: 2px solid var(--ow-line);
+  border-radius: 16px;
+  background: var(--ow-paper);
+  color: var(--ow-ink);
+  box-shadow: 7px 7px 0 var(--ow-shadow);
+}
+
+.dialogHeader {
+  flex-shrink: 0;
+  gap: 12px;
+  border-bottom: 2px solid var(--ow-line);
+  background: var(--ow-yellow);
+  color: #25251f;
+  padding-block: 12px;
+}
+
+.dialogHeader h3 {
+  color: #25251f;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+
+.dialogHeader i {
+  color: #25251f;
+}
+
+.dialogHeader button {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  background: #fff9ed;
+  border-color: #25251f;
+  color: #25251f;
+  box-shadow: 2px 2px 0 #25251f;
+  font-size: 1.4rem;
+}
+
+.dialog > div {
+  border-color: var(--ow-line);
+}
+
+.dialog label {
+  color: var(--ow-muted);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.dialog input {
+  min-height: 46px;
+  border: 2px solid var(--ow-line);
+  border-radius: 9px;
+  background: var(--ow-surface);
+  color: var(--ow-ink);
+}
+
+.dialog input::placeholder {
+  color: var(--ow-muted);
+}
+
+.dialog button[class*="bg-amber-500/15"],
+.dialog [data-ch][class*="bg-amber-500/20"] {
+  border-color: var(--ow-line);
+  background: var(--ow-yellow);
+  color: #25251f;
+  box-shadow: 3px 3px 0 var(--ow-shadow);
+}
+
+.dialog [data-ch][class*="bg-amber-500/10"] {
+  background: color-mix(in srgb, var(--ow-yellow) 28%, var(--ow-surface));
+  color: var(--ow-ink);
+}
+
+.control:focus-visible {
+  outline: 3px solid var(--reader-ink);
+  outline-offset: 3px;
+}
+
+.dialog :is(button, a, input):focus-visible {
+  outline: 3px solid var(--ow-coral-ink);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .control:not(:disabled):hover,
+  .dialog :is(button, [data-ch]):hover {
+    background: var(--ow-yellow);
+    color: #25251f;
+    transform: translateY(-1px);
+  }
+}
+
+.control:not(:disabled):active,
+.dialog :is(button, [data-ch]):active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+@media (max-width: 639px) {
+  .toolbar {
+    gap: 8px;
+    padding-inline: 12px;
+  }
+
+  .back {
+    flex-shrink: 0;
+    padding-inline: 10px;
+  }
+
+  .chapterTrigger {
+    flex: 1;
+    max-width: calc(100% - 104px);
+  }
+
+  .footer .toolbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .footer .control {
+    flex: 1 1 auto;
+    padding-inline: 8px;
+    font-size: 0.75rem;
+  }
+
+  .dialogHeader {
+    padding-inline: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chrome,
+  .control,
+  .backdrop,
+  .dialog,
+  .dialog :is(button, [data-ch]) {
+    transition: none;
+    animation: none;
+  }
+
+  .control:not(:disabled):is(:hover, :active),
+  .dialog :is(button, [data-ch]):is(:hover, :active) {
+    transform: none;
+  }
+}

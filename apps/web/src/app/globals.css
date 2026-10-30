@@ -1,19 +1,39 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #09090b;
+  --ow-paper: #fff9ed;
+  --ow-surface: #fffef8;
+  --ow-ink: #25251f;
+  --ow-muted: #68675b;
+  --ow-line: #25251f;
+  --ow-yellow: #f9d548;
+  --ow-coral: #f16b50;
+  --ow-coral-ink: #b7422c;
+  --ow-shadow: #25251f;
+  --ow-soft: #eee8d9;
+  --background: var(--ow-paper);
+  --foreground: var(--ow-ink);
+  color-scheme: light;
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --ow-paper: #22251f;
+  --ow-surface: #2d3129;
+  --ow-ink: #faf4e6;
+  --ow-muted: #c2c3b4;
+  --ow-line: #d8dbc9;
+  --ow-shadow: #10140e;
+  --ow-soft: #373c31;
+  --ow-coral-ink: #ff947c;
+  --background: var(--ow-paper);
+  --foreground: var(--ow-ink);
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-body);
 }
 
 body {
@@ -23,8 +43,8 @@ body {
 }
 
 ::selection {
-  background-color: rgba(245, 158, 11, 0.3);
-  color: inherit;
+  background-color: var(--ow-yellow);
+  color: #25251f;
 }
 
 /* Class-based dark mode variant for Tailwind CSS v4 */
@@ -89,10 +109,15 @@ html {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--ow-muted);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--ow-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .animate-slide-up, .animate-fade-in, .animate-bounce-in, .animate-cursor-blink { animation: none; }
 }

@@ -1,0 +1,715 @@
+/* Route-scoped: Next keeps page stylesheets loaded between navigations. */
+.ow-support {
+  color: var(--ow-ink);
+  background: var(--ow-paper);
+  min-width: 0;
+}
+
+.ow-support :is(h1, h2, h3, h4) {
+  color: var(--ow-ink);
+  font-family: var(--font-display), sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.ow-support :is(button, a, input, textarea, select):focus-visible,
+.ow-support [role="button"]:focus-visible {
+  outline: 3px solid var(--ow-coral-ink);
+  outline-offset: 4px;
+}
+
+.ow-support :is(button, a) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ow-support .ow-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  padding: 0.35rem 0.65rem;
+  color: #1c1b18;
+  background: var(--ow-yellow);
+  border: 1.5px solid var(--ow-line);
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  transform: rotate(-2deg);
+}
+
+.ow-support .ow-masthead {
+  position: relative;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 3px solid var(--ow-line);
+  animation: ow-support-arrive 220ms ease-out both;
+}
+
+.ow-support .ow-masthead h1 {
+  margin-top: 0.9rem;
+  font-size: clamp(2.15rem, 5.2vw, 4rem);
+  line-height: 1.05;
+}
+
+.ow-support .ow-masthead p,
+.ow-support .ow-muted {
+  color: var(--ow-muted);
+}
+
+.ow-support .ow-masthead p {
+  max-width: 44rem;
+  margin-top: 0.8rem;
+  font-size: 0.9rem;
+  line-height: 1.8;
+}
+
+.ow-support .ow-action,
+.ow-support .ow-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.7rem 1.15rem;
+  border: 2px solid var(--ow-line);
+  border-radius: 3px;
+  color: #1c1b18;
+  background: var(--ow-yellow);
+  box-shadow: 3px 3px 0 var(--ow-shadow);
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.ow-support .ow-secondary {
+  color: var(--ow-ink);
+  background: var(--ow-surface);
+}
+
+.ow-support :is(.ow-action, .ow-secondary):not(:disabled):hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--ow-shadow);
+}
+
+.ow-support :is(.ow-action, .ow-secondary):not(:disabled):active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ow-shadow);
+}
+
+.ow-support :is(.ow-action, .ow-secondary):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ow-support .ow-empty,
+.ow-support .ow-state {
+  padding: clamp(2rem, 7vw, 4.5rem) 1.2rem;
+  border: 2px solid var(--ow-line);
+  border-radius: 3px;
+  color: var(--ow-muted);
+  background: var(--ow-surface);
+  box-shadow: 5px 5px 0 var(--ow-shadow);
+  text-align: center;
+}
+
+.ow-support .ow-state {
+  display: flex;
+  min-height: 16rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.ow-support .ow-empty :is(h2, h3) {
+  font-size: 1.6rem;
+}
+
+.ow-support .ow-empty p {
+  color: var(--ow-muted);
+  line-height: 1.7;
+}
+
+.ow-support .ow-spinner {
+  display: inline-block;
+  width: 1.2rem;
+  height: 1.2rem;
+  flex-shrink: 0;
+  border: 2px solid var(--ow-line);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ow-support-spin 800ms linear infinite;
+}
+
+/* A comic spread instead of a floating auth card. */
+.ow-auth {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  align-items: stretch;
+  width: min(100% - 3rem, 1000px);
+  margin: clamp(2rem, 6vw, 5rem) auto;
+  border: 2px solid var(--ow-line);
+  box-shadow: 8px 8px 0 var(--ow-shadow);
+}
+
+.ow-auth .ow-auth-story {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  min-height: 510px;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  color: #1c1b18;
+  background: var(--ow-yellow);
+  border-right: 2px solid var(--ow-line);
+}
+
+.ow-auth .ow-auth-story::after {
+  position: absolute;
+  inset: auto -3rem -5rem auto;
+  width: 19rem;
+  height: 19rem;
+  border: 2px solid #1c1b18;
+  border-radius: 50%;
+  background-image: radial-gradient(#1c1b18 1px, transparent 1px);
+  background-size: 9px 9px;
+  content: "";
+  opacity: 0.14;
+}
+
+.ow-auth .ow-auth-brand {
+  position: relative;
+  z-index: 1;
+  color: #1c1b18;
+  font-family: var(--font-display), sans-serif;
+  font-size: 2.7rem;
+  font-weight: 1000;
+  letter-spacing: -0.08em;
+  line-height: 1;
+}
+
+.ow-auth .ow-auth-brand span {
+  display: block;
+  margin-top: 0.7rem;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ow-auth .ow-auth-story h2 {
+  position: relative;
+  z-index: 1;
+  margin: 2.5rem 0 1rem;
+  color: #1c1b18;
+  font-size: clamp(2.7rem, 5vw, 4rem);
+  line-height: 0.98;
+}
+
+.ow-auth .ow-auth-story p {
+  position: relative;
+  z-index: 1;
+  max-width: 21rem;
+  color: #383326;
+  font-size: 0.9rem;
+  line-height: 1.8;
+}
+
+.ow-auth .ow-auth-caption {
+  align-self: flex-start;
+  position: relative;
+  z-index: 1;
+  margin-top: 2rem;
+  padding: 0.6rem 0.8rem;
+  border: 2px solid #1c1b18;
+  color: #1c1b18;
+  background: var(--ow-coral);
+  box-shadow: 3px 3px 0 #1c1b18;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+  transform: rotate(-3deg);
+}
+
+.ow-auth .ow-auth-form-wrap {
+  min-width: 0;
+  padding: clamp(1.35rem, 4vw, 3rem);
+  background: var(--ow-surface);
+}
+
+.ow-auth .ow-auth-form-wrap h1 {
+  font-size: clamp(1.8rem, 4vw, 2.3rem);
+  line-height: 1.15;
+}
+
+.ow-auth .ow-auth-heading {
+  margin-bottom: 1.8rem;
+  text-align: left;
+}
+
+.ow-auth .ow-auth-heading p,
+.ow-auth .ow-auth-form-wrap > p {
+  color: var(--ow-muted);
+  font-size: 0.8rem;
+  line-height: 1.75;
+}
+
+.ow-auth label {
+  color: var(--ow-ink);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.ow-auth input {
+  min-height: 47px;
+  border: 1.5px solid var(--ow-line);
+  border-radius: 2px;
+  color: var(--ow-ink);
+  background: var(--ow-paper);
+  font-size: 0.85rem;
+  box-shadow: none;
+}
+
+.ow-auth input::placeholder {
+  color: var(--ow-muted);
+  opacity: 0.8;
+}
+
+.ow-auth input:focus-visible {
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.ow-auth .ow-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ow-ink);
+  transform: translateY(-50%);
+}
+
+.ow-auth .ow-auth-form-wrap a {
+  color: var(--ow-ink);
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-color: var(--ow-coral);
+  text-underline-offset: 4px;
+}
+
+.ow-auth .ow-auth-error {
+  margin-bottom: 1.3rem;
+  padding: 0.8rem 1rem;
+  border: 1.5px solid var(--ow-line);
+  border-left: 5px solid var(--ow-coral);
+  color: var(--ow-ink);
+  background: var(--ow-paper);
+  font-size: 0.8rem;
+}
+
+.ow-auth .ow-google-loading {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border: 1.5px solid var(--ow-line);
+  color: var(--ow-muted);
+  background: var(--ow-paper);
+  font-size: 0.75rem;
+}
+
+/* Reading shelves: useful rows, not dashboard statistics. */
+.ow-shelf,
+.ow-notifications {
+  max-width: 1024px;
+  min-height: 65vh;
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 3.5rem) 1.25rem 4.5rem;
+}
+
+.ow-support .ow-shelf-row {
+  display: flex;
+  min-width: 0;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1.5px solid var(--ow-line);
+  border-radius: 2px;
+  color: var(--ow-ink);
+  background: var(--ow-surface);
+  box-shadow: 3px 3px 0 var(--ow-shadow);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.ow-support .ow-shelf-row:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--ow-shadow);
+}
+
+.ow-support .ow-shelf-row :is(h3, h4) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 1.15rem;
+  line-height: 1.25;
+}
+
+.ow-support .ow-shelf-row p {
+  color: var(--ow-muted);
+}
+
+.ow-support .ow-shelf-row > div:first-child {
+  border: 1px solid var(--ow-line);
+  border-radius: 1px;
+  background: var(--ow-paper);
+}
+
+.ow-support .ow-shelf-row > div:first-child > div { color: var(--ow-ink); }
+
+/* Editorial news desk. */
+.ow-news,
+.ow-article {
+  min-height: 70vh;
+  padding-top: 1.2rem;
+  padding-bottom: 2rem;
+}
+
+.ow-support .ow-news-feature {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  overflow: hidden;
+  border: 2px solid var(--ow-line);
+  border-radius: 2px;
+  color: var(--ow-ink);
+  background: var(--ow-surface);
+  box-shadow: 6px 6px 0 var(--ow-shadow);
+}
+
+.ow-news-feature .ow-feature-image {
+  height: 100%;
+  min-height: 310px;
+  border-right: 2px solid var(--ow-line);
+  background: var(--ow-yellow);
+  aspect-ratio: auto;
+}
+
+.ow-news-feature .ow-feature-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(1.25rem, 3vw, 2.25rem);
+}
+
+.ow-news-feature .ow-feature-copy :is(p, span, i):not(.ow-kicker) {
+  color: var(--ow-muted);
+}
+
+.ow-news-feature .ow-feature-copy h2 {
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  line-height: 1.15;
+}
+
+.ow-support .ow-news-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1.5px solid var(--ow-line);
+  border-radius: 2px;
+  color: var(--ow-ink);
+  background: var(--ow-surface);
+  box-shadow: 4px 4px 0 var(--ow-shadow);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.ow-support .ow-news-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 5px 7px 0 var(--ow-shadow);
+}
+
+.ow-support .ow-news-card h3 {
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.ow-support .ow-news-card p {
+  color: var(--ow-muted);
+}
+
+.ow-support .ow-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.ow-support .ow-filters button,
+.ow-support .ow-pagination button {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1.5px solid var(--ow-line);
+  border-radius: 2px;
+  color: var(--ow-ink);
+  background: var(--ow-surface);
+  font-size: 0.75rem;
+  font-weight: 800;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.ow-support .ow-filters button[aria-pressed="true"],
+.ow-support .ow-pagination button[aria-current="page"] {
+  color: #1c1b18;
+  background: var(--ow-yellow);
+  box-shadow: 3px 3px 0 var(--ow-shadow);
+}
+
+.ow-support .ow-filters button:hover {
+  transform: translateY(-1px);
+}
+
+.ow-article .ow-article-header {
+  padding-bottom: 1.5rem;
+  border-bottom: 3px solid var(--ow-line);
+}
+
+.ow-article .ow-article-header h1 {
+  font-size: clamp(2rem, 5.5vw, 3.7rem);
+  line-height: 1.08;
+}
+
+.ow-article .ow-article-cover {
+  overflow: hidden;
+  border: 2px solid var(--ow-line);
+  border-radius: 2px;
+  box-shadow: 5px 5px 0 var(--ow-shadow);
+}
+
+.ow-article .ow-article-content {
+  color: var(--ow-ink);
+  line-height: 1.9;
+}
+
+.ow-article .ow-article-content :is(p, li) {
+  color: var(--ow-ink);
+}
+
+/* Notifications retain their grouping and every existing action. */
+.ow-notifications .ow-notice {
+  border: 1.5px solid var(--ow-line);
+  border-radius: 2px;
+  background: var(--ow-surface);
+  box-shadow: 3px 3px 0 var(--ow-shadow);
+}
+
+.ow-notifications .ow-notice[data-unread="true"] {
+  border-left: 5px solid var(--ow-coral);
+  background: color-mix(in srgb, var(--ow-yellow) 12%, var(--ow-surface));
+}
+
+.ow-notifications .ow-notice p {
+  color: var(--ow-muted);
+}
+
+.ow-notifications .ow-notice .ow-notice-title {
+  padding-right: 1.8rem;
+  color: var(--ow-ink);
+  font-weight: 800;
+}
+
+.ow-notifications .ow-notice-delete {
+  width: 36px;
+  height: 36px;
+  color: var(--ow-muted);
+  opacity: 1;
+}
+
+.ow-notifications .ow-notice-delete:hover {
+  color: var(--ow-ink);
+  background: var(--ow-paper);
+}
+
+/* Profile is a reader's printed calling card, with real API stats. */
+.ow-profile .ow-profile-heading {
+  padding-bottom: 1.5rem;
+  border-bottom: 3px solid var(--ow-line);
+}
+
+.ow-profile .ow-profile-heading h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  overflow-wrap: anywhere;
+}
+
+.ow-profile .ow-profile-avatar {
+  border: 3px solid var(--ow-line);
+  border-radius: 3px;
+  color: #1c1b18;
+  background: var(--ow-yellow);
+  box-shadow: 5px 5px 0 var(--ow-shadow);
+}
+
+.ow-profile .ow-profile-panel {
+  border: 1.5px solid var(--ow-line);
+  border-radius: 2px;
+  color: var(--ow-ink);
+  background: var(--ow-surface);
+  box-shadow: 3px 3px 0 var(--ow-shadow);
+  backdrop-filter: none;
+}
+
+.ow-profile .ow-profile-panel p {
+  color: var(--ow-muted);
+}
+
+.ow-profile .ow-profile-tabs {
+  gap: 0.5rem;
+  padding: 0 0 0.8rem;
+  border: 0;
+  border-bottom: 2px solid var(--ow-line);
+  border-radius: 0;
+  background: transparent;
+}
+
+.ow-profile .ow-profile-tab {
+  min-height: 44px;
+  border: 1.5px solid var(--ow-line);
+  border-radius: 2px;
+  color: var(--ow-ink);
+  background: var(--ow-surface);
+  box-shadow: none;
+}
+
+.ow-profile .ow-profile-tab[aria-pressed="true"] {
+  color: #1c1b18;
+  background: var(--ow-yellow);
+  box-shadow: 3px 3px 0 var(--ow-shadow);
+}
+
+.ow-profile .ow-avatar-edit:focus-visible {
+  opacity: 1;
+}
+
+.ow-support.ow-unavailable {
+  width: min(100% - 2rem, 56rem);
+  margin: 3rem auto;
+  padding: 3rem 1.25rem;
+  border: 2px solid var(--ow-line);
+  background: var(--ow-surface);
+  box-shadow: 5px 5px 0 var(--ow-shadow);
+}
+
+.ow-support.ow-unavailable p { color: var(--ow-muted); }
+.ow-support .ow-pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+.ow-support .ow-like-button[aria-pressed="true"] { background: var(--ow-coral); color: #1c1b18; }
+.ow-support .ow-like-button i { color: inherit; }
+.ow-support .ow-pagination button:hover:not(:disabled) { transform: translateY(-2px); }
+.ow-news-card > div:first-child { border-bottom: 1.5px solid var(--ow-line); }
+.ow-news-card > div:first-child > div { background: var(--ow-paper); }
+.ow-news-card > div:last-child { display: flex; flex: 1; flex-direction: column; }
+.ow-news-card > div:last-child > p { flex: 1; }
+.ow-news .ow-news-card > div:last-child > div { color: var(--ow-muted); }
+.ow-news .ow-news-card > div:last-child > div:last-child { border-color: var(--ow-line); }
+.ow-news .ow-news-card .ow-kicker { margin-bottom: 0.4rem; }
+
+.ow-notifications .ow-notice-open {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ow-notifications .ow-notice:has(.ow-notice-open:hover) { background: var(--ow-paper); }
+.ow-notifications .ow-notice-delete { width: 44px; height: 44px; }
+.ow-notifications .ow-notice-title { padding-right: 1.8rem; }
+.ow-notifications .ow-notice-open:focus-visible { outline-offset: 2px; }
+.ow-profile .ow-profile-heading {
+  padding: 1.5rem;
+  border: 2px solid var(--ow-line);
+  background: var(--ow-surface);
+  box-shadow: 5px 5px 0 var(--ow-shadow);
+}
+
+.ow-profile .ow-profile-heading .flex-1 { min-width: 0; }
+.ow-profile .ow-profile-heading .flex-1 > .flex { flex-wrap: wrap; }
+.ow-profile .ow-profile-heading p { color: var(--ow-muted); overflow-wrap: anywhere; }
+.ow-profile .ow-profile-follow-stats button { min-height: 44px; }
+.ow-profile .ow-profile-panel input,
+.ow-profile .ow-profile-panel textarea { color: var(--ow-ink); background: var(--ow-paper); }
+.ow-profile .ow-profile-panel[role="dialog"] { max-height: 85vh; }
+.ow-profile .ow-profile-panel .font-bold { color: var(--ow-ink); }
+.ow-profile .ow-profile-follow-stats :is(button, span) { color: var(--ow-ink); }
+
+@keyframes ow-support-arrive {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ow-support-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .ow-auth {
+    grid-template-columns: 1fr;
+    width: calc(100% - 2rem);
+    margin: 1.25rem auto 2.5rem;
+    box-shadow: 5px 5px 0 var(--ow-shadow);
+  }
+
+  .ow-auth .ow-auth-story {
+    min-height: 0;
+    padding: 1.35rem;
+    border-right: 0;
+    border-bottom: 2px solid var(--ow-line);
+  }
+
+  .ow-auth .ow-auth-brand { font-size: 2rem; }
+  .ow-auth .ow-auth-brand span { display: none; }
+  .ow-auth .ow-auth-story h2 { margin: 1.25rem 0 0.5rem; font-size: 2.5rem; }
+  .ow-auth .ow-auth-story p { font-size: 0.8rem; }
+  .ow-auth .ow-auth-caption { display: none; }
+  .ow-shelf, .ow-notifications { padding-inline: 1rem; }
+  .ow-support .ow-masthead h1 { font-size: 2.4rem; }
+  .ow-support .ow-news-feature { grid-template-columns: 1fr; }
+  .ow-news-feature .ow-feature-image { min-height: 0; aspect-ratio: 16 / 10; border-right: 0; border-bottom: 2px solid var(--ow-line); }
+  .ow-notifications .ow-notifications-heading { align-items: flex-start; flex-direction: column; gap: 1.25rem; }
+  .ow-support .ow-shelf-row { gap: 0.75rem; padding: 0.8rem; }
+  .ow-support .ow-shelf-row :is(h3, h4) { font-size: 1rem; }
+  .ow-profile .ow-profile-heading { padding: 1rem; }
+  .ow-profile .ow-profile-actions { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ow-support *,
+  .ow-support *::before,
+  .ow-support *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .ow-support :is(.ow-action, .ow-secondary, .ow-news-card, .ow-shelf-row):hover,
+  .ow-support .ow-filters button:hover,
+  .ow-support .ow-pagination button:hover:not(:disabled),
+  .ow-support .group:hover img {
+    transform: none;
+  }
+}
+
+@media (hover: none) {
+  .ow-profile .ow-avatar-edit { opacity: 1; }
+}

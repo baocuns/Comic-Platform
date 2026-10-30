@@ -7,6 +7,7 @@ import Script from 'next/script';
 import { useAuthStore } from '@/stores/auth-store';
 import { ApiError } from '@/lib/api-client';
 import { useTheme } from '@/components/providers/theme-provider';
+import '../supporting-pages.css';
 
 declare global {
   interface Window {
@@ -112,21 +113,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4">
-      {/* Background effects */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 h-80 w-80 rounded-full bg-amber-500/20 blur-[120px]" />
-        <div className="absolute -bottom-40 -right-40 h-80 w-80 rounded-full bg-orange-500/20 blur-[120px]" />
-      </div>
-
-      <div className="relative w-full max-w-md">
+    <div className="ow-support ow-auth">
+      <aside className="ow-auth-story" aria-label="Chào mừng đến OWOC">
+        <div className="ow-auth-brand">OWOC<span>Mở truyện. Mở thế giới.</span></div>
+        <div>
+          <h2>Còn một<br />chương nữa!</h2>
+          <p>Truyện hay vẫn ở đây. Đăng nhập và tiếp tục cuộc phiêu lưu của riêng bạn.</p>
+        </div>
+        <span className="ow-auth-caption" aria-hidden="true">Lật trang, vào truyện →</span>
+      </aside>
+      <div className="ow-auth-form-wrap">
         {/* Card */}
-        <div id="google-card-container" className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-white/[0.03] p-8 shadow-2xl backdrop-blur-xl">
+        <div id="google-card-container" className="ow-auth-form">
           {/* Header */}
-          <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-2xl font-bold text-white shadow-lg shadow-amber-500/30">
-              C
-            </div>
+          <div className="ow-auth-heading">
+            <span className="ow-kicker mb-4">Hội mê truyện / Đăng nhập</span>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Chào mừng trở lại</h1>
             <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
               Đăng nhập để tiếp tục đọc truyện
@@ -135,7 +136,7 @@ export default function LoginPage() {
 
           {/* Error */}
           {error && (
-            <div className="mb-6 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <div className="ow-auth-error" role="alert">
               {error}
             </div>
           )}
@@ -174,7 +175,9 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  className="ow-password-toggle"
+                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? '🙈' : '👁️'}
                 </button>
@@ -184,11 +187,12 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+              className="ow-action w-full"
+              aria-busy={isLoading}
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  <span className="ow-spinner" aria-hidden="true" />
                   Đang đăng nhập...
                 </span>
               ) : (
@@ -212,7 +216,7 @@ export default function LoginPage() {
                 }`}
             />
             {!googleInitialized && (
-              <div className="flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 py-3 text-sm font-medium text-zinc-500">
+              <div className="ow-google-loading" role="status">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-500/30 border-t-zinc-500" />
                 Đang tải Google Sign-In...
               </div>

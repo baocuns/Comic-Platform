@@ -1,0 +1,174 @@
+.workbench,
+.loading {
+  background-color: var(--ow-paper);
+  color: var(--ow-ink);
+  font-family: var(--font-body), sans-serif;
+}
+
+.workbench {
+  background-image: radial-gradient(color-mix(in srgb, var(--ow-line) 12%, transparent) 0.7px, transparent 0.7px);
+  background-size: 18px 18px;
+}
+
+.workbench > aside {
+  border-right: 2px solid var(--ow-line);
+  background: var(--ow-surface);
+  box-shadow: 5px 0 0 color-mix(in srgb, var(--ow-shadow) 12%, transparent);
+}
+
+.workbench > aside > div:first-child {
+  border-bottom: 2px solid var(--ow-line);
+  background: var(--ow-yellow);
+  color: #25251f;
+}
+
+.workbench > aside > div:first-child a > span {
+  color: #25251f;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+}
+
+.workbench > aside nav a,
+.workbench > aside > div:last-child > :is(a, button) {
+  min-height: 44px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  color: var(--ow-muted);
+  font-weight: 700;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.workbench > aside nav a[class*="bg-amber-500/10"] {
+  border-color: var(--ow-line);
+  background: var(--ow-yellow);
+  color: #25251f;
+  box-shadow: 3px 3px 0 var(--ow-shadow);
+}
+
+.workbench > aside nav a[class*="bg-amber-500/10"] > span {
+  filter: none;
+}
+
+.workbench > aside > div:last-child {
+  border-top-color: var(--ow-line);
+}
+
+.workspace > header {
+  min-height: 64px;
+  border-bottom: 2px solid var(--ow-line);
+  background: var(--ow-surface);
+  color: var(--ow-ink);
+  backdrop-filter: none;
+}
+
+.workspace > header nav {
+  font-weight: 700;
+}
+
+.workspace > header nav :is(a, span) {
+  color: var(--ow-muted);
+}
+
+.workspace > header nav > span:last-child > span {
+  color: var(--ow-ink);
+  font-family: var(--font-display), sans-serif;
+  font-weight: 800;
+}
+
+.workspace > header button,
+.workspace > header > div:last-child > a {
+  min-width: 40px;
+  min-height: 40px;
+  border: 1.5px solid var(--ow-line);
+  border-radius: 10px;
+  background: var(--ow-paper);
+  color: var(--ow-ink);
+  transition: background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.content {
+  padding-bottom: 24px;
+}
+
+.content :is(h1, h2, h3) {
+  color: var(--ow-ink);
+  font-family: var(--font-display), sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.content h1 {
+  font-size: clamp(1.65rem, 1.3rem + 1vw, 2.25rem);
+  line-height: 1.2;
+}
+
+.content h1 + p {
+  color: var(--ow-muted);
+  line-height: 1.7;
+}
+
+/* Reskin existing paper surfaces, without changing their layout or state colors. */
+.content :global(.bg-white) {
+  background-color: var(--ow-surface);
+}
+
+.content :global(.bg-white):global(.border)[class*="border-zinc"] {
+  border-color: var(--ow-line);
+  box-shadow: 3px 3px 0 var(--ow-shadow);
+}
+
+.content :is(a, button)[class*="bg-gradient-to-r"][class*="from-amber"] {
+  border: 2px solid var(--ow-line);
+  background: var(--ow-yellow);
+  color: #25251f;
+  box-shadow: 3px 3px 0 var(--ow-shadow);
+  font-weight: 800;
+}
+
+.workbench :is(a, button, input, select, textarea):focus-visible {
+  outline: 3px solid var(--ow-coral-ink);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .workbench > aside nav a:hover,
+  .workbench > aside > div:last-child > :is(a, button):hover {
+    background: var(--ow-yellow);
+    color: #25251f;
+    transform: translateX(2px);
+  }
+
+  .workspace > header button:hover,
+  .workspace > header > div:last-child > a:hover {
+    background: var(--ow-yellow);
+    color: #25251f;
+    box-shadow: 2px 2px 0 var(--ow-shadow);
+    transform: translateY(-1px);
+  }
+}
+
+.workbench > aside nav a:active,
+.workspace > header button:active {
+  transform: translate(1px, 1px);
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workbench > aside,
+  .workbench > aside :is(a, button, span),
+  .workspace > header,
+  .workspace > header :is(a, button) {
+    transition: none;
+    animation: none;
+  }
+
+  .workbench > aside nav a:hover,
+  .workbench > aside nav a:active,
+  .workbench > aside > div:last-child > :is(a, button):hover,
+  .workspace > header :is(a, button):hover,
+  .workspace > header button:active {
+    transform: none;
+  }
+}

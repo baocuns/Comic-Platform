@@ -150,6 +150,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@designcodeio/threeui':
+        specifier: 1.2.0
+        version: 1.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(three@0.186.1)
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -159,9 +162,15 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.4)
+      '@gsap/react':
+        specifier: ^2.1.2
+        version: 2.1.2(gsap@3.15.0)(react@19.2.4)
       '@tailwindplus/elements':
         specifier: ^1.0.22
         version: 1.0.22
+      gsap:
+        specifier: ^3.15.0
+        version: 3.15.0
       next:
         specifier: 16.2.1
         version: 16.2.1(@babel/core@7.29.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -177,6 +186,9 @@ importers:
       socket.io-client:
         specifier: ^4.8.3
         version: 4.8.3
+      three:
+        specifier: ^0.186.1
+        version: 0.186.1
       zustand:
         specifier: ^5.0.12
         version: 5.0.12(@types/react@19.2.14)(react@19.2.4)
@@ -489,6 +501,13 @@ packages:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
 
+  '@designcodeio/threeui@1.2.0':
+    resolution: {integrity: sha512-E6F/+IPfLKYatB5W62H3gK1bp9WYvfO6xuWBaBh8oLVR7fbTeeEwgLqqy7ZPMA0zmDpAy03nKYOIswBXsstL2g==}
+    peerDependencies:
+      react: '>=18 <20'
+      react-dom: '>=18 <20'
+      three: '>=0.149 <1'
+
   '@dnd-kit/accessibility@3.1.1':
     resolution: {integrity: sha512-2P+YgaXF+gRsIihwwY1gCsQSYnu9Zyj2py8kY5fFvUM1qm2WA2u639R6YNVfU4GWr+ZM5mqEsfHZZLoRONbemw==}
     peerDependencies:
@@ -557,6 +576,12 @@ packages:
   '@eslint/plugin-kit@0.4.1':
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@gsap/react@2.1.2':
+    resolution: {integrity: sha512-JqliybO1837UcgH2hVOM4VO+38APk3ECNrsuSM4MuXp+rbf+/2IG2K1YJiqfTcXQHH7XlA0m3ykniFYstfq0Iw==}
+    peerDependencies:
+      gsap: ^3.12.5
+      react: '>=17'
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -2483,6 +2508,7 @@ packages:
   eslint@9.39.4:
     resolution: {integrity: sha512-XoMjdBOwe/esVgEvLmNsD3IRHkm7fbKIUGvrleloJXUZgDHig2IPWNniv+GwjyJXzuNqVjlr5+4yVUZjycJwfQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -2703,6 +2729,9 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
+
+  gsap@3.15.0:
+    resolution: {integrity: sha512-dMW4CWBTUK1AEEDeZc1g4xpPGIrSf9fJF960qbTZmN/QwZIWY5wgliS6JWl9/25fpTGJrMRtSjGtOmPnfjZB+A==}
 
   has-bigints@1.1.0:
     resolution: {integrity: sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg==}
@@ -3856,6 +3885,15 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  three@0.128.0:
+    resolution: {integrity: sha512-i0ap/E+OaSfzw7bD1TtYnPo3VEplkl70WX5fZqZnfZsE3k3aSFudqrrC9ldFZfYFkn1zwDmBcdGfiIm/hnbyZA==}
+
+  three@0.165.0:
+    resolution: {integrity: sha512-cc96IlVYGydeceu0e5xq70H8/yoVT/tXBxV/W8A/U6uOq7DXc4/s1Mkmnu6SqoYGhSRWWYFOhVwvq6V0VtbplA==}
+
+  three@0.186.1:
+    resolution: {integrity: sha512-blFeqb49wRCSGUGj7gtpfnSGHy2lwDk94RhUmS1c/hTby70kvChbWpkJ4Pm1390LqzzvTmzgXKHPEafJwCb8jA==}
+
   tinyexec@1.0.4:
     resolution: {integrity: sha512-u9r3uZC0bdpGOXtlxUIdwf9pkmvhqJdrVCH9fapQtgy/OeTTMZ1nqH7agtvEfmGui6e1XxjcdrlxvxJvc3sMqw==}
     engines: {node: '>=18'}
@@ -4746,6 +4784,14 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
+  '@designcodeio/threeui@1.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(three@0.186.1)':
+    dependencies:
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      three: 0.186.1
+      three128: three@0.128.0
+      three165: three@0.165.0
+
   '@dnd-kit/accessibility@3.1.1(react@19.2.4)':
     dependencies:
       react: 19.2.4
@@ -4832,6 +4878,11 @@ snapshots:
     dependencies:
       '@eslint/core': 0.17.0
       levn: 0.4.1
+
+  '@gsap/react@2.1.2(gsap@3.15.0)(react@19.2.4)':
+    dependencies:
+      gsap: 3.15.0
+      react: 19.2.4
 
   '@humanfs/core@0.19.1': {}
 
@@ -6837,7 +6888,7 @@ snapshots:
       '@next/eslint-plugin-next': 16.2.1
       eslint: 9.39.4(jiti@2.6.1)
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.57.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1)))(eslint@9.39.4(jiti@2.6.1))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.4(jiti@2.6.1))
       eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.57.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.6.1))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.4(jiti@2.6.1))
       eslint-plugin-react: 7.37.5(eslint@9.39.4(jiti@2.6.1))
@@ -6860,7 +6911,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.57.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1)))(eslint@9.39.4(jiti@2.6.1)):
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.4(jiti@2.6.1)):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
       debug: 4.4.3
@@ -6875,14 +6926,14 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.57.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.57.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1)))(eslint@9.39.4(jiti@2.6.1)))(eslint@9.39.4(jiti@2.6.1)):
+  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.57.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.6.1)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
       '@typescript-eslint/parser': 8.57.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
       eslint: 9.39.4(jiti@2.6.1)
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.57.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1)))(eslint@9.39.4(jiti@2.6.1))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.4(jiti@2.6.1))
     transitivePeerDependencies:
       - supports-color
 
@@ -6897,7 +6948,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.39.4(jiti@2.6.1)
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.57.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.57.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1)))(eslint@9.39.4(jiti@2.6.1)))(eslint@9.39.4(jiti@2.6.1))
+      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.57.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.6.1))
       hasown: 2.0.2
       is-core-module: 2.16.1
       is-glob: 4.0.3
@@ -7286,6 +7337,8 @@ snapshots:
   gopd@1.2.0: {}
 
   graceful-fs@4.2.11: {}
+
+  gsap@3.15.0: {}
 
   has-bigints@1.1.0: {}
 
@@ -8492,6 +8545,12 @@ snapshots:
       acorn: 8.16.0
       commander: 2.20.3
       source-map-support: 0.5.21
+
+  three@0.128.0: {}
+
+  three@0.165.0: {}
+
+  three@0.186.1: {}
 
   tinyexec@1.0.4: {}
 

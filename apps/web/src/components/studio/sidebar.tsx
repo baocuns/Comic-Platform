@@ -51,7 +51,7 @@ export function StudioSidebar({
           <Link href="/studio" onClick={onCloseMobile} className="flex items-center gap-2">
             <img src="/img/aaa_logo.png" alt="Logo" className="h-8 w-8" />
             <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">
-              AAA Studio
+              OWOC Studio
             </span>
           </Link>
           <button
@@ -108,7 +108,7 @@ export function StudioSidebar({
             <img src="/img/aaa_logo.png" alt="Logo" className="h-8 w-8" />
             {!collapsed && (
               <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-white animate-fade-in">
-                AAA Studio
+                OWOC Studio
               </span>
             )}
           </Link>

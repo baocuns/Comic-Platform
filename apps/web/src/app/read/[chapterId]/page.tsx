@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { CommentSection } from '@/components/comments';
+import styles from './reader.module.css';
 
 interface ChapterListItem {
   id: string;
@@ -424,25 +425,26 @@ export default function ReaderPage() {
     <>
       <div className={`min-h-screen ${bgColor} transition-colors duration-300 ${isReaderBgDark ? 'text-zinc-100' : 'text-zinc-900'}`}>
         {/* Reader Header */}
-        <div className={`sticky top-0 z-50 border-b transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'} ${isReaderBgDark ? 'border-white/10 bg-black/90 text-white' : 'border-zinc-200 bg-white/95 text-zinc-900 shadow-sm'
+        <div data-reader-dark={isReaderBgDark} className={`${styles.chrome} ${styles.header} sticky top-0 z-50 border-b transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'} ${isReaderBgDark ? 'border-white/10 bg-black/90 text-white' : 'border-zinc-200 bg-white/95 text-zinc-900 shadow-sm'
           } backdrop-blur-xl`}>
-          <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-4">
-            <Link href={`/comics/${activeChapter.comic.slug}`} className={`text-sm flex items-center gap-1.5 transition-colors ${isReaderBgDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'
+          <div className={`${styles.toolbar} mx-auto flex h-12 max-w-5xl items-center justify-between px-4`}>
+            <Link href={`/comics/${activeChapter.comic.slug}`} aria-label={`Về ${activeChapter.comic.title}`} className={`${styles.control} ${styles.back} text-sm flex items-center gap-1.5 transition-colors ${isReaderBgDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'
               }`}>
               <i className="fa-light fa-arrow-left-long"></i>
               <span className="hidden sm:inline">{activeChapter.comic.title}</span>
             </Link>
             <button
               onClick={handleOpenChapterList}
-              className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-medium transition-colors ${isReaderBgDark ? 'text-white hover:bg-white/10 hover:text-amber-300' : 'text-zinc-800 hover:bg-zinc-100 hover:text-amber-600'
+              className={`${styles.control} ${styles.chapterTrigger} flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-medium transition-colors ${isReaderBgDark ? 'text-white hover:bg-white/10 hover:text-amber-300' : 'text-zinc-800 hover:bg-zinc-100 hover:text-amber-600'
                 }`}>
               <span>Chương {activeChapter.number}{activeChapter.title ? ` — ${activeChapter.title}` : ''}</span>
             </button>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowSettings(true)}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors ${isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                className={`${styles.control} ${styles.settingsTrigger} flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors ${isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                   }`}
+                aria-label="Cài đặt trình đọc"
                 title="Cài đặt trình đọc">
                 <i className="fa-regular fa-gear text-sm" />
               </button>
@@ -531,11 +533,11 @@ export default function ReaderPage() {
                     alt={`Trang ${currentPage + 1}`}
                     className="max-h-[85vh] w-auto object-contain"
                   />
-                  <div className="mt-4 flex items-center gap-4">
+                  <div data-reader-dark={isReaderBgDark} className={`${styles.chrome} ${styles.pagination} mt-4 flex items-center gap-4`}>
                     <button
                       onClick={() => setCurrentPage((p) => Math.max(p - 1, 0))}
                       disabled={currentPage === 0}
-                      className={`rounded-lg border px-4 py-2 text-sm disabled:opacity-30 ${isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-400' : 'border-zinc-200 bg-white text-zinc-600'
+                      className={`${styles.control} rounded-lg border px-4 py-2 text-sm disabled:opacity-30 ${isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-400' : 'border-zinc-200 bg-white text-zinc-600'
                         }`}
                     >
                       ← Trang trước
@@ -546,7 +548,7 @@ export default function ReaderPage() {
                     <button
                       onClick={() => setCurrentPage((p) => Math.min(p + 1, activeChapter.pages.length - 1))}
                       disabled={currentPage === activeChapter.pages.length - 1}
-                      className={`rounded-lg border px-4 py-2 text-sm disabled:opacity-30 ${isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-400' : 'border-zinc-200 bg-white text-zinc-600'
+                      className={`${styles.control} rounded-lg border px-4 py-2 text-sm disabled:opacity-30 ${isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-400' : 'border-zinc-200 bg-white text-zinc-600'
                         }`}
                     >
                       Trang sau →
@@ -559,13 +561,13 @@ export default function ReaderPage() {
         </div>
 
         {/* Navigation Footer */}
-        <div className={`border-t backdrop-blur-xl mt-4 ${isReaderBgDark ? 'border-white/10 bg-black/90 text-white' : 'border-zinc-200 bg-white/95 text-zinc-900 shadow-sm'
+        <div data-reader-dark={isReaderBgDark} className={`${styles.chrome} ${styles.footer} border-t backdrop-blur-xl mt-4 ${isReaderBgDark ? 'border-white/10 bg-black/90 text-white' : 'border-zinc-200 bg-white/95 text-zinc-900 shadow-sm'
           }`}>
-          <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
+          <div className={`${styles.toolbar} mx-auto flex h-14 max-w-5xl items-center justify-between px-4`}>
             {activeItem?.nav?.prev ? (
               <Link
                 href={`/read/${activeItem.nav.prev.id}`}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-colors ${isReaderBgDark ? 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900'
+                className={`${styles.control} flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-colors ${isReaderBgDark ? 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900'
                   }`}
               >
                 ← Ch.{activeItem.nav.prev.number}
@@ -574,7 +576,7 @@ export default function ReaderPage() {
 
             <button
               onClick={handleOpenChapterList}
-              className={`rounded-lg border px-4 py-2 text-sm transition-colors ${isReaderBgDark ? 'border-white/10 text-zinc-400 hover:text-white' : 'border-zinc-200 text-zinc-650 hover:text-zinc-900'
+              className={`${styles.control} rounded-lg border px-4 py-2 text-sm transition-colors ${isReaderBgDark ? 'border-white/10 text-zinc-400 hover:text-white' : 'border-zinc-200 text-zinc-650 hover:text-zinc-900'
                 }`}
             >
               Danh sách chương
@@ -583,7 +585,7 @@ export default function ReaderPage() {
             {lastItem?.nav?.next ? (
               <Link
                 href={`/read/${lastItem.nav.next.id}`}
-                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30 px-4 py-2 text-sm font-medium text-white transition-all"
+                className={`${styles.control} ${styles.nextChapter} flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30 px-4 py-2 text-sm font-medium text-white transition-all`}
               >
                 Ch.{lastItem.nav.next.number} →
               </Link>
@@ -594,19 +596,19 @@ export default function ReaderPage() {
 
       {/* Chapter List Modal */}
       <div
-        className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-md transition-all duration-300 ${showChapterList ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        className={`${styles.backdrop} fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-md transition-all duration-300 ${showChapterList ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         onClick={() => setShowChapterList(false)}
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`mx-4 flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 shadow-2xl transition-all duration-300 ${showChapterList ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
+          className={`${styles.dialog} mx-4 flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 shadow-2xl transition-all duration-300 ${showChapterList ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
             }`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 px-5 py-4">
+          <div className={`${styles.dialogHeader} flex items-center justify-between border-b border-zinc-200 dark:border-white/10 px-5 py-4`}>
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">📋 Danh sách chương</h3>
-            <button onClick={() => setShowChapterList(false)} className="text-zinc-500 hover:text-zinc-800 dark:hover:text-white text-xl leading-none">&times;</button>
+            <button aria-label="Đóng danh sách chương" onClick={() => setShowChapterList(false)} className="text-zinc-500 hover:text-zinc-800 dark:hover:text-white text-xl leading-none">&times;</button>
           </div>
 
           {/* Search */}
@@ -661,23 +663,24 @@ export default function ReaderPage() {
 
       {/* Settings Modal */}
       <div
-        className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-md transition-all duration-300 ${showSettings ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        className={`${styles.backdrop} fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-md transition-all duration-300 ${showSettings ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         onClick={() => setShowSettings(false)}
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`mx-4 flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 shadow-2xl transition-all duration-300 ${showSettings ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
+          className={`${styles.dialog} mx-4 flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 shadow-2xl transition-all duration-300 ${showSettings ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
             }`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 px-5 py-4">
+          <div className={`${styles.dialogHeader} flex items-center justify-between border-b border-zinc-200 dark:border-white/10 px-5 py-4`}>
             <div className="flex items-center gap-2.5">
               <i className="fa-regular fa-gear text-base text-amber-500 dark:text-amber-400" />
               <h3 className="text-base font-semibold text-zinc-900 dark:text-white">Cài đặt trình đọc</h3>
             </div>
             <button
               onClick={() => setShowSettings(false)}
+              aria-label="Đóng cài đặt trình đọc"
               className="flex h-7 w-7 items-center justify-center rounded-lg text-xl leading-none text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-zinc-800 dark:hover:text-white"
             >
               &times;

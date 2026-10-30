@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Be_Vietnam_Pro, Nunito } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { ToastProvider } from "@/components/providers/toast-provider";
@@ -10,9 +10,17 @@ import { SearchModal } from "@/components/layout/search-modal";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { SocketProvider } from "@/components/providers/socket-provider";
 
-const inter = Inter({
-  variable: "--font-inter",
+const bodyFont = Be_Vietnam_Pro({
+  variable: "--font-body",
   subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const displayFont = Nunito({
+  variable: "--font-display",
+  subsets: ["latin", "vietnamese"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -43,7 +51,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={`${inter.variable} h-full`}>
+    <html lang="vi" className={`${bodyFont.variable} ${displayFont.variable} h-full`} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -67,7 +75,7 @@ export default function RootLayout({
           href="/css/font-awesome/css/all.css"
         />
       </head>
-      <body className="min-h-full bg-background font-sans text-foreground antialiased transition-colors duration-300">
+      <body className="flex min-h-full flex-col bg-background font-sans text-foreground antialiased">
         <ErrorBoundary>
           <ToastProvider>
             <ThemeProvider>
@@ -75,7 +83,7 @@ export default function RootLayout({
                 <SocketProvider>
                   <Header />
                   <SearchModal />
-                  <main className="flex-1">{children}</main>
+                  <main id="main-content" className="flex-1" tabIndex={-1}>{children}</main>
                   <Footer />
                 </SocketProvider>
               </AuthProvider>

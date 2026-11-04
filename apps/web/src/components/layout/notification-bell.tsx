@@ -93,15 +93,19 @@ export function NotificationBell() {
 
   // Close on click outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, [isOpen]);
 
   // Fetch notifications when dropdown opens
@@ -141,14 +145,14 @@ export function NotificationBell() {
       {/* Bell Button */}
       <button
         onClick={handleToggle}
-        className="relative flex items-center justify-center rounded-full bg-zinc-100 dark:bg-white/5 p-2 text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
+        className="relative flex items-center justify-center p-1.5 sm:p-2 text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 dark:hover:text-white cursor-pointer"
         aria-label="Thông báo"
       >
-        <i className={`fa-light fa-bell text-[17px] ${isOpen ? 'text-amber-500' : ''}`} />
+        <i className={`fa-light fa-bell text-[21px] ${isOpen ? 'text-amber-500' : ''}`} />
 
         {/* Badge */}
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-lg shadow-red-500/30 animate-bounce-in">
+          <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-md shadow-red-500/30 animate-bounce-in">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -156,9 +160,9 @@ export function NotificationBell() {
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-[380px] origin-top-right overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white/95 dark:bg-[#121212]/95 shadow-2xl backdrop-blur-xl animate-slide-up z-50">
+        <div className="fixed sm:absolute top-16 sm:top-full left-3 right-3 sm:left-auto sm:right-0 mt-2 sm:w-[380px] max-w-[calc(100vw-24px)] sm:max-w-none origin-top sm:origin-top-right overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121212] shadow-2xl animate-slide-up z-50">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-zinc-100 dark:border-white/5 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-zinc-100 dark:border-white/5 px-4 py-3 bg-white dark:bg-[#121212]">
             <h3 className="text-sm font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
               <i className="fa-solid fa-bell text-amber-500 text-xs" />
               Thông báo
@@ -173,8 +177,8 @@ export function NotificationBell() {
             )}
           </div>
 
-          {/* Notification List */}
-          <div className="max-h-[400px] overflow-y-auto overscroll-contain">
+            {/* Notification List */}
+            <div className="max-h-[60vh] sm:max-h-[400px] overflow-y-auto overscroll-contain">
             {isLoading && displayItems.length === 0 ? (
               // Skeleton loading
               <div className="space-y-0">

@@ -43,3 +43,6 @@ uploads/
 # Graphify
 graphify-out/
 .agents/
+
+# Stitch
+.stitch/

@@ -26,6 +26,7 @@ const MAIN_NAV: NavItem[] = [
   { label: 'Bảng xếp hạng', href: '/comics?sort=popular', icon: 'fa-light fa-crown' },
   { label: 'Mới cập nhật', href: '/comics?sort=updated', icon: 'fa-light fa-clock' },
   { label: 'Hot nhất', href: '/comics?sort=popular', icon: 'fa-light fa-fire-flame-curved' },
+  { label: 'Tu Luyện (Cảnh giới)', href: '/cultivation', icon: 'fa-light fa-sparkles', iconColor: 'text-[#FF7A1A]', badge: 'HOT' },
   { label: 'Tủ sách của tôi', href: '/bookmarks', icon: 'fa-light fa-bookmark' },
 ];
 

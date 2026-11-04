@@ -102,6 +102,10 @@ export function Header() {
           <Link href="/news" className="text-base font-medium text-zinc-500 dark:text-zinc-400 transition-colors hover:text-zinc-900 hover:dark:text-white">
             TIN TỨC
           </Link>
+          <Link href="/cultivation" className="text-base font-medium text-[#FF7A1A] transition-colors hover:text-[#E85D04] flex items-center gap-1.5">
+            <span>TU LUYỆN</span>
+            <span className="inline-flex h-2 w-2 rounded-full bg-[#FF7A1A] animate-pulse" />
+          </Link>
         </div>
 
         {/* Auth Actions */}
@@ -196,6 +200,14 @@ export function Header() {
                         <span>Studio</span>
                       </Link>
                     )}
+                    <Link
+                      href="/cultivation"
+                      onClick={() => setShowDropdown(false)}
+                      className="flex items-center gap-3 px-3 py-2 text-sm text-[#FF7A1A] font-semibold rounded-xl hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-colors"
+                    >
+                      <i className="fa-light fa-sparkles w-4 text-center text-[#FF7A1A] text-base" />
+                      <span>Tu Luyện (Cảnh giới)</span>
+                    </Link>
                     <Link
                       href="/bookmarks"
                       onClick={() => setShowDropdown(false)}

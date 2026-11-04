@@ -30,6 +30,11 @@ body {
 /* Class-based dark mode variant for Tailwind CSS v4 */
 @variant dark (&:where(.dark, .dark *));
 
+@keyframes progressAnim {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
 /* Custom animations */
 @keyframes slide-up {
   from {

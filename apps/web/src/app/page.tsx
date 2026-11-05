@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { HeroSlider } from '@/components/home/hero-slider';
-import { ComicGrid, useReadHistory, type Comic } from '@/components/comic';
+import { ComicGrid, type Comic } from '@/components/comic';
 
 interface HomepageData {
   trending: Comic[];
@@ -40,7 +40,6 @@ export default function Home() {
   const [isLoadingComics, setIsLoadingComics] = useState(true);
   const [newsData, setNewsData] = useState<FeaturedNewsData | null>(null);
   const [isLoadingNews, setIsLoadingNews] = useState(true);
-  const readHistoryMap = useReadHistory();
 
   useEffect(() => {
     api
@@ -208,7 +207,6 @@ export default function Home() {
         {/* Comics Grid */}
         <ComicGrid
           comics={data?.latest || []}
-          readHistoryMap={readHistoryMap}
           isLoading={isLoadingComics}
           skeletonCount={12}
           emptyMessage="Chưa có truyện mới nào được cập nhật."

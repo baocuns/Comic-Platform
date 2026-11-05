@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
-import { api } from '@/lib/api-client';
-import { useAuthStore } from '@/stores/auth-store';
+import { useReadingHistoryStore } from '@/stores/reading-history-store';
 
 export interface Comic {
   id: string;
@@ -31,66 +30,19 @@ export function formatNumber(num?: number): string {
   return num.toLocaleString();
 }
 
-interface HistoryItem {
-  id: string;
-  lastPage: number;
-  readAt: string;
-  chapter: {
-    id: string;
-    number: string;
-    title: string | null;
-    totalPages: number;
-    comic: {
-      id: string;
-      title: string;
-      slug: string;
-      coverUrl: string | null;
-    };
-  };
-}
-
+/**
+ * Hook to access instant local reading history map.
+ */
 export function useReadHistory(): Record<string, string> {
-  const { accessToken } = useAuthStore();
-  const [readHistoryMap, setReadHistoryMap] = useState<Record<string, string>>({});
+  const isHydrated = useReadingHistoryStore((s) => s.isHydrated);
+  const hydrate = useReadingHistoryStore((s) => s.hydrate);
+  const history = useReadingHistoryStore((s) => s.history);
 
   useEffect(() => {
-    if (!accessToken) {
-      setReadHistoryMap({});
-      return;
-    }
+    hydrate();
+  }, [hydrate]);
 
-    api
-      .get<{ data: HistoryItem[] }>('/history?limit=100', { token: accessToken })
-      .then((r) => {
-        if (!r.data || !Array.isArray(r.data)) return;
-        const map: Record<string, string> = {};
-        for (const item of r.data) {
-          const comicId = item.chapter?.comic?.id;
-          const comicSlug = item.chapter?.comic?.slug;
-          const chapNumber = item.chapter?.number;
-          if (!chapNumber) continue;
-
-          const updateEntry = (key: string) => {
-            if (!map[key]) {
-              map[key] = String(chapNumber);
-            } else {
-              const currentNum = parseFloat(map[key]);
-              const nextNum = parseFloat(chapNumber);
-              if (!isNaN(currentNum) && !isNaN(nextNum) && nextNum > currentNum) {
-                map[key] = String(chapNumber);
-              }
-            }
-          };
-
-          if (comicId) updateEntry(comicId);
-          if (comicSlug) updateEntry(comicSlug);
-        }
-        setReadHistoryMap(map);
-      })
-      .catch(() => { });
-  }, [accessToken]);
-
-  return readHistoryMap;
+  return isHydrated ? history : {};
 }
 
 export interface ComicCardProps {
@@ -99,7 +51,18 @@ export interface ComicCardProps {
   className?: string;
 }
 
-export function ComicCard({ comic, lastReadChapter, className = '' }: ComicCardProps) {
+export function ComicCard({ comic, lastReadChapter: propLastReadChapter, className = '' }: ComicCardProps) {
+  const isHydrated = useReadingHistoryStore((s) => s.isHydrated);
+  const hydrate = useReadingHistoryStore((s) => s.hydrate);
+  const storeLastRead = useReadingHistoryStore((s) => s.getChapter(comic.id, comic.slug));
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
+  // Priority: explicitly passed prop -> localStorage reading history
+  const lastReadChapter = propLastReadChapter ?? (isHydrated ? storeLastRead : undefined);
+
   return (
     <Link href={`/comics/${comic.slug}`} className={`group block ${className}`}>
       <div className="relative mb-2 aspect-[3/4] overflow-hidden rounded-xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100 dark:bg-zinc-900 transition-all duration-300 group-hover:border-amber-500/50 group-hover:shadow-xl group-hover:shadow-amber-500/10 group-hover:-translate-y-1">
@@ -184,7 +147,7 @@ export interface ComicGridProps {
 
 export function ComicGrid({
   comics,
-  readHistoryMap = {},
+  readHistoryMap,
   isLoading = false,
   skeletonCount = 12,
   emptyMessage = 'Chưa có truyện nào.',
@@ -216,7 +179,7 @@ export function ComicGrid({
         <ComicCard
           key={comic.id}
           comic={comic}
-          lastReadChapter={readHistoryMap[comic.id] || readHistoryMap[comic.slug]}
+          lastReadChapter={readHistoryMap ? (readHistoryMap[comic.id] || readHistoryMap[comic.slug]) : undefined}
         />
       ))}
     </div>

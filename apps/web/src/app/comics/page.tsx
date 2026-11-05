@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { ElDropdown, ElMenu } from '@tailwindplus/elements/react';
-import { ComicGrid, ComicCardSkeleton, useReadHistory, type Comic } from '@/components/comic';
+import { ComicGrid, ComicCardSkeleton, type Comic } from '@/components/comic';
 
 interface Genre {
   id: string;
@@ -42,8 +42,6 @@ function ComicsContent() {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [genresLoading, setGenresLoading] = useState(true);
   const [loading, setLoading] = useState(true);
-
-  const readHistoryMap = useReadHistory();
 
   // Load genres
   useEffect(() => {
@@ -194,7 +192,6 @@ function ComicsContent() {
       {/* Comics Grid (Using Shared Component) */}
       <ComicGrid
         comics={comics}
-        readHistoryMap={readHistoryMap}
         isLoading={loading}
         skeletonCount={24}
         emptyMessage="Không tìm thấy bộ truyện nào phù hợp với bộ lọc."

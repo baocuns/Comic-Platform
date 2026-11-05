@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
-import { HeroSlider, type Comic } from '@/components/home/hero-slider';
+import { HeroSlider } from '@/components/home/hero-slider';
+import { ComicGrid, useReadHistory, type Comic } from '@/components/comic';
 
 interface HomepageData {
   trending: Comic[];
@@ -39,10 +40,11 @@ export default function Home() {
   const [isLoadingComics, setIsLoadingComics] = useState(true);
   const [newsData, setNewsData] = useState<FeaturedNewsData | null>(null);
   const [isLoadingNews, setIsLoadingNews] = useState(true);
+  const readHistoryMap = useReadHistory();
 
   useEffect(() => {
     api
-      .get<{ data: HomepageData }>('/comics/homepage')
+      .get<{ data: HomepageData }>('/comics/homepage?limit=12')
       .then((r) => setData(r.data))
       .catch(() => { })
       .finally(() => setIsLoadingComics(false));
@@ -204,84 +206,26 @@ export default function Home() {
         </div>
 
         {/* Comics Grid */}
-        {isLoadingComics ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="mb-2.5 aspect-[3/4] rounded-xl bg-zinc-200/70 dark:bg-zinc-800/70" />
-                <div className="h-4 w-4/5 rounded bg-zinc-200/70 dark:bg-zinc-800/70 mb-2" />
-                <div className="h-3 w-1/2 rounded bg-zinc-200/50 dark:bg-zinc-800/50" />
-              </div>
-            ))}
-          </div>
-        ) : data && data.latest.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {data.latest.map((comic) => (
-              <ComicCard key={comic.id} comic={comic} />
-            ))}
-          </div>
-        ) : (
-          <div className="py-16 text-center">
-            <div className="text-4xl mb-3">📚</div>
-            <p className="text-zinc-500 dark:text-zinc-400">Chưa có truyện mới nào được cập nhật.</p>
+        <ComicGrid
+          comics={data?.latest || []}
+          readHistoryMap={readHistoryMap}
+          isLoading={isLoadingComics}
+          skeletonCount={12}
+          emptyMessage="Chưa có truyện mới nào được cập nhật."
+        />
+
+        {data && data.latest.length > 0 && (
+          <div className="mt-10 flex justify-center">
             <Link
-              href="/studio"
-              className="mt-4 inline-block rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:brightness-110 transition-all"
+              href="/comics"
+              className="group inline-flex items-center gap-2.5 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-100/80 dark:bg-white/5 hover:bg-gradient-to-r hover:from-amber-500 hover:to-orange-500 hover:border-transparent px-8 py-3.5 text-sm font-bold text-zinc-800 dark:text-zinc-200 hover:text-white dark:hover:text-white shadow-sm hover:shadow-lg hover:shadow-amber-500/20 transition-all duration-300 hover:scale-[1.02] active:scale-95"
             >
-              Bắt đầu sáng tác →
+              <span>Khám phá thêm</span>
+              <i className="fa-duotone fa-solid fa-arrow-right text-base transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
         )}
       </section>
     </div>
-  );
-}
-
-function ComicCard({ comic }: { comic: Comic }) {
-  return (
-    <Link href={`/comics/${comic.slug}`} className="group block">
-      <div className="relative mb-2.5 aspect-[3/4] overflow-hidden rounded-xl border border-zinc-200/80 dark:border-white/10 bg-zinc-100 dark:bg-zinc-900 transition-all duration-300 group-hover:border-amber-500/50 group-hover:shadow-xl group-hover:shadow-amber-500/10 group-hover:-translate-y-1">
-        {comic.coverUrl ? (
-          <img
-            src={comic.coverUrl}
-            alt={comic.title}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-3xl font-bold text-zinc-400 dark:text-zinc-600">
-            {comic.title[0]}
-          </div>
-        )}
-
-        {/* Chapter badge */}
-        <div className="absolute top-2 left-2 flex items-center gap-1 rounded-md bg-black/60 backdrop-blur-md px-2 py-0.5 text-[11px] font-semibold text-white">
-          <i className="fa-light fa-book-open text-amber-400 text-[10px]" />
-          <span>C.{comic.stats.totalChapters}</span>
-        </div>
-
-        {/* Rating if available */}
-        {comic.stats.avgRating > 0 && (
-          <div className="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-black/60 backdrop-blur-md px-1.5 py-0.5 text-[11px] font-bold text-amber-400">
-            <i className="fa-solid fa-star text-[9px]" />
-            <span>{comic.stats.avgRating.toFixed(1)}</span>
-          </div>
-        )}
-
-        {/* Subtle hover gradient */}
-        <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-      </div>
-
-      <h3 className="line-clamp-2 text-sm font-bold text-zinc-800 dark:text-zinc-200 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-        {comic.title}
-      </h3>
-
-      <div className="mt-1 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-        <span className="truncate max-w-[65%]">{comic.author?.displayName || 'Tác giả'}</span>
-        <span className="flex items-center gap-1 text-[11px]">
-          <i className="fa-light fa-eye text-zinc-400" />
-          {formatNumber(comic.stats.totalViews)}
-        </span>
-      </div>
-    </Link>
   );
 }

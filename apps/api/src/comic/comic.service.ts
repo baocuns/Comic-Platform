@@ -14,7 +14,7 @@ export class ComicService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly moderationService: ModerationService,
-  ) {}
+  ) { }
 
   // ── Create Comic ──
 
@@ -102,7 +102,13 @@ export class ComicService {
 
     return {
       data: comics.map(this.formatComic),
-      meta: { page, limit, total, hasNext: skip + limit < total },
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: skip + limit < total,
+      },
     };
   }
 
@@ -230,9 +236,12 @@ export class ComicService {
 
   // ── Homepage Sections ──
 
-  async getHomepageSections() {
+  async getHomepageSections(_take: number = 12) {
+    const take = Math.max(1, Math.min(Number(_take) || 12, 50));
+    const cacheKey = take === 12 ? 'homepage' : `homepage:${take}`;
+
     // Upstash auto-deserializes JSON
-    const cached = await this.redis.get('homepage');
+    const cached = await this.redis.get(cacheKey);
     if (cached) return cached;
 
     const baseInclude = {
@@ -246,19 +255,19 @@ export class ComicService {
       this.prisma.comic.findMany({
         where: baseWhere,
         orderBy: { totalViews: 'desc' },
-        take: 10,
+        take,
         include: baseInclude,
       }),
       this.prisma.comic.findMany({
         where: baseWhere,
         orderBy: { publishedAt: 'desc' },
-        take: 10,
+        take,
         include: baseInclude,
       }),
       this.prisma.comic.findMany({
         where: { ...baseWhere, totalRatings: { gte: 1 } },
         orderBy: { avgRating: 'desc' },
-        take: 10,
+        take,
         include: baseInclude,
       }),
     ]);
@@ -270,7 +279,7 @@ export class ComicService {
     };
 
     // Upstash auto-serializes JSON
-    await this.redis.set('homepage', result, 300);
+    await this.redis.set(cacheKey, result, 300);
     return result;
   }
 

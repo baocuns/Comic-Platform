@@ -10,7 +10,7 @@ import { UserRole } from '@prisma/client';
 
 @Controller('comics')
 export class ComicController {
-  constructor(private readonly comicService: ComicService) {}
+  constructor(private readonly comicService: ComicService) { }
 
   @Public()
   @Get()
@@ -21,8 +21,9 @@ export class ComicController {
 
   @Public()
   @Get('homepage')
-  async homepage() {
-    const data = await this.comicService.getHomepageSections();
+  async homepage(@Query() query: ComicQueryDto) {
+    const limit = query.limit ? Number(query.limit) : 12;
+    const data = await this.comicService.getHomepageSections(limit);
     return { success: true, data };
   }
 
@@ -35,7 +36,7 @@ export class ComicController {
     @CurrentUser('sub') userId?: string,
   ) {
     if (q && q.trim().length >= 2) {
-      this.comicService.recordSearch(userId, q).catch(() => {});
+      this.comicService.recordSearch(userId, q).catch(() => { });
     }
     const result = await this.comicService.search(q, Number(page) || 1);
     return { success: true, ...result };

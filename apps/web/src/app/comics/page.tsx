@@ -1,20 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { ElDropdown, ElMenu } from '@tailwindplus/elements/react';
-
-interface Comic {
-  id: string;
-  title: string;
-  slug: string;
-  coverUrl: string | null;
-  status: string;
-  author: { displayName: string };
-  genres: { id: string; name: string; icon: string | null }[];
-  stats: { totalViews: number; avgRating: number; totalChapters: number };
-}
+import { ComicGrid, ComicCardSkeleton, type Comic } from '@/components/comic';
 
 interface Genre {
   id: string;
@@ -24,6 +14,14 @@ interface Genre {
   comicCount: number;
 }
 
+interface Meta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+}
+
 const SORT_OPTIONS = [
   { value: 'updated', label: 'Mới cập nhật' },
   { value: 'latest', label: 'Mới nhất' },
@@ -31,48 +29,101 @@ const SORT_OPTIONS = [
   { value: 'rating', label: 'Đánh giá cao' },
 ];
 
-export default function ComicsPage() {
+function ComicsContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const selectedGenre = searchParams.get('genre');
+  const sort = searchParams.get('sort') || 'updated';
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+
   const [comics, setComics] = useState<Comic[]>([]);
+  const [meta, setMeta] = useState<Meta | null>(null);
   const [genres, setGenres] = useState<Genre[]>([]);
   const [genresLoading, setGenresLoading] = useState(true);
-  const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
-  const [sort, setSort] = useState<string>('updated');
   const [loading, setLoading] = useState(true);
 
+  // Load genres
   useEffect(() => {
-    api.get<{ data: Genre[] }>('/comics/genres')
+    api
+      .get<{ data: Genre[] }>('/comics/genres')
       .then((res) => setGenres(res.data))
       .catch(() => { })
       .finally(() => setGenresLoading(false));
   }, []);
 
+  // Load comics whenever filter / sort / page changes
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
     if (selectedGenre) params.set('genre', selectedGenre);
     params.set('sort', sort);
-    params.set('limit', '20');
+    params.set('page', String(page));
+    params.set('limit', '24');
 
-    api.get<{ data: Comic[]; meta: unknown }>(`/comics?${params}`)
-      .then((res) => setComics(res.data))
-      .catch(() => { })
+    api
+      .get<{ data: Comic[]; meta: Meta }>(`/comics?${params}`)
+      .then((res) => {
+        setComics(res.data || []);
+        setMeta(res.meta || null);
+      })
+      .catch(() => {
+        setComics([]);
+        setMeta(null);
+      })
       .finally(() => setLoading(false));
-  }, [selectedGenre, sort]);
+  }, [selectedGenre, sort, page]);
+
+  const updateFilters = (newGenre?: string | null, newSort?: string, newPage?: number) => {
+    const params = new URLSearchParams();
+    const g = newGenre !== undefined ? newGenre : selectedGenre;
+    const s = newSort !== undefined ? newSort : sort;
+    const p = newPage !== undefined ? newPage : 1;
+
+    if (g) params.set('genre', g);
+    if (s && s !== 'updated') params.set('sort', s);
+    if (p > 1) params.set('page', String(p));
+
+    const qs = params.toString();
+    router.push(qs ? `/comics?${qs}` : '/comics', { scroll: false });
+
+    if (newPage !== undefined) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const currentSortOption = SORT_OPTIONS.find((o) => o.value === sort) || SORT_OPTIONS[0];
+  const totalPages = meta?.totalPages ?? (meta ? Math.ceil(meta.total / (meta.limit || 24)) : 1);
+
+  // Generate pagination items with ellipses
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1).filter(
+    (p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2
+  );
 
   return (
     <div className="px-4 sm:px-8 md:px-12 lg:px-16 py-8">
-      <h1 className="mb-6 text-2xl font-bold text-zinc-900 dark:text-white">Khám phá truyện</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
+            Khám phá truyện
+          </h1>
+          {meta && (
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+              Hiển thị {comics.length > 0 ? (page - 1) * 24 + 1 : 0} -{' '}
+              {Math.min(page * 24, meta.total)} trên tổng số {meta.total} bộ truyện
+            </p>
+          )}
+        </div>
+      </div>
 
-      {/* Filters */}
+      {/* Filters: Sort & Genres */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
         {/* Sort Dropdown */}
         <ElDropdown className="relative inline-block">
           <button
             type="button"
             popoverTarget="sort-menu"
-            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-zinc-800 dark:text-zinc-300 outline-none transition-colors hover:bg-zinc-50 dark:hover:bg-white/10 cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-zinc-800 dark:text-zinc-300 outline-none transition-colors hover:bg-zinc-50 dark:hover:bg-white/10 cursor-pointer shadow-xs"
           >
             <span>{currentSortOption.label}</span>
             <svg className="h-4 w-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -90,7 +141,7 @@ export default function ComicsPage() {
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setSort(opt.value)}
+                onClick={() => updateFilters(undefined, opt.value, 1)}
                 className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors cursor-pointer ${sort === opt.value
                   ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold'
                   : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5'
@@ -104,7 +155,8 @@ export default function ComicsPage() {
 
         {/* Genre pills */}
         <button
-          onClick={() => setSelectedGenre(null)}
+          type="button"
+          onClick={() => updateFilters(null, undefined, 1)}
           className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${!selectedGenre
             ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
             : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-amber-300 dark:hover:border-amber-500/40 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:shadow-xs'
@@ -112,6 +164,7 @@ export default function ComicsPage() {
         >
           Tất cả
         </button>
+
         {genresLoading ? (
           ['w-16', 'w-20', 'w-14', 'w-24', 'w-18'].map((widthClass, i) => (
             <div
@@ -123,7 +176,8 @@ export default function ComicsPage() {
           genres.map((g) => (
             <button
               key={g.id}
-              onClick={() => setSelectedGenre(g.slug)}
+              type="button"
+              onClick={() => updateFilters(g.slug, undefined, 1)}
               className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${selectedGenre === g.slug
                 ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
                 : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-amber-300 dark:hover:border-amber-500/40 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:shadow-xs'
@@ -135,44 +189,84 @@ export default function ComicsPage() {
         )}
       </div>
 
-      {/* Comics Grid */}
-      {loading ? (
-        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="animate-pulse">
-              <div className="mb-2 aspect-[3/4] rounded border border-zinc-200/60 dark:border-white/5 bg-zinc-200/60 dark:bg-zinc-800/60" />
-              <div className="h-4 w-5/6 rounded bg-zinc-200/60 dark:bg-zinc-800/60 mb-1.5" />
-              <div className="h-3 w-1/2 rounded bg-zinc-200/40 dark:bg-zinc-800/40 mb-1.5" />
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-1/4 rounded bg-zinc-200/40 dark:bg-zinc-800/40" />
-                <div className="h-3 w-1/4 rounded bg-zinc-200/40 dark:bg-zinc-800/40" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : comics.length === 0 ? (
-        <div className="py-20 text-center text-zinc-500">Chưa có truyện nào</div>
-      ) : (
-        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {comics.map((comic) => (
-            <Link key={comic.id} href={`/comics/${comic.slug}`} className="group">
-              <div className="mb-2 aspect-[3/4] overflow-hidden rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 transition-all group-hover:border-amber-500/40 group-hover:shadow-lg group-hover:shadow-amber-500/10">
-                {comic.coverUrl ? (
-                  <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover transition-transform group-hover:scale-105 duration-500 ease-in-out" />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-3xl font-bold text-zinc-400 dark:text-zinc-600">{comic.title[0]}</div>
+      {/* Comics Grid (Using Shared Component) */}
+      <ComicGrid
+        comics={comics}
+        isLoading={loading}
+        skeletonCount={24}
+        emptyMessage="Không tìm thấy bộ truyện nào phù hợp với bộ lọc."
+      />
+
+      {/* Pagination Controls */}
+      {meta && totalPages > 1 && (
+        <div className="mt-12 flex flex-col items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Previous Page Button */}
+            <button
+              type="button"
+              onClick={() => updateFilters(undefined, undefined, page - 1)}
+              disabled={page <= 1}
+              aria-label="Trang trước"
+              className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-zinc-200 dark:border-white/10 text-sm text-zinc-600 dark:text-zinc-400 transition-all hover:bg-zinc-100 dark:hover:bg-white/10 hover:border-amber-500/40 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+            >
+              <i className="fa-light fa-chevron-left text-xs" />
+            </button>
+
+            {/* Page Number Buttons */}
+            {pageNumbers.map((p, idx, arr) => (
+              <span key={p} className="flex items-center">
+                {idx > 0 && arr[idx - 1] !== p - 1 && (
+                  <span className="px-1.5 sm:px-2 text-zinc-400 dark:text-zinc-600 select-none">…</span>
                 )}
-              </div>
-              <h3 className="line-clamp-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{comic.title}</h3>
-              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{comic.author.displayName}</p>
-              <div className="mt-1 flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-500">
-                <span><i className="fa-light fa-image"></i> {comic.stats.totalChapters}</span>
-                <span><i className="fa-light fa-eye"></i> {comic.stats.totalViews}</span>
-              </div>
-            </Link>
-          ))}
+                <button
+                  type="button"
+                  onClick={() => updateFilters(undefined, undefined, p)}
+                  className={`flex h-9 min-w-9 sm:h-10 sm:min-w-10 px-2 sm:px-3 items-center justify-center rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${p === page
+                    ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
+                    : 'border border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 hover:border-amber-500/40'
+                    }`}
+                >
+                  {p}
+                </button>
+              </span>
+            ))}
+
+            {/* Next Page Button */}
+            <button
+              type="button"
+              onClick={() => updateFilters(undefined, undefined, page + 1)}
+              disabled={page >= totalPages || !meta.hasNext}
+              aria-label="Trang sau"
+              className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-zinc-200 dark:border-white/10 text-sm text-zinc-600 dark:text-zinc-400 transition-all hover:bg-zinc-100 dark:hover:bg-white/10 hover:border-amber-500/40 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+            >
+              <i className="fa-light fa-chevron-right text-xs" />
+            </button>
+          </div>
+
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Trang <span className="font-semibold text-zinc-700 dark:text-zinc-300">{page}</span> / {totalPages}
+          </p>
         </div>
       )}
     </div>
+  );
+}
+
+export default function ComicsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="px-4 sm:px-8 md:px-12 lg:px-16 py-8">
+          <div className="h-8 w-48 bg-zinc-200/70 dark:bg-zinc-800/70 rounded-lg animate-pulse mb-6" />
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <ComicCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <ComicsContent />
+    </Suspense>
   );
 }

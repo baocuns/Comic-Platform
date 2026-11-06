@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
+import { useReadingHistoryStore } from '@/stores/reading-history-store';
 import { CommentSection } from '@/components/comments';
 
 interface ChapterListItem {
@@ -243,17 +244,29 @@ export default function ReaderPage() {
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const saveHistory = useCallback((chapterObj: Chapter, pageNum: number) => {
-    if (!accessToken || !chapterObj || pageNum === lastSavedPage.current) return;
+    if (!chapterObj || pageNum === lastSavedPage.current) return;
     lastSavedPage.current = pageNum;
 
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      api.post('/history', {
-        comicId: chapterObj.comic.id,
-        chapterId: chapterObj.id,
-        lastPage: pageNum,
-      }, { token: accessToken }).catch(() => { });
-    }, 2000);
+    // 1. Luôn lưu vào local storage (nhanh tức thì, hoạt động cho cả khách vãng lai và user)
+    useReadingHistoryStore.getState().recordRead({
+      comicId: chapterObj.comic.id,
+      comicSlug: chapterObj.comic.slug,
+      chapterId: chapterObj.id,
+      chapterNumber: chapterObj.number,
+      lastPage: pageNum,
+    });
+
+    // 2. Nếu đã đăng nhập, debounce lưu lên server
+    if (accessToken) {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        api.post('/history', {
+          comicId: chapterObj.comic.id,
+          chapterId: chapterObj.id,
+          lastPage: pageNum,
+        }, { token: accessToken }).catch(() => { });
+      }, 2000);
+    }
   }, [accessToken]);
 
   // Track page numbers for history in scroll mode

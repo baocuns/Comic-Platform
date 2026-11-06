@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsArray, IsEnum, IsNumber, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsArray, IsEnum, IsNumber, MaxLength, IsInt, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ComicStatus, ContentRating } from '@prisma/client';
 
 export class CreateComicDto {
@@ -73,9 +74,15 @@ export class ComicQueryDto {
   search?: string;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   limit?: number;
 }
 

@@ -5,7 +5,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
-import { CommentSection } from '@/components/comments';
+import { CommentSection, CommentData } from '@/components/comments';
+import { ChapterList } from '@/components/comic';
 import { trackComicView, getGuestRecentGenres } from '@/lib/recommendation-tracker';
 
 interface Comic {
@@ -22,23 +23,6 @@ interface Comic {
   genres: { id: string; name: string; slug: string; icon: string | null }[];
   stats: { totalViews: number; avgRating: number; totalRatings: number; totalBookmarks: number; totalChapters: number };
   chapters?: { id: string; number: string; title: string | null; totalPages: number; publishedAt: string | null }[];
-}
-
-interface CommentUser {
-  id: string;
-  displayName: string;
-  avatarUrl: string | null;
-  username: string;
-}
-
-interface ComicComment {
-  id: string;
-  content: string;
-  createdAt: string;
-  user: CommentUser;
-  chapter?: { number: string; title: string | null };
-  replies?: ComicComment[];
-  _count?: { replies: number };
 }
 
 interface RelatedComic {
@@ -67,9 +51,6 @@ const statusColor: Record<string, string> = {
   DRAFT: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-500/20 dark:text-zinc-400',
 };
 
-const CHAPTERS_PER_PAGE = 50;
-const COMMENTS_PER_PAGE = 10;
-
 export default function ComicDetailPage() {
   const params = useParams();
   const { user, accessToken } = useAuthStore();
@@ -96,15 +77,12 @@ export default function ComicDetailPage() {
   const [showRatingForm, setShowRatingForm] = useState(false);
 
   // Comment state
-  const [comicComments, setComicComments] = useState<ComicComment[]>([]);
+  const [comicComments, setComicComments] = useState<CommentData[]>([]);
   const [commentPage, setCommentPage] = useState(1);
   const [commentHasNext, setCommentHasNext] = useState(false);
   const [commentTotal, setCommentTotal] = useState(0);
+  const [loadingComments, setLoadingComments] = useState(true);
   const [loadingMoreComments, setLoadingMoreComments] = useState(false);
-
-  // Chapter pagination state
-  const [chapterPageIndex, setChapterPageIndex] = useState(0);
-  const [chapterSortAsc, setChapterSortAsc] = useState(true);
 
   // Related comics
   const [relatedComics, setRelatedComics] = useState<RelatedComic[]>([]);
@@ -156,19 +134,21 @@ export default function ComicDetailPage() {
             .then((r) => {
               setRelatedComics(r.data.filter((c) => c.id !== comic.id).slice(0, 5));
             })
-            .catch(() => {});
+            .catch(() => { });
         }
       });
 
     // Load comments (public, page 1)
-    api.get<{ data: ComicComment[]; meta: { total: number; hasNext: boolean } }>(`/comments/comic/${comic.id}?page=1`)
+    setLoadingComments(true);
+    api.get<{ data: CommentData[]; meta: { total: number; hasNext: boolean } }>(`/comments/comic/${comic.id}?page=1`)
       .then((r) => {
         setComicComments(r.data);
         setCommentHasNext(r.meta.hasNext);
         setCommentTotal(r.meta.total);
         setCommentPage(1);
       })
-      .catch(() => { });
+      .catch(() => { })
+      .finally(() => setLoadingComments(false));
 
     if (!accessToken) return;
 
@@ -222,37 +202,43 @@ export default function ComicDetailPage() {
     setSubmittingRating(false);
   };
 
-  // Sorted chapters
-  const sortedChapters = useMemo(() => {
-    if (!comic?.chapters) return [];
-    return [...comic.chapters].sort((a, b) => {
-      const numA = parseFloat(a.number) || 0;
-      const numB = parseFloat(b.number) || 0;
-      return chapterSortAsc ? numA - numB : numB - numA;
-    });
-  }, [comic?.chapters, chapterSortAsc]);
-
-  // Chapter pagination
-  const totalChapterPages = Math.ceil(sortedChapters.length / CHAPTERS_PER_PAGE);
-  const paginatedChapters = sortedChapters.slice(
-    chapterPageIndex * CHAPTERS_PER_PAGE,
-    (chapterPageIndex + 1) * CHAPTERS_PER_PAGE
-  );
-
-  // Comment pagination (calculate total pages)
-  const totalCommentPages = Math.ceil(commentTotal / COMMENTS_PER_PAGE);
-
-  const loadCommentPage = async (page: number) => {
-    if (!comic) return;
+  const handleLoadMoreComments = async () => {
+    if (!comic || loadingMoreComments || !commentHasNext) return;
     setLoadingMoreComments(true);
     try {
-      const r = await api.get<{ data: ComicComment[]; meta: { total: number; hasNext: boolean } }>(`/comments/comic/${comic.id}?page=${page}`);
-      setComicComments(r.data);
+      const nextPage = commentPage + 1;
+      const r = await api.get<{ data: CommentData[]; meta: { total: number; hasNext: boolean } }>(
+        `/comments/comic/${comic.id}?page=${nextPage}`
+      );
+      setComicComments((prev) => [...prev, ...r.data]);
       setCommentHasNext(r.meta.hasNext);
       setCommentTotal(r.meta.total);
-      setCommentPage(page);
+      setCommentPage(nextPage);
     } catch { }
     setLoadingMoreComments(false);
+  };
+
+  const handleDeleteComment = async (commentId: string, parentId?: string | null) => {
+    if (!accessToken || !confirm('Bạn có chắc chắn muốn xóa bình luận này?')) return;
+    try {
+      await api.delete(`/comments/${commentId}`, { token: accessToken });
+      if (parentId) {
+        setComicComments((prev) =>
+          prev.map((c) =>
+            c.id === parentId
+              ? {
+                  ...c,
+                  replies: c.replies?.filter((r) => r.id !== commentId),
+                  _count: c._count ? { replies: Math.max(0, c._count.replies - 1) } : undefined,
+                }
+              : c
+          )
+        );
+      } else {
+        setComicComments((prev) => prev.filter((c) => c.id !== commentId));
+        setCommentTotal((prev) => Math.max(0, prev - 1));
+      }
+    } catch { }
   };
 
   if (loading) return (
@@ -294,7 +280,7 @@ export default function ComicDetailPage() {
           <div className="flex flex-col sm:flex-row gap-5 sm:gap-6">
             {/* Cover Image */}
             <div className="mx-auto sm:mx-0 flex-shrink-0">
-              <div className="h-56 w-40 sm:h-64 sm:w-44 overflow-hidden rounded-xl shadow-xl shadow-amber-900/10 dark:shadow-black/30 bg-zinc-100 dark:bg-zinc-800 ring-4 ring-white dark:ring-zinc-900">
+              <div className="h-56 w-40 sm:h-64 sm:w-44 overflow-hidden rounded-xl shadow-xl shadow-amber-900/10 dark:shadow-black/30 bg-zinc-100 dark:bg-zinc-800">
                 {comic.coverUrl ? (
                   <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover" />
                 ) : (
@@ -424,80 +410,12 @@ export default function ComicDetailPage() {
             <div className="rounded-b-xl border border-t-0 border-zinc-200/80 dark:border-white/10 bg-white dark:bg-zinc-900/60 mb-6">
               {/* ── Chapters Tab ── */}
               {activeTab === 'chapters' && (
-                <div className="p-5">
-                  {/* Chapter header bar */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-                      <span className="font-medium text-zinc-700 dark:text-zinc-200">
-                        {comic.status === 'ONGOING' ? (
-                          <span className="text-emerald-600 dark:text-emerald-400">Đang cập nhật</span>
-                        ) : (
-                          <span className={`${statusColor[comic.status] || ''} rounded-full px-2 py-0.5 text-xs`}>
-                            {statusLabel[comic.status] || comic.status}
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-zinc-300 dark:text-zinc-600">|</span>
-                      <span>Tổng {sortedChapters.length} chương</span>
-                    </div>
-
-                    {sortedChapters.length > 0 && (
-                      <button
-                        onClick={() => setChapterSortAsc(!chapterSortAsc)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:border-amber-300 dark:hover:border-amber-500/30 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer transition-all"
-                        title={chapterSortAsc ? 'Mới nhất trước' : 'Cũ nhất trước'}
-                      >
-                        <i className={`fa-light ${chapterSortAsc ? 'fa-arrow-up-1-9' : 'fa-arrow-down-9-1'}`}></i>
-                        <span>{chapterSortAsc ? 'Tăng dần' : 'Giảm dần'}</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Chapter range pagination */}
-                  {totalChapterPages > 1 && (
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {Array.from({ length: totalChapterPages }, (_, i) => {
-                        const start = i * CHAPTERS_PER_PAGE + 1;
-                        const end = Math.min((i + 1) * CHAPTERS_PER_PAGE, sortedChapters.length);
-                        return (
-                          <button
-                            key={i}
-                            onClick={() => setChapterPageIndex(i)}
-                            className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all cursor-pointer ${chapterPageIndex === i
-                              ? 'bg-amber-500 text-white shadow-sm shadow-amber-500/25'
-                              : 'border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:border-amber-300 hover:text-amber-600 dark:hover:border-amber-500/30 dark:hover:text-amber-400'
-                              }`}
-                          >
-                            {start} - {end}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Chapter Grid */}
-                  {paginatedChapters.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                      {paginatedChapters.map((ch) => (
-                        <Link
-                          key={ch.id}
-                          href={`/read/${ch.id}`}
-                          className="group relative flex items-center gap-2 rounded-lg border border-zinc-100 dark:border-white/5 bg-zinc-50/80 dark:bg-white/[0.03] px-3.5 py-3 text-sm transition-all hover:border-amber-400/50 hover:bg-amber-50/60 dark:hover:border-amber-500/30 dark:hover:bg-amber-500/5"
-                        >
-                          <span className="truncate text-zinc-700 dark:text-zinc-300 group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors font-medium text-xs">
-                            Chương {ch.number}
-                            {ch.title && <span className="font-normal text-zinc-500 dark:text-zinc-500"> {ch.title}</span>}
-                          </span>
-                        </Link>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-12 text-center text-sm text-zinc-400 dark:text-zinc-500">
-                      <i className="fa-light fa-book-open-cover text-3xl mb-3 block text-zinc-300 dark:text-zinc-600"></i>
-                      Chưa có chương nào
-                    </div>
-                  )}
-                </div>
+                <ChapterList
+                  chapters={comic.chapters}
+                  comicStatus={comic.status}
+                  comicId={comic.id}
+                  comicSlug={comic.slug}
+                />
               )}
 
               {/* ── Ratings Tab ── */}
@@ -631,138 +549,28 @@ export default function ComicDetailPage() {
 
             {/* ═══ Comments Section (Below Tabs) ═══ */}
             <div className="mb-8">
-              <div className="rounded-xl border border-zinc-200/80 dark:border-white/10 bg-white dark:bg-zinc-900/60 p-5 sm:p-6">
-                {/* Comment Header */}
-                <div className="mb-5 flex items-center gap-2">
-                  <h2 className="flex items-center gap-2 text-lg font-bold text-zinc-900 dark:text-white">
-                    <i className="fa-regular fa-comments text-amber-500"></i>
-                    Bình luận ({commentTotal})
-                  </h2>
-                </div>
-
-                {/* Read-only notice */}
-                <div className="mb-5 rounded-lg border border-amber-200/50 dark:border-amber-500/15 bg-amber-50/50 dark:bg-amber-500/5 px-4 py-3 text-xs text-amber-700 dark:text-amber-300/80 flex items-start gap-2">
-                  <i className="fa-regular fa-circle-info mt-0.5"></i>
-                  <span>Bình luận được hiển thị từ tất cả các chương. Để gửi bình luận, hãy chọn đọc một chương bất kỳ bên trên.</span>
-                </div>
-
-                {/* Comments List */}
-                {loadingMoreComments ? (
-                  <div className="py-10 text-center">
-                    <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-amber-300/30 border-t-amber-500"></div>
-                  </div>
-                ) : comicComments.length > 0 ? (
-                  <div className="space-y-4">
-                    {comicComments.map((comment) => (
-                      <div key={comment.id} className="rounded-xl border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-4 transition-colors hover:border-amber-200/40 dark:hover:border-amber-500/10">
-                        <div className="flex items-start gap-3">
-                          <Link
-                            href={`/@${comment.user.username}`}
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-500/20 text-sm font-bold text-amber-700 dark:text-amber-300 transition-opacity hover:opacity-85"
-                          >
-                            {comment.user.avatarUrl ? (
-                              <img src={comment.user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
-                            ) : (
-                              comment.user.displayName[0]
-                            )}
-                          </Link>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Link
-                                href={`/@${comment.user.username}`}
-                                className="text-sm font-medium text-zinc-800 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-                              >
-                                {comment.user.displayName}
-                              </Link>
-                              {comment.chapter && (
-                                <span className="text-[10px] rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2 py-0.5">
-                                  Ch.{comment.chapter.number}
-                                </span>
-                              )}
-                              <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                                {new Date(comment.createdAt).toLocaleDateString('vi-VN')}
-                              </span>
-                            </div>
-                            <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed break-words">{comment.content}</p>
-
-                            {/* Replies */}
-                            {comment.replies && comment.replies.length > 0 && (
-                              <div className="mt-3 ml-2 pl-3 border-l-2 border-amber-200/40 dark:border-amber-500/15 space-y-3">
-                                {comment.replies.map((reply) => (
-                                  <div key={reply.id} className="flex items-start gap-2.5">
-                                    <Link
-                                      href={`/@${reply.user.username}`}
-                                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-700 text-xs font-bold text-zinc-600 dark:text-zinc-300"
-                                    >
-                                      {reply.user.avatarUrl ? (
-                                        <img src={reply.user.avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
-                                      ) : (
-                                        reply.user.displayName[0]
-                                      )}
-                                    </Link>
-                                    <div>
-                                      <div className="flex items-center gap-2 mb-0.5">
-                                        <Link href={`/@${reply.user.username}`} className="text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
-                                          {reply.user.displayName}
-                                        </Link>
-                                        <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{new Date(reply.createdAt).toLocaleDateString('vi-VN')}</span>
-                                      </div>
-                                      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">{reply.content}</p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="py-10 text-center text-sm text-zinc-400 dark:text-zinc-500">
-                    <i className="fa-light fa-message-dots text-3xl mb-3 block text-zinc-300 dark:text-zinc-600"></i>
-                    Chưa có bình luận nào.
-                  </div>
-                )}
-
-                {/* Pagination */}
-                {totalCommentPages > 1 && (
-                  <div className="mt-6 flex items-center justify-center gap-1.5">
-                    <button
-                      onClick={() => loadCommentPage(commentPage - 1)}
-                      disabled={commentPage <= 1}
-                      className="rounded-lg p-2 text-sm text-zinc-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:text-amber-400 dark:hover:bg-amber-500/10 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
-                    >
-                      <i className="fa-regular fa-chevron-left"></i>
-                    </button>
-
-                    {generatePageNumbers(commentPage, totalCommentPages).map((p, i) => (
-                      p === '...' ? (
-                        <span key={`ellipsis-${i}`} className="px-2 text-zinc-400 text-sm">...</span>
-                      ) : (
-                        <button
-                          key={p}
-                          onClick={() => loadCommentPage(p as number)}
-                          className={`rounded-lg w-9 h-9 text-sm font-medium transition-all cursor-pointer ${commentPage === p
-                            ? 'bg-amber-500 text-white shadow-sm shadow-amber-500/25'
-                            : 'text-zinc-600 dark:text-zinc-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10 dark:hover:text-amber-400'
-                            }`}
-                        >
-                          {p}
-                        </button>
-                      )
-                    ))}
-
-                    <button
-                      onClick={() => loadCommentPage(commentPage + 1)}
-                      disabled={commentPage >= totalCommentPages}
-                      className="rounded-lg p-2 text-sm text-zinc-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:text-amber-400 dark:hover:bg-amber-500/10 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
-                    >
-                      <i className="fa-regular fa-chevron-right"></i>
-                    </button>
-                  </div>
-                )}
-              </div>
+              <CommentSection
+                comments={comicComments}
+                totalCount={commentTotal}
+                currentUser={
+                  user
+                    ? {
+                        id: user.id,
+                        username: user.username,
+                        displayName: user.displayName,
+                        avatarUrl: user.avatarUrl,
+                      }
+                    : null
+                }
+                readOnly={true}
+                readOnlyMessage="Bình luận được hiển thị từ tất cả các chương. Để gửi bình luận, hãy chọn đọc một chương bất kỳ bên trên."
+                onDeleteComment={handleDeleteComment}
+                hasNext={commentHasNext}
+                isLoading={loadingComments}
+                isLoadingMore={loadingMoreComments}
+                onLoadMore={handleLoadMoreComments}
+                accentColor="amber"
+              />
             </div>
           </div>
 
@@ -889,24 +697,4 @@ export default function ComicDetailPage() {
       </div>
     </>
   );
-}
-
-/** Generate page number array with ellipsis for pagination */
-function generatePageNumbers(current: number, total: number): (number | string)[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-
-  const pages: (number | string)[] = [1];
-
-  if (current > 3) pages.push('...');
-
-  const start = Math.max(2, current - 1);
-  const end = Math.min(total - 1, current + 1);
-
-  for (let i = start; i <= end; i++) pages.push(i);
-
-  if (current < total - 2) pages.push('...');
-
-  pages.push(total);
-
-  return pages;
 }

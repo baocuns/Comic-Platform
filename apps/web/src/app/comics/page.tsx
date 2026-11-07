@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { ElDropdown, ElMenu } from '@tailwindplus/elements/react';
@@ -42,6 +42,14 @@ function ComicsContent() {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [genresLoading, setGenresLoading] = useState(true);
   const [loading, setLoading] = useState(true);
+  const activeGenreRef = useRef<HTMLButtonElement>(null);
+
+  // Auto-scroll active genre pill into view
+  useEffect(() => {
+    if (selectedGenre && activeGenreRef.current) {
+      activeGenreRef.current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [selectedGenre, genres]);
 
   // Load genres
   useEffect(() => {
@@ -117,76 +125,91 @@ function ComicsContent() {
       </div>
 
       {/* Filters: Sort & Genres */}
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
         {/* Sort Dropdown */}
-        <ElDropdown className="relative inline-block">
+        <div className="shrink-0">
+          <ElDropdown className="relative inline-block">
+            <button
+              type="button"
+              popoverTarget="sort-menu"
+              className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-zinc-800 dark:text-zinc-300 outline-none transition-colors hover:bg-zinc-50 dark:hover:bg-white/10 cursor-pointer shadow-xs"
+            >
+              <span>{currentSortOption.label}</span>
+              <svg className="h-4 w-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            <ElMenu
+              id="sort-menu"
+              popover="auto"
+              anchor="bottom start"
+              className="z-20 mt-1 w-44 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-1.5 shadow-xl transition-opacity"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => updateFilters(undefined, opt.value, 1)}
+                  className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors cursor-pointer ${sort === opt.value
+                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold'
+                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5'
+                    }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </ElMenu>
+          </ElDropdown>
+        </div>
+
+        {/* Divider on desktop */}
+        <div className="hidden sm:block h-6 w-px bg-zinc-200 dark:bg-white/10 shrink-0" />
+
+        {/* Genre pills horizontal scroll */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth flex-1 min-w-0">
           <button
             type="button"
-            popoverTarget="sort-menu"
-            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-zinc-800 dark:text-zinc-300 outline-none transition-colors hover:bg-zinc-50 dark:hover:bg-white/10 cursor-pointer shadow-xs"
+            ref={!selectedGenre ? activeGenreRef : undefined}
+            onClick={(e) => {
+              updateFilters(null, undefined, 1);
+              e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }}
+            className={`shrink-0 whitespace-nowrap cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${!selectedGenre
+              ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
+              : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-amber-300 dark:hover:border-amber-500/40 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:shadow-xs'
+              }`}
           >
-            <span>{currentSortOption.label}</span>
-            <svg className="h-4 w-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
+            Tất cả
           </button>
 
-          <ElMenu
-            id="sort-menu"
-            popover="auto"
-            anchor="bottom start"
-            className="z-20 mt-1 w-44 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-1.5 shadow-xl transition-opacity"
-          >
-            {SORT_OPTIONS.map((opt) => (
+          {genresLoading ? (
+            ['w-16', 'w-20', 'w-14', 'w-24', 'w-18'].map((widthClass, i) => (
+              <div
+                key={i}
+                className={`h-7 ${widthClass} shrink-0 animate-pulse rounded-full bg-zinc-200/60 dark:bg-zinc-800/60`}
+              />
+            ))
+          ) : (
+            genres.map((g) => (
               <button
-                key={opt.value}
+                key={g.id}
+                ref={selectedGenre === g.slug ? activeGenreRef : undefined}
                 type="button"
-                onClick={() => updateFilters(undefined, opt.value, 1)}
-                className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors cursor-pointer ${sort === opt.value
-                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold'
-                  : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5'
+                onClick={(e) => {
+                  updateFilters(g.slug, undefined, 1);
+                  e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                }}
+                className={`shrink-0 whitespace-nowrap cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${selectedGenre === g.slug
+                  ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
+                  : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-amber-300 dark:hover:border-amber-500/40 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:shadow-xs'
                   }`}
               >
-                {opt.label}
+                {g.icon} {g.name}
               </button>
-            ))}
-          </ElMenu>
-        </ElDropdown>
-
-        {/* Genre pills */}
-        <button
-          type="button"
-          onClick={() => updateFilters(null, undefined, 1)}
-          className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${!selectedGenre
-            ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
-            : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-amber-300 dark:hover:border-amber-500/40 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:shadow-xs'
-            }`}
-        >
-          Tất cả
-        </button>
-
-        {genresLoading ? (
-          ['w-16', 'w-20', 'w-14', 'w-24', 'w-18'].map((widthClass, i) => (
-            <div
-              key={i}
-              className={`h-7 ${widthClass} animate-pulse rounded-full bg-zinc-200/60 dark:bg-zinc-800/60`}
-            />
-          ))
-        ) : (
-          genres.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              onClick={() => updateFilters(g.slug, undefined, 1)}
-              className={`cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${selectedGenre === g.slug
-                ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
-                : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-amber-300 dark:hover:border-amber-500/40 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:shadow-xs'
-                }`}
-            >
-              {g.icon} {g.name}
-            </button>
-          ))
-        )}
+            ))
+          )}
+        </div>
       </div>
 
       {/* Comics Grid (Using Shared Component) */}

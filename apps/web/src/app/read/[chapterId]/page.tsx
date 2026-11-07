@@ -251,8 +251,12 @@ export default function ReaderPage() {
     useReadingHistoryStore.getState().recordRead({
       comicId: chapterObj.comic.id,
       comicSlug: chapterObj.comic.slug,
+      comicTitle: chapterObj.comic.title,
+      coverUrl: (chapterObj.comic as any).coverUrl || null,
       chapterId: chapterObj.id,
       chapterNumber: chapterObj.number,
+      chapterTitle: chapterObj.title,
+      totalPages: chapterObj.totalPages,
       lastPage: pageNum,
     });
 

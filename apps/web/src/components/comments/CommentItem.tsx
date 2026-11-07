@@ -17,7 +17,7 @@ export interface CommentData {
   content: string;
   createdAt: string;
   user: CommentUser;
-  chapter?: { id?: string; number: number | string } | null;
+  chapter?: { id?: string; number: number | string; title?: string | null } | null;
   parentId?: string | null;
   replies?: CommentData[];
   _count?: { replies: number };

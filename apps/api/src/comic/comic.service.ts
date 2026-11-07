@@ -78,12 +78,15 @@ export class ComicService {
     }
 
     // Sort
-    let orderBy: Prisma.ComicOrderByWithRelationInput = { lastChapterAt: 'desc' };
+    let orderBy: Prisma.ComicOrderByWithRelationInput | Prisma.ComicOrderByWithRelationInput[] = [
+      { lastChapterAt: { sort: 'desc', nulls: 'last' } },
+      { updatedAt: 'desc' },
+    ];
     switch (query.sort) {
       case 'popular': orderBy = { totalViews: 'desc' }; break;
       case 'rating': orderBy = { avgRating: 'desc' }; break;
       case 'latest': orderBy = { publishedAt: 'desc' }; break;
-      case 'updated': orderBy = { lastChapterAt: 'desc' }; break;
+      case 'updated': orderBy = [{ lastChapterAt: { sort: 'desc', nulls: 'last' } }, { updatedAt: 'desc' }]; break;
     }
 
     const [comics, total] = await Promise.all([
@@ -184,6 +187,7 @@ export class ComicService {
     // Invalidate cache
     await this.redis.del(`comic:${comic.slug}`);
     if (updated.slug !== comic.slug) await this.redis.del(`comic:${updated.slug}`);
+    await this.redis.deletePattern('homepage*');
 
     return this.formatComic(updated);
   }
@@ -201,6 +205,7 @@ export class ComicService {
     });
 
     await this.redis.del(`comic:${comic.slug}`);
+    await this.redis.deletePattern('homepage*');
   }
 
   // ── Submit Comic Review ──
@@ -260,7 +265,7 @@ export class ComicService {
       }),
       this.prisma.comic.findMany({
         where: baseWhere,
-        orderBy: { publishedAt: 'desc' },
+        orderBy: [{ lastChapterAt: { sort: 'desc', nulls: 'last' } }, { updatedAt: 'desc' }],
         take,
         include: baseInclude,
       }),

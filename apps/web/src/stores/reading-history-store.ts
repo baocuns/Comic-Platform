@@ -9,10 +9,15 @@ const STORAGE_KEY = 'comics_reading_history_v1';
 export interface LocalReadRecord {
   comicId: string;
   comicSlug?: string;
+  comicTitle?: string;
+  coverUrl?: string | null;
   chapterId: string;
   chapterNumber: string;
+  chapterTitle?: string | null;
+  totalPages?: number;
   lastPage?: number;
   readAt: string;
+  readChapterIds?: string[];
 }
 
 export type LocalRecordsMap = Record<string, LocalReadRecord>;
@@ -57,11 +62,16 @@ interface ReadingHistoryState {
 
   hydrate: () => void;
   getChapter: (comicId?: string, comicSlug?: string) => string | undefined;
+  getRecord: (comicId?: string, comicSlug?: string) => LocalReadRecord | undefined;
   recordRead: (data: {
     comicId: string;
     comicSlug?: string;
+    comicTitle?: string;
+    coverUrl?: string | null;
     chapterId: string;
     chapterNumber: string | number;
+    chapterTitle?: string | null;
+    totalPages?: number;
     lastPage?: number;
   }) => void;
   syncWithServer: (accessToken: string) => Promise<void>;
@@ -92,6 +102,16 @@ export const useReadingHistoryStore = create<ReadingHistoryState>((set, get) => 
     return undefined;
   },
 
+  getRecord: (comicId, comicSlug) => {
+    const { records } = get();
+    if (comicId && records[comicId]) return records[comicId];
+    if (comicSlug) {
+      const match = Object.values(records).find((r) => r.comicSlug === comicSlug);
+      if (match) return match;
+    }
+    return undefined;
+  },
+
   recordRead: (data) => {
     const { records } = get();
     const comicId = data.comicId;
@@ -105,13 +125,24 @@ export const useReadingHistoryStore = create<ReadingHistoryState>((set, get) => 
     const nextNum = parseFloat(newChapNumStr);
     const shouldUpdateChapter = isNaN(currentNum) || isNaN(nextNum) || nextNum >= currentNum;
 
+    // Track read chapter IDs
+    const currentReadIds = existing?.readChapterIds || (existing?.chapterId ? [existing.chapterId] : []);
+    const updatedReadIds = currentReadIds.includes(data.chapterId)
+      ? currentReadIds
+      : [...currentReadIds, data.chapterId];
+
     const updatedRecord: LocalReadRecord = {
       comicId,
       comicSlug: data.comicSlug || existing?.comicSlug,
+      comicTitle: data.comicTitle || existing?.comicTitle,
+      coverUrl: data.coverUrl !== undefined ? data.coverUrl : existing?.coverUrl,
       chapterId: shouldUpdateChapter ? data.chapterId : (existing?.chapterId || data.chapterId),
       chapterNumber: shouldUpdateChapter ? newChapNumStr : existing!.chapterNumber,
+      chapterTitle: shouldUpdateChapter ? data.chapterTitle : existing?.chapterTitle,
+      totalPages: data.totalPages ?? existing?.totalPages,
       lastPage: data.lastPage || 1,
       readAt: new Date().toISOString(),
+      readChapterIds: updatedReadIds,
     };
 
     const updatedRecords: LocalRecordsMap = {
@@ -139,7 +170,9 @@ export const useReadingHistoryStore = create<ReadingHistoryState>((set, get) => 
           chapter: {
             id: string;
             number: string;
-            comic: { id: string; slug: string };
+            title: string | null;
+            totalPages: number;
+            comic: { id: string; title: string; slug: string; coverUrl: string | null };
           };
         }>;
       }>('/history?limit=100', { token: accessToken });
@@ -159,15 +192,24 @@ export const useReadingHistoryStore = create<ReadingHistoryState>((set, get) => 
 
         serverComicIds.add(comicId);
         const existing = currentRecords[comicId];
+        const prevIds = existing?.readChapterIds || (existing?.chapterId ? [existing.chapterId] : []);
+        const mergedIds = item.chapter.id && !prevIds.includes(item.chapter.id)
+          ? [...prevIds, item.chapter.id]
+          : prevIds;
 
         if (!existing) {
           currentRecords[comicId] = {
             comicId,
             comicSlug,
+            comicTitle: item.chapter?.comic?.title,
+            coverUrl: item.chapter?.comic?.coverUrl,
             chapterId: item.chapter.id,
             chapterNumber: String(chapNum),
+            chapterTitle: item.chapter.title,
+            totalPages: item.chapter.totalPages,
             lastPage: item.lastPage,
             readAt: item.readAt,
+            readChapterIds: mergedIds,
           };
         } else {
           const localNum = parseFloat(existing.chapterNumber);
@@ -176,10 +218,20 @@ export const useReadingHistoryStore = create<ReadingHistoryState>((set, get) => 
             currentRecords[comicId] = {
               comicId,
               comicSlug: comicSlug || existing.comicSlug,
+              comicTitle: item.chapter?.comic?.title || existing.comicTitle,
+              coverUrl: item.chapter?.comic?.coverUrl ?? existing.coverUrl,
               chapterId: item.chapter.id,
               chapterNumber: String(chapNum),
+              chapterTitle: item.chapter.title || existing.chapterTitle,
+              totalPages: item.chapter.totalPages || existing.totalPages,
               lastPage: item.lastPage,
               readAt: item.readAt,
+              readChapterIds: mergedIds,
+            };
+          } else {
+            currentRecords[comicId] = {
+              ...existing,
+              readChapterIds: mergedIds,
             };
           }
         }

@@ -254,6 +254,7 @@ export class ModerationService {
       });
 
       await this.redis.del(`comic:${comic.slug}`);
+      await this.redis.deletePattern('homepage*');
       this.checkAndPromoteAuthorTrust(comic.authorId).catch(() => {});
       return updated;
     }
@@ -293,7 +294,15 @@ export class ModerationService {
         },
       });
 
+      await this.prisma.comic.update({
+        where: { id: chapter.comicId },
+        data: {
+          lastChapterAt: new Date(),
+        },
+      });
+
       await this.redis.del(`comic:${chapter.comic.slug}`);
+      await this.redis.deletePattern('homepage*');
       this.checkAndPromoteAuthorTrust(chapter.comic.authorId).catch(() => {});
       return updated;
     }

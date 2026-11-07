@@ -19,8 +19,10 @@ export function Header() {
   const lastScrollY = useRef(0);
 
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showGuestDropdown, setShowGuestDropdown] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const guestDropdownRef = useRef<HTMLDivElement>(null);
   const openSearch = useSearchStore((state) => state.open);
 
   useEffect(() => {
@@ -45,9 +47,18 @@ export function Header() {
   }, []);
 
   useEffect(() => {
+    setShowDropdown(false);
+    setShowGuestDropdown(false);
+  }, [pathname]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setShowDropdown(false);
+      }
+      if (guestDropdownRef.current && !guestDropdownRef.current.contains(target)) {
+        setShowGuestDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -93,14 +104,14 @@ export function Header() {
 
         {/* Navigation Links */}
         <div className="hidden items-center gap-6 md:flex">
-          <Link href="/" className="text-base font-medium text-zinc-500 dark:text-zinc-400 transition-colors hover:text-zinc-900 hover:dark:text-white">
-            TRANG CHỦ
+          <Link href="/" className="text-base font-medium text-black dark:text-white">
+            Trang chủ
           </Link>
-          <Link href="/comics" className="text-base font-medium text-zinc-500 dark:text-zinc-400 transition-colors hover:text-zinc-900 hover:dark:text-white">
-            TRUYỆN TRANH
+          <Link href="/comics" className="text-base font-medium text-black dark:text-white">
+            Truyện tranh
           </Link>
-          <Link href="/news" className="text-base font-medium text-zinc-500 dark:text-zinc-400 transition-colors hover:text-zinc-900 hover:dark:text-white">
-            TIN TỨC
+          <Link href="/news" className="text-base font-medium text-black dark:text-white">
+            Tin tức
           </Link>
         </div>
 
@@ -257,14 +268,91 @@ export function Header() {
               )}
             </div>
           ) : (
-            <Link
-              href="/login"
-              className="flex p-1.5 sm:p-2 items-center justify-center text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 hover:dark:text-white cursor-pointer"
-              title="Đăng nhập"
-              aria-label="Đăng nhập"
-            >
-              <i className="fa-light fa-user text-[21px]" />
-            </Link>
+            <>
+              {/* Mobile: Direct link to /login (no popup on mobile) */}
+              <Link
+                href="/login"
+                className="flex md:hidden p-1.5 sm:p-2 items-center justify-center text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 hover:dark:text-white cursor-pointer"
+                title="Đăng nhập"
+                aria-label="Đăng nhập"
+              >
+                <i className="fa-light fa-user text-[21px]" />
+              </Link>
+
+              {/* Desktop: Toggle guest menu */}
+              <div className="relative hidden md:block" ref={guestDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowGuestDropdown(!showGuestDropdown)}
+                  className={`flex p-1.5 sm:p-2 items-center justify-center text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 hover:dark:text-white cursor-pointer rounded-full ${showGuestDropdown ? 'text-amber-500 dark:text-amber-400' : ''
+                    }`}
+                  title="Tài khoản & Lịch sử"
+                  aria-label="Tài khoản & Lịch sử"
+                  aria-expanded={showGuestDropdown}
+                >
+                  <i className="fa-light fa-user text-[21px]" />
+                </button>
+
+                {/* Guest Dropdown Menu */}
+                {showGuestDropdown && (
+                  <div className="absolute right-0 mt-2 w-64 origin-top-right overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121212] p-1.5 shadow-2xl animate-slide-up z-50">
+                    {/* Guest Header with Login & Register action buttons */}
+                    <div className="px-3.5 py-3 border-b border-zinc-100 dark:border-white/5">
+                      <p className="text-sm font-bold text-zinc-900 dark:text-white">Bạn đọc OWOC</p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">
+                        Đăng nhập để đồng bộ lịch sử và tủ sách của bạn.
+                      </p>
+                      <div className="mt-3 flex items-center gap-2">
+                        <Link
+                          href="/login"
+                          onClick={() => setShowGuestDropdown(false)}
+                          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-2 text-xs font-bold text-white shadow-sm hover:brightness-105 active:scale-95 transition-all"
+                        >
+                          <i className="fa-light fa-right-to-bracket text-xs" />
+                          <span>Đăng nhập</span>
+                        </Link>
+                      </div>
+                    </div>
+
+                    {/* Guest Navigation Items */}
+                    <div className="py-1">
+                      <Link
+                        href="/history"
+                        onClick={() => setShowGuestDropdown(false)}
+                        className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                      >
+                        <i className="fa-light fa-clock-rotate-left w-4 text-center text-zinc-400 text-base" />
+                        <span>Lịch sử đọc</span>
+                      </Link>
+                      <Link
+                        href="/bookmarks"
+                        onClick={() => setShowGuestDropdown(false)}
+                        className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                      >
+                        <i className="fa-light fa-bookmark w-4 text-center text-zinc-400 text-base" />
+                        <span>Truyện đã lưu</span>
+                      </Link>
+                    </div>
+
+                    <div className="border-t border-zinc-100 dark:border-white/5 my-1" />
+
+                    <div className="py-1">
+                      {/* Theme Toggle */}
+                      <div
+                        onClick={toggleTheme}
+                        className="flex items-center justify-between px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer select-none"
+                      >
+                        <div className="flex items-center gap-3">
+                          <i className={`fa-light ${theme === 'dark' ? 'fa-moon' : 'fa-sun-bright'} w-4 text-center text-zinc-400 text-base`} />
+                          <span>Giao diện: {theme === 'dark' ? 'Tối' : 'Sáng'}</span>
+                        </div>
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-amber-500/50 shadow-sm" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </nav>

@@ -15,12 +15,14 @@ interface CommentSectionProps {
   onLoadMore?: () => void;
   hasNext?: boolean;
   isLoadingMore?: boolean;
+  isLoading?: boolean;
   isSubmitting?: boolean;
   readOnly?: boolean;
   readOnlyMessage?: string;
   title?: string;
   isReaderBgDark?: boolean;
   accentColor?: 'amber' | 'violet' | 'emerald';
+  className?: string;
 }
 
 export function CommentSection({
@@ -33,19 +35,21 @@ export function CommentSection({
   onLoadMore,
   hasNext = false,
   isLoadingMore = false,
+  isLoading = false,
   isSubmitting = false,
   readOnly = false,
   readOnlyMessage,
   title = 'Bình luận',
   isReaderBgDark = false,
   accentColor = 'amber',
+  className = '',
 }: CommentSectionProps) {
   return (
     <div
-      className={`lg:rounded border p-5 sm:p-6 transition-colors ${isReaderBgDark
+      className={`rounded-xl border p-5 sm:p-6 transition-colors ${isReaderBgDark
         ? 'border-white/10 bg-white/[0.03] text-white'
         : 'border-zinc-200/80 bg-zinc-50/50 text-zinc-900 dark:border-white/10 dark:bg-zinc-900/80 dark:text-white'
-        }`}
+        } ${className}`}
     >
       {/* Section Header */}
       <div className="mb-6 flex items-center justify-between">
@@ -105,7 +109,19 @@ export function CommentSection({
       )}
 
       {/* Comments List */}
-      {comments.length > 0 ? (
+      {isLoading ? (
+        <div className="py-10 text-center">
+          <div
+            className={`inline-block h-6 w-6 animate-spin rounded-full border-2 border-t-transparent ${
+              accentColor === 'emerald'
+                ? 'border-emerald-500'
+                : accentColor === 'violet'
+                ? 'border-violet-500'
+                : 'border-amber-500'
+            }`}
+          />
+        </div>
+      ) : comments.length > 0 ? (
         <div className="space-y-4">
           {comments.map((comment) => (
             <CommentItem

@@ -27,6 +27,7 @@ const MAIN_NAV: NavItem[] = [
   { label: 'Mới cập nhật', href: '/comics?sort=updated', icon: 'fa-light fa-clock' },
   { label: 'Hot nhất', href: '/comics?sort=popular', icon: 'fa-light fa-fire-flame-curved' },
   { label: 'Tủ sách của tôi', href: '/bookmarks', icon: 'fa-light fa-bookmark' },
+  { label: 'Lịch sử đọc', href: '/history', icon: 'fa-light fa-clock-rotate-left' },
 ];
 
 const GENRES_NAV: NavItem[] = [
@@ -227,6 +228,16 @@ export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             <div className="space-y-0.5">
               {!user ? (
                 <>
+                  <Link
+                    href="/history"
+                    onClick={onClose}
+                    className="flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <span className="flex w-6 items-center justify-center text-center text-lg text-amber-500">
+                      <i className="fa-light fa-clock-rotate-left" />
+                    </span>
+                    <span className="flex-1 font-semibold">Lịch sử đọc</span>
+                  </Link>
                   <Link
                     href="/login"
                     onClick={onClose}

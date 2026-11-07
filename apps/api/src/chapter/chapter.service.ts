@@ -54,6 +54,7 @@ export class ChapterService {
 
     // Invalidate cache
     await this.redis.del(`comic:${comic.slug}`);
+    await this.redis.deletePattern('homepage*');
 
     this.logger.log(`Chapter ${dto.number} created for comic ${comicId}`);
     return chapter;
@@ -87,7 +88,7 @@ export class ChapterService {
     const chapter = await this.prisma.chapter.findUnique({
       where: { id: chapterId, deletedAt: null },
       include: {
-        comic: { select: { id: true, title: true, slug: true, authorId: true, approvalStatus: true } },
+        comic: { select: { id: true, title: true, slug: true, coverUrl: true, authorId: true, approvalStatus: true } },
         pages: {
           orderBy: { pageNumber: 'asc' },
         },

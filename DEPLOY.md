@@ -46,7 +46,7 @@ NEXT_PUBLIC_API_URL=http://localhost:4000/v1
 ### Backend → Railway
 1. Create Railway project, link GitHub repo
 2. Set root directory: `/` (the root of the repository)
-3. Build: `pnpm install && pnpm --filter api build`
+3. Build: `pnpm install && pnpm --filter api... build`
 4. Start: `node apps/api/dist/src/main.js`
 5. Add all env vars from above
 
@@ -54,7 +54,8 @@ NEXT_PUBLIC_API_URL=http://localhost:4000/v1
 1. Import GitHub repo to Vercel
 2. Set root directory: `apps/web`
 3. Framework: Next.js
-4. Set `NEXT_PUBLIC_API_URL` to your Railway API URL
+4. Build Command: `cd ../.. && pnpm --filter web... build` (so `shared` is built before `web`)
+5. Set `NEXT_PUBLIC_API_URL` to your Railway API URL
 
 ### CI/CD (GitHub Actions)
 Add these secrets to your repo:

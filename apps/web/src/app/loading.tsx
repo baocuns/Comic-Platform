@@ -1,9 +1,11 @@
 export default function Loading() {
   return (
-    <div className="flex min-h-[60vh] items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-        <div className="h-10 w-10 animate-spin rounded-full border-3 border-amber-500/20 border-t-amber-500" />
-        <p className="text-sm text-zinc-500">Đang tải...</p>
+    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 space-y-6">
+      <div className="h-64 animate-pulse rounded-3xl bg-[var(--bg-subtle)]" />
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="aspect-[3/4] animate-pulse rounded-2xl bg-[var(--bg-subtle)]" />
+        ))}
       </div>
     </div>
   );

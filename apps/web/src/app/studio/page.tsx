@@ -2,152 +2,192 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useAuthStore } from '@/stores/auth-store';
+import { BookOpen, Eye, Bookmark, Coins, Star, Plus, ArrowRight } from 'lucide-react';
 import { api } from '@/lib/api-client';
+import { useAuthStore } from '@/stores/auth-store';
+import { APPROVAL_STATUS_LABEL, formatCompactNumber } from '@/lib/format';
 import { StatCard } from '@/components/studio/stat-card';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
-interface Comic {
-  id: string;
-  title: string;
-  slug: string;
-  status: string;
-  coverUrl: string | null;
-  stats: { totalViews: number; totalChapters: number };
-  genres: { id: string; name: string }[];
+interface StudioOverview {
+  stats: {
+    totalComics: number;
+    totalChapters: number;
+    totalViews: number;
+    totalBookmarks: number;
+    totalNews: number;
+    totalRevenueCoins: number;
+    avgRating: number;
+  };
+  topComics: Array<{
+    id: string;
+    title: string;
+    slug: string;
+    coverUrl: string | null;
+    totalViews: number;
+    totalChapters: number;
+    avgRating: number;
+    approvalStatus: string;
+  }>;
+  recentChapters: Array<{
+    id: string;
+    number: number;
+    title: string | null;
+    approvalStatus: string;
+    views: number;
+    isPremium: boolean;
+    priceCoins: number;
+    comic: { id: string; title: string };
+  }>;
 }
 
-const statusLabel: Record<string, string> = {
-  DRAFT: 'Nháp',
-  ONGOING: 'Đang ra',
-  COMPLETED: 'Hoàn thành',
-  HIATUS: 'Tạm dừng',
-};
-
-const statusColor: Record<string, string> = {
-  DRAFT: 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300',
-  ONGOING: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  COMPLETED: 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
-  HIATUS: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
-};
-
-export default function StudioDashboard() {
-  const { accessToken } = useAuthStore();
-  const [comics, setComics] = useState<Comic[]>([]);
+export default function StudioDashboardPage() {
+  const { user, accessToken } = useAuthStore();
+  const [data, setData] = useState<StudioOverview | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!accessToken) return;
     api
-      .get<{ data: Comic[] }>('/comics/author/my-comics', { token: accessToken })
-      .then((res) => setComics(res.data))
-      .catch(() => { })
+      .get<{ data: StudioOverview }>('/studio/overview', { token: accessToken })
+      .then((res) => setData(res.data))
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [accessToken]);
 
-  const totalViews = comics.reduce((sum, c) => sum + (c.stats?.totalViews || 0), 0);
-  const totalChapters = comics.reduce((sum, c) => sum + (c.stats?.totalChapters || 0), 0);
-
   return (
-    <div className="mx-auto max-w-6xl px-3.5 py-4 sm:px-6 sm:py-8">
-      {/* Welcome */}
-      <div className="mb-5 sm:mb-8">
-        <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">Dashboard</h1>
-        <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">Tổng quan hoạt động sáng tác của bạn</p>
-      </div>
-
-      {/* Stats */}
-      <div className="mb-5 sm:mb-8 grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
-        <StatCard icon={<i className="fa-duotone fa-thin fa-books"></i>} label="Tổng truyện" value={comics.length} gradient="from-amber-500 to-orange-500" />
-        <StatCard icon={<i className="fa-light fa-book-open-cover"></i>} label="Tổng chương" value={totalChapters} gradient="from-amber-600 to-amber-700" />
-        <StatCard icon={<i className="fa-duotone fa-thin fa-eye"></i>} label="Lượt đọc" value={totalViews} gradient="from-amber-500 to-orange-500" />
-        <StatCard icon={<i className="fa-duotone fa-thin fa-file-zipper"></i>} label="Bản nháp" value={comics.filter(c => c.status === 'DRAFT').length} gradient="from-zinc-400 to-zinc-500" />
-      </div>
-
-      {/* Quick Actions */}
-      <div className="mb-5 sm:mb-8 grid grid-cols-1 gap-2.5 sm:gap-4 sm:grid-cols-2">
-        <Link
-          href="/studio/comics"
-          className="group relative overflow-hidden rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-4 sm:p-6 shadow-sm dark:shadow-none transition-all duration-300 hover:border-amber-500/30 dark:hover:border-amber-500/20 hover:bg-amber-500/5 dark:hover:bg-amber-500/[0.04]"
-        >
-          <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 opacity-0 blur-2xl transition-opacity group-hover:opacity-30" />
-          <div className="relative">
-            <div className="mb-1.5 sm:mb-2 text-xl sm:text-2xl text-amber-500"><i className="fa-duotone fa-thin fa-books"></i></div>
-            <h3 className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-white">Quản lý truyện</h3>
-            <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">Xem, chỉnh sửa và quản lý tất cả truyện của bạn</p>
-          </div>
-        </Link>
-        <Link
-          href="/studio/comics?action=create"
-          className="group relative overflow-hidden rounded-xl border border-dashed border-zinc-300 dark:border-white/[0.1] bg-zinc-50/50 dark:bg-white/[0.01] p-4 sm:p-6 transition-all duration-300 hover:border-amber-500/30 hover:bg-amber-500/5 dark:hover:bg-amber-500/[0.04]"
-        >
-          <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 opacity-0 blur-2xl transition-opacity group-hover:opacity-30" />
-          <div className="relative">
-            <div className="mb-1.5 sm:mb-2 text-xl sm:text-2xl text-amber-500"><i className="fa-light fa-wand-sparkles"></i></div>
-            <h3 className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-white">Tạo truyện mới</h3>
-            <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">Bắt đầu một câu chuyện mới của bạn</p>
-          </div>
-        </Link>
-      </div>
-
-      {/* Recent Comics */}
-      <div>
-        <div className="mb-3 sm:mb-4 flex items-center justify-between">
-          <h2 className="text-base sm:text-lg font-semibold text-zinc-900 dark:text-white">Truyện gần đây</h2>
-          <Link href="/studio/comics" className="text-xs sm:text-sm text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300 transition-colors">
-            Xem tất cả →
-          </Link>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--text-primary)]">
+            Xin chào, {user?.displayName}
+          </h1>
+          <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
+            Theo dõi hiệu quả tác phẩm, lượt đọc và doanh thu Xu từ chương VIP.
+          </p>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="h-7 w-7 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
-          </div>
-        ) : comics.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-8 sm:p-16 text-center shadow-sm dark:shadow-none">
-            <div className="mb-3 text-3xl sm:text-4xl">📝</div>
-            <h3 className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-white">Chưa có truyện nào</h3>
-            <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">Bắt đầu sáng tác truyện đầu tiên!</p>
-            <Link
-              href="/studio/comics?action=create"
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110"
-            >
-              + Tạo truyện mới
-            </Link>
-          </div>
-        ) : (
-          <div className="grid gap-2.5 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {comics.slice(0, 6).map((comic) => (
-              <Link
-                key={comic.id}
-                href={`/studio/comics/${comic.id}`}
-                className="group flex gap-3 sm:gap-4 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-3 sm:p-4 shadow-sm dark:shadow-none transition-all duration-200 hover:border-amber-500/30 dark:hover:border-amber-500/20 hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
-              >
-                {/* Cover */}
-                <div className="h-18 w-13 sm:h-20 sm:w-14 shrink-0 overflow-hidden rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-zinc-800">
-                  {comic.coverUrl ? (
-                    <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-base sm:text-lg text-zinc-400 dark:text-zinc-600">{comic.title[0]}</div>
-                  )}
-                </div>
-                {/* Info */}
-                <div className="flex-1 overflow-hidden min-w-0">
-                  <h4 className="truncate text-xs sm:text-sm font-semibold text-zinc-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors">
-                    {comic.title}
-                  </h4>
-                  <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColor[comic.status] || statusColor.DRAFT}`}>
-                    {statusLabel[comic.status] || comic.status}
-                  </span>
-                  <div className="mt-1.5 flex items-center gap-2.5 sm:gap-3 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">
-                    <span>📖 {comic.stats?.totalChapters || 0}</span>
-                    <span>👁️ {comic.stats?.totalViews || 0}</span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+        <div className="flex gap-2">
+          <Link href="/studio/comics">
+            <Button variant="warm" size="sm">
+              <Plus className="h-4 w-4" />
+              Quản lý & Đăng truyện
+            </Button>
+          </Link>
+          <Link href="/studio/news/new">
+            <Button variant="outline" size="sm">
+              Viết bài tin tức
+            </Button>
+          </Link>
+        </div>
       </div>
+
+      {loading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} className="h-28 animate-pulse rounded-2xl bg-[var(--bg-subtle)]" />
+          ))}
+        </div>
+      ) : data ? (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Tổng lượt đọc"
+              value={formatCompactNumber(data.stats.totalViews)}
+              sub={`${data.stats.totalComics} truyện · ${data.stats.totalChapters} chương`}
+              icon={<Eye className="h-5 w-5" />}
+            />
+            <StatCard
+              label="Độc giả theo dõi"
+              value={formatCompactNumber(data.stats.totalBookmarks)}
+              sub={`Đánh giá TB: ${data.stats.avgRating.toFixed(1)} ★`}
+              icon={<Bookmark className="h-5 w-5" />}
+            />
+            <StatCard
+              label="Doanh thu chương VIP"
+              value={`${data.stats.totalRevenueCoins.toLocaleString('vi-VN')} Xu`}
+              sub="Chia sẻ 70% trực tiếp"
+              icon={<Coins className="h-5 w-5" />}
+            />
+            <StatCard
+              label="Bài viết Tin tức"
+              value={data.stats.totalNews}
+              sub={user?.isTrusted ? 'Tác giả Uy tín (tự duyệt)' : 'Kiểm duyệt tiêu chuẩn'}
+              icon={<Star className="h-5 w-5" />}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-[var(--text-primary)]">Truyện nổi bật của bạn</h2>
+                <Link href="/studio/comics" className="text-xs font-semibold text-[var(--accent-primary)] hover:underline">
+                  Xem tất cả <ArrowRight className="inline h-3 w-3" />
+                </Link>
+              </div>
+              {data.topComics.length === 0 ? (
+                <p className="py-6 text-center text-sm text-[var(--text-muted)]">Bạn chưa tạo bộ truyện nào.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {data.topComics.map((c) => (
+                    <Link
+                      key={c.id}
+                      href={`/studio/comics/${c.id}`}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border-subtle)] p-2.5 hover:bg-[var(--bg-subtle)]/60"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-14 w-10 shrink-0 overflow-hidden rounded-lg bg-[var(--bg-subtle)]">
+                          {c.coverUrl && <img src={c.coverUrl} alt={c.title} className="h-full w-full object-cover" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-[var(--text-primary)]">{c.title}</p>
+                          <p className="text-xs text-[var(--text-muted)]">
+                            {formatCompactNumber(c.totalViews)} lượt xem · {c.totalChapters} chương
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant={c.approvalStatus === 'APPROVED' ? 'success' : 'warning'}>
+                        {APPROVAL_STATUS_LABEL[c.approvalStatus]}
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card className="space-y-4">
+              <h2 className="text-sm font-bold text-[var(--text-primary)]">Chương mới tạo gần đây</h2>
+              {data.recentChapters.length === 0 ? (
+                <p className="py-6 text-center text-sm text-[var(--text-muted)]">Chưa có chương nào.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {data.recentChapters.map((ch) => (
+                    <Link
+                      key={ch.id}
+                      href={`/studio/comics/${ch.comic.id}/chapters/${ch.id}`}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border-subtle)] p-3 hover:bg-[var(--bg-subtle)]/60"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                          {ch.comic.title} — Chương {ch.number}
+                        </p>
+                        <p className="text-xs text-[var(--text-muted)]">
+                          {ch.views} lượt xem {ch.isPremium ? `· VIP ${ch.priceCoins} Xu` : ''}
+                        </p>
+                      </div>
+                      <Badge variant={ch.approvalStatus === 'APPROVED' ? 'success' : 'warning'}>
+                        {APPROVAL_STATUS_LABEL[ch.approvalStatus]}
+                      </Badge>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

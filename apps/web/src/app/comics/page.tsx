@@ -1,274 +1,307 @@
 'use client';
 
-import { Suspense, useEffect, useState, useRef } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Search, SlidersHorizontal, RotateCcw, Check, Ban } from 'lucide-react';
+import { ComicStatus, ComicType, ContentRating, type ComicSummary, type GenreItem, type PaginationMeta } from 'shared';
 import { api } from '@/lib/api-client';
-import { ElDropdown, ElMenu } from '@tailwindplus/elements/react';
-import { ComicGrid, ComicCardSkeleton, type Comic } from '@/components/comic';
-
-interface Genre {
-  id: string;
-  name: string;
-  slug: string;
-  icon: string;
-  comicCount: number;
-}
-
-interface Meta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-  hasNext: boolean;
-}
+import { COMIC_STATUS_LABEL, COMIC_TYPE_LABEL, CONTENT_RATING_LABEL } from '@/lib/format';
+import { ComicGrid } from '@/components/comic';
+import { Button } from '@/components/ui/button';
+import { Pagination } from '@/components/ui/pagination';
+import { Card } from '@/components/ui/card';
 
 const SORT_OPTIONS = [
   { value: 'updated', label: 'Mới cập nhật' },
-  { value: 'latest', label: 'Mới nhất' },
-  { value: 'popular', label: 'Phổ biến' },
+  { value: 'popular', label: 'Phổ biến nhất' },
+  { value: 'weekly', label: 'Hot trong tuần' },
   { value: 'rating', label: 'Đánh giá cao' },
-];
+  { value: 'bookmarks', label: 'Nhiều theo dõi' },
+  { value: 'newest', label: 'Mới phát hành' },
+] as const;
 
-function ComicsContent() {
+function DiscoveryContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const selectedGenre = searchParams.get('genre');
-  const sort = searchParams.get('sort') || 'updated';
-  const page = Math.max(1, Number(searchParams.get('page')) || 1);
-
-  const [comics, setComics] = useState<Comic[]>([]);
-  const [meta, setMeta] = useState<Meta | null>(null);
-  const [genres, setGenres] = useState<Genre[]>([]);
-  const [genresLoading, setGenresLoading] = useState(true);
+  const [genres, setGenres] = useState<GenreItem[]>([]);
+  const [comics, setComics] = useState<ComicSummary[]>([]);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
-  const activeGenreRef = useRef<HTMLButtonElement>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
-  // Auto-scroll active genre pill into view
-  useEffect(() => {
-    if (selectedGenre && activeGenreRef.current) {
-      activeGenreRef.current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    }
-  }, [selectedGenre, genres]);
+  const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '');
+  const [includeGenres, setIncludeGenres] = useState<string[]>(() => {
+    const g = searchParams.get('genre');
+    const gs = searchParams.get('genres');
+    return Array.from(new Set([...(g ? [g] : []), ...(gs ? gs.split(',').filter(Boolean) : [])]));
+  });
+  const [excludeGenres, setExcludeGenres] = useState<string[]>(() =>
+    searchParams.get('excludeGenres')?.split(',').filter(Boolean) || [],
+  );
+  const [selectedType, setSelectedType] = useState(searchParams.get('type') || '');
+  const [selectedStatus, setSelectedStatus] = useState(searchParams.get('status') || '');
+  const [selectedRating, setSelectedRating] = useState(searchParams.get('contentRating') || '');
+  const [sort, setSort] = useState(searchParams.get('sort') || 'updated');
+  const [page, setPage] = useState(Math.max(1, Number(searchParams.get('page')) || 1));
 
-  // Load genres
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    const controller = new AbortController();
     api
-      .get<{ data: Genre[] }>('/comics/genres')
-      .then((res) => setGenres(res.data))
-      .catch(() => { })
-      .finally(() => setGenresLoading(false));
+      .get<{ data: GenreItem[] }>('/genres', { signal: controller.signal })
+      .then((r) => {
+        if (!controller.signal.aborted) setGenres(r.data || []);
+      })
+      .catch(() => {});
+    return () => controller.abort();
   }, []);
 
-  // Load comics whenever filter / sort / page changes
   useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
-    const params = new URLSearchParams();
-    if (selectedGenre) params.set('genre', selectedGenre);
-    params.set('sort', sort);
-    params.set('page', String(page));
-    params.set('limit', '24');
+
+    const apiParams = new URLSearchParams();
+    apiParams.set('page', String(page));
+    apiParams.set('limit', '24');
+    apiParams.set('sort', sort);
+    if (debouncedSearch) apiParams.set('search', debouncedSearch);
+    if (includeGenres.length > 0) apiParams.set('genres', includeGenres.join(','));
+    if (excludeGenres.length > 0) apiParams.set('excludeGenres', excludeGenres.join(','));
+    if (selectedType) apiParams.set('type', selectedType);
+    if (selectedStatus) apiParams.set('status', selectedStatus);
+    if (selectedRating) apiParams.set('contentRating', selectedRating);
+
+    const urlParams = new URLSearchParams();
+    if (page > 1) urlParams.set('page', String(page));
+    if (sort !== 'updated') urlParams.set('sort', sort);
+    if (debouncedSearch) urlParams.set('search', debouncedSearch);
+    if (includeGenres.length > 0) urlParams.set('genres', includeGenres.join(','));
+    if (excludeGenres.length > 0) urlParams.set('excludeGenres', excludeGenres.join(','));
+    if (selectedType) urlParams.set('type', selectedType);
+    if (selectedStatus) urlParams.set('status', selectedStatus);
+    if (selectedRating) urlParams.set('contentRating', selectedRating);
+    const qs = urlParams.toString();
+    router.replace(qs ? `/comics?${qs}` : '/comics', { scroll: false });
 
     api
-      .get<{ data: Comic[]; meta: Meta }>(`/comics?${params}`)
+      .get<{ data: ComicSummary[]; meta: PaginationMeta }>(`/comics?${apiParams.toString()}`, {
+        signal: controller.signal,
+      })
       .then((res) => {
-        setComics(res.data || []);
-        setMeta(res.meta || null);
+        if (!controller.signal.aborted) {
+          setComics(res.data || []);
+          setMeta(res.meta || null);
+        }
       })
       .catch(() => {
-        setComics([]);
-        setMeta(null);
+        if (!controller.signal.aborted) {
+          setComics([]);
+          setMeta(null);
+        }
       })
-      .finally(() => setLoading(false));
-  }, [selectedGenre, sort, page]);
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
 
-  const updateFilters = (newGenre?: string | null, newSort?: string, newPage?: number) => {
-    const params = new URLSearchParams();
-    const g = newGenre !== undefined ? newGenre : selectedGenre;
-    const s = newSort !== undefined ? newSort : sort;
-    const p = newPage !== undefined ? newPage : 1;
+    return () => controller.abort();
+  }, [page, sort, debouncedSearch, includeGenres, excludeGenres, selectedType, selectedStatus, selectedRating, router]);
 
-    if (g) params.set('genre', g);
-    if (s && s !== 'updated') params.set('sort', s);
-    if (p > 1) params.set('page', String(p));
-
-    const qs = params.toString();
-    router.push(qs ? `/comics?${qs}` : '/comics', { scroll: false });
-
-    if (newPage !== undefined) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Tri-state genre click: neutral -> include -> exclude -> neutral
+  const cycleGenre = (slug: string) => {
+    setPage(1);
+    if (includeGenres.includes(slug)) {
+      setIncludeGenres((prev) => prev.filter((s) => s !== slug));
+      setExcludeGenres((prev) => [...prev, slug]);
+    } else if (excludeGenres.includes(slug)) {
+      setExcludeGenres((prev) => prev.filter((s) => s !== slug));
+    } else {
+      setIncludeGenres((prev) => [...prev, slug]);
     }
   };
 
-  const currentSortOption = SORT_OPTIONS.find((o) => o.value === sort) || SORT_OPTIONS[0];
-  const totalPages = meta?.totalPages ?? (meta ? Math.ceil(meta.total / (meta.limit || 24)) : 1);
-
-  // Generate pagination items with ellipses
-  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1).filter(
-    (p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2
-  );
+  const resetAll = () => {
+    setSearchInput('');
+    setIncludeGenres([]);
+    setExcludeGenres([]);
+    setSelectedType('');
+    setSelectedStatus('');
+    setSelectedRating('');
+    setSort('updated');
+    setPage(1);
+    router.replace('/comics');
+  };
 
   return (
-    <div className="px-4 sm:px-8 md:px-12 lg:px-16 py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
-            Khám phá truyện
-          </h1>
-          {meta && (
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-              Hiển thị {comics.length > 0 ? (page - 1) * 24 + 1 : 0} -{' '}
-              {Math.min(page * 24, meta.total)} trên tổng số {meta.total} bộ truyện
-            </p>
+          <h1 className="font-serif text-3xl font-bold text-[var(--text-primary)]">Khám phá Kho Truyện</h1>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            Lọc thông minh theo thể loại (nhấn 1 lần để chọn, nhấn lần 2 để loại trừ), định dạng và đánh giá.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowFilters((v) => !v)}>
+            <SlidersHorizontal className="h-4 w-4" />
+            <span>{showFilters ? 'Ẩn bộ lọc nâng cao' : 'Bộ lọc nâng cao'}</span>
+          </Button>
+          {(includeGenres.length > 0 || excludeGenres.length > 0 || selectedType || selectedStatus || selectedRating || searchInput) && (
+            <Button variant="ghost" size="sm" onClick={resetAll}>
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Đặt lại</span>
+            </Button>
           )}
         </div>
       </div>
 
-      {/* Filters: Sort & Genres */}
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3">
-        {/* Sort Dropdown */}
-        <div className="shrink-0">
-          <ElDropdown className="relative inline-block">
-            <button
-              type="button"
-              popoverTarget="sort-menu"
-              className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-zinc-800 dark:text-zinc-300 outline-none transition-colors hover:bg-zinc-50 dark:hover:bg-white/10 cursor-pointer shadow-xs"
-            >
-              <span>{currentSortOption.label}</span>
-              <svg className="h-4 w-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            <ElMenu
-              id="sort-menu"
-              popover="auto"
-              anchor="bottom start"
-              className="z-20 mt-1 w-44 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-1.5 shadow-xl transition-opacity"
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => updateFilters(undefined, opt.value, 1)}
-                  className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors cursor-pointer ${sort === opt.value
-                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/5'
-                    }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </ElMenu>
-          </ElDropdown>
-        </div>
-
-        {/* Divider on desktop */}
-        <div className="hidden sm:block h-6 w-px bg-zinc-200 dark:bg-white/10 shrink-0" />
-
-        {/* Genre pills horizontal scroll */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth flex-1 min-w-0">
-          <button
-            type="button"
-            ref={!selectedGenre ? activeGenreRef : undefined}
-            onClick={(e) => {
-              updateFilters(null, undefined, 1);
-              e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      {/* Search + Sort Bar */}
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+          <input
+            value={searchInput}
+            onChange={(e) => {
+              setSearchInput(e.target.value);
+              setPage(1);
             }}
-            className={`shrink-0 whitespace-nowrap cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${!selectedGenre
-              ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
-              : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-amber-300 dark:hover:border-amber-500/40 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:shadow-xs'
-              }`}
-          >
-            Tất cả
-          </button>
-
-          {genresLoading ? (
-            ['w-16', 'w-20', 'w-14', 'w-24', 'w-18'].map((widthClass, i) => (
-              <div
-                key={i}
-                className={`h-7 ${widthClass} shrink-0 animate-pulse rounded-full bg-zinc-200/60 dark:bg-zinc-800/60`}
-              />
-            ))
-          ) : (
-            genres.map((g) => (
-              <button
-                key={g.id}
-                ref={selectedGenre === g.slug ? activeGenreRef : undefined}
-                type="button"
-                onClick={(e) => {
-                  updateFilters(g.slug, undefined, 1);
-                  e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-                }}
-                className={`shrink-0 whitespace-nowrap cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 active:scale-95 ${selectedGenre === g.slug
-                  ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
-                  : 'border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-amber-300 dark:hover:border-amber-500/40 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 hover:shadow-xs'
-                  }`}
-              >
-                {g.icon} {g.name}
-              </button>
-            ))
-          )}
+            placeholder="Tìm theo tên truyện, tên gốc, thẻ, tác giả..."
+            className="h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] pl-10 pr-4 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] focus:outline-none"
+          />
         </div>
+        <select
+          value={sort}
+          onChange={(e) => {
+            setSort(e.target.value);
+            setPage(1);
+          }}
+          className="h-11 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 text-sm font-medium text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none"
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              Sắp xếp: {opt.label}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Comics Grid (Using Shared Component) */}
+      {/* Filters Panel */}
+      <Card className={`space-y-4 ${showFilters ? '' : 'hidden sm:block'}`}>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-[var(--text-secondary)]">Thể loại</span>
+            <span className="text-[var(--text-muted)]">Nhấn 1 lần: Bao gồm · Lần 2: Loại trừ</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {genres.map((g) => {
+              const isInc = includeGenres.includes(g.slug);
+              const isExc = excludeGenres.includes(g.slug);
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => cycleGenre(g.slug)}
+                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-all cursor-pointer ${
+                    isInc
+                      ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white'
+                      : isExc
+                        ? 'border-[var(--danger)] bg-[var(--danger-soft)] text-[var(--danger)] line-through'
+                        : 'border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]'
+                  }`}
+                >
+                  {isInc && <Check className="h-3 w-3" />}
+                  {isExc && <Ban className="h-3 w-3" />}
+                  <span>{g.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-1">
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Định dạng</label>
+            <select
+              value={selectedType}
+              onChange={(e) => {
+                setSelectedType(e.target.value);
+                setPage(1);
+              }}
+              className="h-9 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 text-xs font-medium text-[var(--text-primary)]"
+            >
+              <option value="">Tất cả định dạng</option>
+              {Object.values(ComicType).map((t) => (
+                <option key={t} value={t}>
+                  {COMIC_TYPE_LABEL[t]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Tình trạng</label>
+            <select
+              value={selectedStatus}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value);
+                setPage(1);
+              }}
+              className="h-9 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 text-xs font-medium text-[var(--text-primary)]"
+            >
+              <option value="">Tất cả tình trạng</option>
+              {[ComicStatus.ONGOING, ComicStatus.COMPLETED, ComicStatus.HIATUS].map((s) => (
+                <option key={s} value={s}>
+                  {COMIC_STATUS_LABEL[s]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Độ tuổi</label>
+            <select
+              value={selectedRating}
+              onChange={(e) => {
+                setSelectedRating(e.target.value);
+                setPage(1);
+              }}
+              className="h-9 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 text-xs font-medium text-[var(--text-primary)]"
+            >
+              <option value="">Tất cả độ tuổi</option>
+              {Object.values(ContentRating).map((r) => (
+                <option key={r} value={r}>
+                  {CONTENT_RATING_LABEL[r]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </Card>
+
+      {/* Results summary */}
+      {meta && (
+        <p className="text-xs font-medium text-[var(--text-muted)]">
+          Hiển thị {comics.length} trên tổng số {meta.total} tác phẩm phù hợp
+        </p>
+      )}
+
+      {/* Grid */}
       <ComicGrid
         comics={comics}
         isLoading={loading}
-        skeletonCount={24}
-        emptyMessage="Không tìm thấy bộ truyện nào phù hợp với bộ lọc."
+        skeletonCount={12}
+        emptyMessage="Không tìm thấy bộ truyện nào khớp với bộ lọc hiện tại."
       />
 
-      {/* Pagination Controls */}
-      {meta && totalPages > 1 && (
-        <div className="mt-12 flex flex-col items-center gap-3">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Previous Page Button */}
-            <button
-              type="button"
-              onClick={() => updateFilters(undefined, undefined, page - 1)}
-              disabled={page <= 1}
-              aria-label="Trang trước"
-              className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-zinc-200 dark:border-white/10 text-sm text-zinc-600 dark:text-zinc-400 transition-all hover:bg-zinc-100 dark:hover:bg-white/10 hover:border-amber-500/40 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-            >
-              <i className="fa-light fa-chevron-left text-xs" />
-            </button>
-
-            {/* Page Number Buttons */}
-            {pageNumbers.map((p, idx, arr) => (
-              <span key={p} className="flex items-center">
-                {idx > 0 && arr[idx - 1] !== p - 1 && (
-                  <span className="px-1.5 sm:px-2 text-zinc-400 dark:text-zinc-600 select-none">…</span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => updateFilters(undefined, undefined, p)}
-                  className={`flex h-9 min-w-9 sm:h-10 sm:min-w-10 px-2 sm:px-3 items-center justify-center rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${p === page
-                    ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
-                    : 'border border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-white/10 hover:border-amber-500/40'
-                    }`}
-                >
-                  {p}
-                </button>
-              </span>
-            ))}
-
-            {/* Next Page Button */}
-            <button
-              type="button"
-              onClick={() => updateFilters(undefined, undefined, page + 1)}
-              disabled={page >= totalPages || !meta.hasNext}
-              aria-label="Trang sau"
-              className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-zinc-200 dark:border-white/10 text-sm text-zinc-600 dark:text-zinc-400 transition-all hover:bg-zinc-100 dark:hover:bg-white/10 hover:border-amber-500/40 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-            >
-              <i className="fa-light fa-chevron-right text-xs" />
-            </button>
-          </div>
-
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Trang <span className="font-semibold text-zinc-700 dark:text-zinc-300">{page}</span> / {totalPages}
-          </p>
+      {meta && (
+        <div className="pt-4">
+          <Pagination page={meta.page} totalPages={meta.totalPages} onPageChange={(p) => setPage(p)} />
         </div>
       )}
     </div>
@@ -279,17 +312,12 @@ export default function ComicsPage() {
   return (
     <Suspense
       fallback={
-        <div className="px-4 sm:px-8 md:px-12 lg:px-16 py-8">
-          <div className="h-8 w-48 bg-zinc-200/70 dark:bg-zinc-800/70 rounded-lg animate-pulse mb-6" />
-          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <ComicCardSkeleton key={i} />
-            ))}
-          </div>
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 text-sm text-[var(--text-muted)]">
+          Đang tải kho truyện...
         </div>
       }
     >
-      <ComicsContent />
+      <DiscoveryContent />
     </Suspense>
   );
 }

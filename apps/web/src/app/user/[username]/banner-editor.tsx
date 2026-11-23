@@ -1,53 +1,53 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { Camera, Upload, MoveVertical, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
-
-interface BannerData {
-  url?: string;
-  position?: number;
-}
+import { useToast } from '@/components/providers/toast-provider';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface Props {
-  banner: BannerData | null;
+  bannerUrl: string | null;
+  bannerPosition: number;
   isOwnProfile: boolean;
-  onBannerChange: (banner: BannerData | null) => void;
+  onUpdated: (bannerUrl: string | null, position: number) => void;
 }
 
-export default function BannerEditor({ banner, isOwnProfile, onBannerChange }: Props) {
+export default function BannerEditor({ bannerUrl, bannerPosition, isOwnProfile, onUpdated }: Props) {
   const { accessToken, updateUser } = useAuthStore();
+  const { toast } = useToast();
   const [showMenu, setShowMenu] = useState(false);
   const [repositioning, setRepositioning] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [tempPosition, setTempPosition] = useState(banner?.position ?? 50);
+  const [tempPos, setTempPos] = useState(bannerPosition ?? 50);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const bannerRef = useRef<HTMLDivElement>(null);
 
-  // Close menu on outside click
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const onOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setShowMenu(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
   }, []);
 
-  // Release drag on mouseup anywhere (even outside the banner)
   useEffect(() => {
     if (!repositioning) return;
-    const handleUp = () => setIsDragging(false);
-    window.addEventListener('mouseup', handleUp);
-    window.addEventListener('touchend', handleUp);
+    const onUp = () => setIsDragging(false);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchend', onUp);
     return () => {
-      window.removeEventListener('mouseup', handleUp);
-      window.removeEventListener('touchend', handleUp);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchend', onUp);
     };
   }, [repositioning]);
 
@@ -59,51 +59,45 @@ export default function BannerEditor({ banner, isOwnProfile, onBannerChange }: P
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await api.upload<{ data: { url: string } }>('/upload/users/banner', formData, {
-        token: accessToken,
-      });
-      const newBanner = { url: res.data.url, position: 50 };
-      onBannerChange(newBanner);
-      updateUser({ banner: newBanner });
+      const res = await api.upload<{ data: { url: string; position: number } }>(
+        '/uploads/users/me/banner',
+        formData,
+        { token: accessToken },
+      );
+      onUpdated(res.data.url, res.data.position ?? 50);
+      updateUser({ bannerUrl: res.data.url, bannerPosition: res.data.position ?? 50 });
+      toast.success('Đã cập nhật ảnh bìa');
     } catch {
-      // silently fail
+      toast.error('Không thể tải ảnh bìa lên');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const startReposition = () => {
-    setShowMenu(false);
-    setTempPosition(banner?.position ?? 50);
-    setRepositioning(true);
-  };
-
-  const handleDrag = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDragging || !repositioning || !bannerRef.current) return;
-    e.preventDefault();
-    const rect = bannerRef.current.getBoundingClientRect();
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    const pct = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
-    setTempPosition(pct);
-  }, [isDragging, repositioning]);
-
-  const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    if (!repositioning) return;
-    e.preventDefault();
-    setIsDragging(true);
-  }, [repositioning]);
+  const handleDrag = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      if (!isDragging || !repositioning || !bannerRef.current) return;
+      e.preventDefault();
+      const rect = bannerRef.current.getBoundingClientRect();
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const pct = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+      setTempPos(pct);
+    },
+    [isDragging, repositioning],
+  );
 
   const savePosition = async () => {
     if (!accessToken) return;
     setSaving(true);
     try {
-      await api.put('/users/me/banner', { position: Math.round(tempPosition) }, { token: accessToken });
-      const newBanner = { ...banner, position: Math.round(tempPosition) };
-      onBannerChange(newBanner);
-      updateUser({ banner: newBanner });
+      const rounded = Math.round(tempPos);
+      await api.patch('/users/me/banner-position', { position: rounded }, { token: accessToken });
+      onUpdated(bannerUrl, rounded);
+      updateUser({ bannerPosition: rounded });
+      toast.success('Đã lưu vị trí ảnh bìa');
     } catch {
-      // silently fail
+      toast.error('Không thể lưu vị trí');
     } finally {
       setSaving(false);
       setRepositioning(false);
@@ -111,115 +105,119 @@ export default function BannerEditor({ banner, isOwnProfile, onBannerChange }: P
   };
 
   const handleRemove = async () => {
-    if (!accessToken) return;
-    setShowMenu(false);
+    if (!accessToken || removing) return;
+    setRemoving(true);
     try {
       await api.delete('/users/me/banner', { token: accessToken });
-      onBannerChange(null);
-      updateUser({ banner: null });
+      onUpdated(null, 50);
+      updateUser({ bannerUrl: null, bannerPosition: 50 });
+      setConfirmRemoveOpen(false);
+      toast.info('Đã gỡ ảnh bìa');
     } catch {
-      // silently fail
+      toast.error('Không thể gỡ ảnh bìa');
+    } finally {
+      setRemoving(false);
     }
   };
 
-  const position = repositioning ? tempPosition : (banner?.position ?? 50);
+  const activePos = repositioning ? tempPos : bannerPosition ?? 50;
 
   return (
     <div
       ref={bannerRef}
-      className={`relative h-52 overflow-hidden sm:h-64 transition-all duration-300 ${repositioning
-        ? `z-[51] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`
-        : '-z-1'
-        }`}
-      onMouseDown={repositioning ? handleDragStart : undefined}
+      className={`relative h-52 sm:h-64 overflow-hidden bg-[var(--bg-subtle)] ${
+        repositioning ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : ''
+      }`}
+      onMouseDown={repositioning ? () => setIsDragging(true) : undefined}
       onMouseMove={repositioning ? handleDrag : undefined}
-      onTouchStart={repositioning ? handleDragStart : undefined}
+      onTouchStart={repositioning ? () => setIsDragging(true) : undefined}
       onTouchMove={repositioning ? handleDrag : undefined}
     >
-      {/* Image or gradient */}
-      {banner?.url ? (
+      {bannerUrl ? (
         <img
-          src={banner.url}
-          alt="Banner"
+          src={bannerUrl}
+          alt="Banner cá nhân"
           className="h-full w-full object-cover"
-          style={{ objectPosition: `center ${position}%` }}
+          style={{ objectPosition: `center ${activePos}%` }}
           draggable={false}
         />
       ) : (
-        <div className="h-full w-full bg-gradient-to-br from-amber-600/40 via-orange-600/30 to-amber-700/40" />
+        <div className="h-full w-full bg-gradient-to-br from-[#1B2340] via-[#3A417A] to-[#D96B52]/75" />
       )}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[var(--bg-canvas)] via-transparent to-transparent" />
 
-      {/* Bottom gradient */}
-      <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent dark:from-[#0a0a0a]" />
-
-      {/* Uploading overlay */}
       {uploading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-white/30 border-t-white" />
         </div>
       )}
 
-      {/* Reposition mode */}
       {repositioning && (
-        <>
-          <div className="absolute inset-0 bg-black/30" />
-          <div className="absolute inset-x-0 top-0 flex items-center justify-center gap-3 bg-black/60 px-4 py-3 text-sm text-white">
-            <span>Nhấn giữ và kéo để đặt lại vị trí</span>
-            <button
-              onClick={() => setRepositioning(false)}
-              className="rounded border border-white/20 px-3 py-1 text-xs hover:bg-white/10"
-            >
-              Hủy
-            </button>
-            <button
-              onClick={savePosition}
-              disabled={saving}
-              className="rounded bg-amber-500 px-3 py-1 text-xs font-semibold hover:bg-amber-600 disabled:opacity-50 text-white"
-            >
-              {saving ? 'Lưu...' : 'Lưu'}
-            </button>
-          </div>
-          <div className="absolute inset-x-0 bottom-4 text-center text-xs text-white/80">
-            ↕ Nhấn giữ chuột và kéo lên/xuống
-          </div>
-        </>
+        <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-center gap-3 bg-black/65 px-4 py-2.5 text-xs text-white backdrop-blur-sm">
+          <span>Kéo lên/xuống để căn chỉnh ảnh bìa</span>
+          <button
+            type="button"
+            onClick={() => setRepositioning(false)}
+            className="rounded-lg border border-white/25 px-3 py-1 hover:bg-white/10 cursor-pointer"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={savePosition}
+            className="rounded-lg bg-[var(--accent-warm)] px-3 py-1 font-semibold hover:bg-[var(--accent-warm-hover)] cursor-pointer"
+          >
+            {saving ? 'Đang lưu...' : 'Lưu vị trí'}
+          </button>
+        </div>
       )}
 
-      {/* Edit button (only for own profile) */}
       {isOwnProfile && !repositioning && (
-        <div className="absolute right-4 top-20" ref={menuRef}>
+        <div className="absolute right-4 top-4 z-20" ref={menuRef}>
           <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="flex items-center gap-2 rounded bg-black/50 px-3 py-2 text-xs font-medium text-white/90 backdrop-blur-sm transition-all hover:bg-black/70 hover:text-white"
+            type="button"
+            onClick={() => setShowMenu((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-black/55 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md hover:bg-black/75 cursor-pointer"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-            </svg>
-            Chỉnh sửa ảnh bìa
+            <Camera className="h-3.5 w-3.5" />
+            <span>Chỉnh ảnh bìa</span>
           </button>
 
-          {/* Dropdown */}
           {showMenu && (
-            <div className="absolute right-0 top-full mt-1 w-48 overflow-hidden rounded border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#1a1a1a] py-1 shadow-xl z-50">
+            <div className="absolute right-0 mt-1.5 w-48 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] py-1 shadow-xl">
               <button
-                onClick={() => { fileInputRef.current?.click(); }}
-                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-zinc-100 dark:hover:bg-white/5 cursor-pointer"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex w-full items-center gap-2 px-3.5 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] cursor-pointer"
               >
-                <span>📤</span> Tải ảnh lên
+                <Upload className="h-3.5 w-3.5" />
+                Tải ảnh bìa mới
               </button>
-              {banner?.url && (
+              {bannerUrl && (
                 <>
                   <button
-                    onClick={startReposition}
-                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-zinc-700 dark:text-zinc-300 transition-colors hover:bg-zinc-100 dark:hover:bg-white/5 cursor-pointer"
+                    type="button"
+                    onClick={() => {
+                      setShowMenu(false);
+                      setTempPos(bannerPosition ?? 50);
+                      setRepositioning(true);
+                    }}
+                    className="flex w-full items-center gap-2 px-3.5 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] cursor-pointer"
                   >
-                    <span>↕️</span> Đặt lại vị trí
+                    <MoveVertical className="h-3.5 w-3.5" />
+                    Căn chỉnh vị trí
                   </button>
                   <button
-                    onClick={handleRemove}
-                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-red-600 dark:text-red-400 transition-colors hover:bg-red-500/10 cursor-pointer"
+                    type="button"
+                    onClick={() => {
+                      setShowMenu(false);
+                      setConfirmRemoveOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2 px-3.5 py-2 text-xs font-medium text-[var(--danger)] hover:bg-[var(--danger-soft)] cursor-pointer"
                   >
-                    <span>🗑️</span> Gỡ ảnh
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Gỡ ảnh bìa
                   </button>
                 </>
               )}
@@ -234,6 +232,16 @@ export default function BannerEditor({ banner, isOwnProfile, onBannerChange }: P
         accept="image/*"
         className="hidden"
         onChange={handleUpload}
+      />
+
+      <ConfirmDialog
+        open={confirmRemoveOpen}
+        onClose={() => setConfirmRemoveOpen(false)}
+        onConfirm={handleRemove}
+        title="Gỡ ảnh bìa?"
+        description="Ảnh bìa hiện tại sẽ bị xóa khỏi hồ sơ cá nhân."
+        confirmLabel="Gỡ ảnh bìa"
+        isLoading={removing}
       />
     </div>
   );

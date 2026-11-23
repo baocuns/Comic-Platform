@@ -1,101 +1,157 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  Req,
+  Query,
+  ParseUUIDPipe,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
+import { Request } from 'express';
 import { ChapterService } from './chapter.service';
 import { CreateChapterDto, UpdateChapterDto } from './dto/chapter.dto';
 import { ReorderPagesDto } from './dto/reorder-pages.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
+@ApiTags('Chapters')
 @Controller()
 export class ChapterController {
   constructor(private readonly chapterService: ChapterService) {}
 
   @Public()
   @Get('comics/:comicId/chapters')
-  async findByComic(@Param('comicId') comicId: string) {
-    const chapters = await this.chapterService.findByComic(comicId);
-    return { success: true, data: chapters };
+  findByComic(
+    @Param('comicId', new ParseUUIDPipe()) comicId: string,
+    @CurrentUser('sub') userId?: string,
+  ) {
+    return this.chapterService.findByComicPublic(comicId, userId);
   }
 
-  @Public()
-  @UseGuards(JwtAuthGuard)
-  @Get('chapters/:id')
-  async findOne(@Param('id') id: string, @CurrentUser('sub') userId?: string) {
-    const chapter = await this.chapterService.findOne(id, userId);
-    return { success: true, data: chapter };
-  }
-
-  @Public()
-  @Get('chapters/:id/navigation')
-  async getNavigation(@Param('id') id: string) {
-    const nav = await this.chapterService.getNavigation(id);
-    return { success: true, data: nav };
-  }
-
-  @Post('comics/:comicId/chapters')
-  @UseGuards(JwtAuthGuard)
-  async create(
-    @Param('comicId') comicId: string,
+  @ApiBearerAuth()
+  @Roles(UserRole.AUTHOR)
+  @Get('comics/:comicId/chapters/manage')
+  findByComicStudio(
+    @Param('comicId', new ParseUUIDPipe()) comicId: string,
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.chapterService.findByComicForStudio(comicId, userId, role);
+  }
+
+  @ApiBearerAuth()
+  @Roles(UserRole.AUTHOR)
+  @Post('comics/:comicId/chapters')
+  create(
+    @Param('comicId', new ParseUUIDPipe()) comicId: string,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: UserRole,
     @Body() dto: CreateChapterDto,
   ) {
-    const chapter = await this.chapterService.create(comicId, userId, dto);
-    return { success: true, data: chapter };
+    return this.chapterService.create(comicId, userId, role, dto);
   }
 
-  @Put('chapters/:id')
-  @UseGuards(JwtAuthGuard)
-  async update(
-    @Param('id') id: string,
+  @ApiBearerAuth()
+  @Get('chapters/purchases')
+  getMyPurchases(
     @CurrentUser('sub') userId: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+    @Query('search') search?: string,
+  ) {
+    return this.chapterService.getUserPurchases(userId, Number(page) || 1, Number(limit) || 20, search);
+  }
+
+  @ApiBearerAuth()
+  @Roles(UserRole.AUTHOR)
+  @Get('chapters/:id/manage')
+  findOneForStudio(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.chapterService.findOneForStudio(id, userId, role);
+  }
+
+  @Public()
+  @Get('chapters/:id')
+  findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser('sub') userId: string | undefined,
+    @Req() req: Request,
+  ) {
+    return this.chapterService.findOne(id, userId, req.ip);
+  }
+
+  @ApiBearerAuth()
+  @Post('chapters/:id/unlock')
+  unlock(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.chapterService.unlockChapter(id, userId);
+  }
+
+  @ApiBearerAuth()
+  @Roles(UserRole.AUTHOR)
+  @Put('chapters/:id')
+  update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: UserRole,
     @Body() dto: UpdateChapterDto,
   ) {
-    const chapter = await this.chapterService.update(id, userId, dto);
-    return { success: true, data: chapter };
+    return this.chapterService.update(id, userId, role, dto);
   }
 
-  @Post('chapters/:id/submit-review')
-  @UseGuards(JwtAuthGuard)
-  async submitReview(@Param('id') id: string, @CurrentUser('sub') userId: string) {
-    const result = await this.chapterService.submitReview(id, userId);
-    return { success: true, data: result };
-  }
-
+  @ApiBearerAuth()
+  @Roles(UserRole.AUTHOR)
   @Post('chapters/:id/publish')
-  @UseGuards(JwtAuthGuard)
-  async publish(@Param('id') id: string, @CurrentUser('sub') userId: string) {
-    const chapter = await this.chapterService.publish(id, userId);
-    return { success: true, data: chapter };
-  }
-
-  @Delete('chapters/:id')
-  @UseGuards(JwtAuthGuard)
-  async remove(@Param('id') id: string, @CurrentUser('sub') userId: string) {
-    await this.chapterService.remove(id, userId);
-    return { success: true, data: { message: 'Chapter deleted' } };
-  }
-
-  // ── Page Management ──
-
-  @Put('chapters/:id/pages/reorder')
-  @UseGuards(JwtAuthGuard)
-  async reorderPages(
-    @Param('id') id: string,
+  publish(
+    @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser('sub') userId: string,
+  ) {
+    return this.chapterService.publish(id, userId);
+  }
+
+  @ApiBearerAuth()
+  @Roles(UserRole.AUTHOR)
+  @Delete('chapters/:id')
+  remove(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.chapterService.remove(id, userId, role);
+  }
+
+  @ApiBearerAuth()
+  @Roles(UserRole.AUTHOR)
+  @Put('chapters/:id/pages/reorder')
+  reorderPages(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: UserRole,
     @Body() dto: ReorderPagesDto,
   ) {
-    await this.chapterService.reorderPages(id, userId, dto.orders);
-    return { success: true, data: { message: 'Pages reordered' } };
+    return this.chapterService.reorderPages(id, userId, role, dto.orders);
   }
 
-  @Delete('chapters/:chapterId/pages/:pageId')
-  @UseGuards(JwtAuthGuard)
-  async removePage(
-    @Param('chapterId') chapterId: string,
-    @Param('pageId') pageId: string,
+  @ApiBearerAuth()
+  @Roles(UserRole.AUTHOR)
+  @Delete('chapters/:id/pages/:pageId')
+  removePage(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('pageId', new ParseUUIDPipe()) pageId: string,
     @CurrentUser('sub') userId: string,
+    @CurrentUser('role') role: UserRole,
   ) {
-    await this.chapterService.removePage(chapterId, pageId, userId);
-    return { success: true, data: { message: 'Page deleted' } };
+    return this.chapterService.removePage(id, pageId, userId, role);
   }
 }

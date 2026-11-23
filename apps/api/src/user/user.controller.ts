@@ -1,128 +1,106 @@
-import { Controller, Put, Get, Post, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import {
+  Controller,
+  Get,
+  Put,
+  Patch,
+  Post,
+  Delete,
+  Body,
+  Param,
+  ParseUUIDPipe,
+  Query,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserService } from './user.service';
-import { UpdateProfileDto, UpdateBannerPositionDto } from './dto/user.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { UpdateBannerPositionDto, UpdateProfileDto, SubmitAuthorApplicationDto } from './dto/user.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
-import { Request } from 'express';
 
+@ApiTags('Users')
 @Controller('users')
-@UseGuards(JwtAuthGuard)
 export class UserController {
-  constructor(
-    private readonly userService: UserService,
-    private readonly jwtService: JwtService,
-  ) {}
+  constructor(private readonly userService: UserService) {}
 
-  // ── Self profile ──
-
+  @ApiBearerAuth()
   @Put('me')
-  async updateProfile(
+  updateProfile(@CurrentUser('sub') userId: string, @Body() dto: UpdateProfileDto) {
+    return this.userService.updateProfile(userId, dto);
+  }
+
+  @ApiBearerAuth()
+  @Get('me/author-application')
+  getMyAuthorApplication(@CurrentUser('sub') userId: string) {
+    return this.userService.getMyAuthorApplication(userId);
+  }
+
+  @ApiBearerAuth()
+  @Post('me/author-application')
+  submitAuthorApplication(
     @CurrentUser('sub') userId: string,
-    @Body() dto: UpdateProfileDto,
+    @Body() dto: SubmitAuthorApplicationDto,
   ) {
-    const user = await this.userService.updateProfile(userId, dto);
-    return { success: true, data: user };
+    return this.userService.submitAuthorApplication(userId, dto);
   }
 
-  @Get('me/stats')
-  async getStats(@CurrentUser('sub') userId: string) {
-    const stats = await this.userService.getStats(userId);
-    return { success: true, data: stats };
+  @ApiBearerAuth()
+  @Patch('me/banner-position')
+  updateBannerPosition(@CurrentUser('sub') userId: string, @Body() dto: UpdateBannerPositionDto) {
+    return this.userService.updateBannerPosition(userId, dto);
   }
 
-  // ── Banner ──
-
-  @Put('me/banner')
-  async updateBannerPosition(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: UpdateBannerPositionDto,
-  ) {
-    const user = await this.userService.updateBannerPosition(userId, dto);
-    return { success: true, data: user };
-  }
-
+  @ApiBearerAuth()
   @Delete('me/banner')
-  async removeBanner(@CurrentUser('sub') userId: string) {
-    const user = await this.userService.removeBanner(userId);
-    return { success: true, data: user };
+  removeBanner(@CurrentUser('sub') userId: string) {
+    return this.userService.removeBanner(userId);
   }
 
-  // ── Public profile ──
-
-  @Public()
-  @Get(':username/profile')
-  async getPublicProfile(
-    @Param('username') username: string,
-    @Req() req: Request,
-  ) {
-    // Extract viewer ID from JWT if present (optional auth)
-    let viewerId: string | undefined;
-    const authHeader = req.headers.authorization;
-    if (authHeader?.startsWith('Bearer ')) {
-      try {
-        const token = authHeader.slice(7);
-        const decoded = this.jwtService.verify(token) as any;
-        viewerId = decoded.sub;
-      } catch {
-        // Invalid token, proceed as anonymous
-      }
-    }
-
-    const profile = await this.userService.getPublicProfile(username, viewerId);
-    return { success: true, data: profile };
-  }
-
-  // ── Follow lists ──
-
-  @Public()
-  @Get(':userId/followers')
-  async getFollowers(
-    @Param('userId') userId: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    const data = await this.userService.getFollowers(
-      userId,
-      page ? parseInt(page, 10) : 1,
-      limit ? Math.min(parseInt(limit, 10), 50) : 20,
-    );
-    return { success: true, data };
+  @ApiBearerAuth()
+  @Get('me/stats')
+  getMyStats(@CurrentUser('sub') userId: string) {
+    return this.userService.getStats(userId);
   }
 
   @Public()
-  @Get(':userId/following')
-  async getFollowing(
-    @Param('userId') userId: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    const data = await this.userService.getFollowing(
-      userId,
-      page ? parseInt(page, 10) : 1,
-      limit ? Math.min(parseInt(limit, 10), 50) : 20,
-    );
-    return { success: true, data };
+  @Get(':username')
+  getPublicProfile(@Param('username') username: string, @CurrentUser('sub') viewerId?: string) {
+    return this.userService.getPublicProfile(username, viewerId);
   }
 
-  // ── Follow ──
-
-  @Post(':userId/follow')
-  async follow(
+  @ApiBearerAuth()
+  @Post(':id/follow')
+  followUser(
     @CurrentUser('sub') followerId: string,
-    @Param('userId') followingId: string,
+    @Param('id', new ParseUUIDPipe()) followingId: string,
   ) {
-    await this.userService.followUser(followerId, followingId);
-    return { success: true, data: { message: 'Followed' } };
+    return this.userService.followUser(followerId, followingId);
   }
 
-  @Delete(':userId/follow')
-  async unfollow(
+  @ApiBearerAuth()
+  @Delete(':id/follow')
+  unfollowUser(
     @CurrentUser('sub') followerId: string,
-    @Param('userId') followingId: string,
+    @Param('id', new ParseUUIDPipe()) followingId: string,
   ) {
-    await this.userService.unfollowUser(followerId, followingId);
-    return { success: true, data: { message: 'Unfollowed' } };
+    return this.userService.unfollowUser(followerId, followingId);
+  }
+
+  @Public()
+  @Get(':id/followers')
+  getFollowers(
+    @Param('id', new ParseUUIDPipe()) userId: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.userService.getFollowers(userId, Number(page) || 1, Number(limit) || 20);
+  }
+
+  @Public()
+  @Get(':id/following')
+  getFollowing(
+    @Param('id', new ParseUUIDPipe()) userId: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.userService.getFollowing(userId, Number(page) || 1, Number(limit) || 20);
   }
 }

@@ -1,13 +1,16 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from './prisma/prisma.service';
+import { Public } from './auth/decorators/public.decorator';
 
 @Controller()
 export class AppController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @Public()
+  @SkipThrottle()
   @Get('health')
   async healthCheck() {
-    // Check database connection
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       return {
@@ -18,13 +21,13 @@ export class AppController {
         },
       };
     } catch {
-      return {
+      throw new ServiceUnavailableException({
         status: 'error',
         timestamp: new Date().toISOString(),
         services: {
           database: 'disconnected',
         },
-      };
+      });
     }
   }
 }

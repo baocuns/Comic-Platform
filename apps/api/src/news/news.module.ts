@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common';
+import { ModerationModule } from '../moderation/moderation.module';
 import { NewsController } from './news.controller';
 import { NewsService } from './news.service';
-import { ModerationModule } from '../moderation/moderation.module';
-import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [ModerationModule, NotificationModule],
+  imports: [ModerationModule],
   controllers: [NewsController],
   providers: [NewsService],
   exports: [NewsService],

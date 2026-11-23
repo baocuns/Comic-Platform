@@ -1,824 +1,574 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  ShieldCheck,
+  Check,
+  X,
+  Flag,
+  History,
+  Eye,
+  UserCheck,
+  ExternalLink,
+} from 'lucide-react';
+import {
+  AuthorApplicationStatus,
+  type AuthorApplicationItem,
+  type ModerationItem,
+  type ReportItem,
+  type ReportListMeta,
+} from 'shared';
+import { api, ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
-import { api } from '@/lib/api-client';
+import { useToast } from '@/components/providers/toast-provider';
+import { formatDate, formatRelativeTime } from '@/lib/format';
+import { ReportModerationPanel } from '@/components/studio/ReportModerationPanel';
+import { Tabs } from '@/components/ui/tabs';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
+import { Textarea } from '@/components/ui/input';
+import { Avatar } from '@/components/ui/avatar';
 
-interface PendingItem {
-  targetType: 'COMIC' | 'CHAPTER' | 'NEWS';
-  targetId: string;
-  title: string;
-  author: {
-    id: string;
-    displayName: string;
-    avatarUrl: string | null;
-    username: string;
-    isVerified?: boolean;
-    isTrusted?: boolean;
-  };
-  createdAt: string;
-  updatedAt: string;
-  extraInfo?: Record<string, any>;
-}
-
-interface ModerationLogItem {
+interface ModerationLogEntry {
   id: string;
-  targetType: 'COMIC' | 'CHAPTER' | 'NEWS';
-  targetId: string;
-  title: string;
-  action: 'APPROVED' | 'REJECTED';
+  targetType: string;
+  targetTitle: string;
+  action: string;
   reason: string | null;
   createdAt: string;
-  moderator: {
-    id: string;
-    displayName: string;
-    avatarUrl: string | null;
-    username: string;
-  };
-  extraInfo?: Record<string, any>;
+  moderator: { displayName: string };
 }
 
-const typeBadges: Record<string, { label: string; class: string; icon: string }> = {
-  COMIC: { label: 'Truyện tranh', class: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/20', icon: '📚' },
-  CHAPTER: { label: 'Chương truyện', class: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/20', icon: '📖' },
-  NEWS: { label: 'Tin tức', class: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/20', icon: '📰' },
-};
+type ModerationTab = 'pending' | 'authors' | 'reports' | 'logs';
 
-const quickReasons = [
-  'Nội dung không phù hợp với quy chuẩn cộng đồng',
-  'Tiêu đề hoặc mô tả chứa từ ngữ vi phạm',
-  'Hình ảnh chất lượng kém, bị lặp hoặc không mở được',
-  'Chưa đăng tải đủ trang cho chương truyện',
-  'Trùng lặp với bài đăng đã có trên hệ thống',
-];
+function resolveRequestedTab(raw: string | null, isAdmin: boolean): ModerationTab {
+  if (raw === 'authors' && isAdmin) return 'authors';
+  if (raw === 'reports') return 'reports';
+  if (raw === 'logs') return 'logs';
+  return 'pending';
+}
 
-export default function StudioModerationPage() {
-  const { accessToken, user } = useAuthStore();
+function ModerationContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, accessToken } = useAuthStore();
+  const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'PENDING' | 'LOGS'>('PENDING');
+  const isStaff = user?.role === 'ADMIN' || user?.role === 'MODERATOR';
+  const isAdmin = user?.role === 'ADMIN';
+  const requestedTab = searchParams.get('tab');
 
-  // Pending queue states
-  const [items, setItems] = useState<PendingItem[]>([]);
+  const [tab, setTab] = useState<ModerationTab>(() =>
+    resolveRequestedTab(requestedTab, isAdmin),
+  );
+  const [authorStatusFilter, setAuthorStatusFilter] = useState<AuthorApplicationStatus | 'ALL'>(
+    AuthorApplicationStatus.PENDING,
+  );
+
+  const [pending, setPending] = useState<ModerationItem[]>([]);
+  const [pendingReportsCount, setPendingReportsCount] = useState(0);
+  const [logs, setLogs] = useState<ModerationLogEntry[]>([]);
+  const [authorApps, setAuthorApps] = useState<AuthorApplicationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterType, setFilterType] = useState<'ALL' | 'COMIC' | 'CHAPTER' | 'NEWS'>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
 
-  // History logs states
-  const [logs, setLogs] = useState<ModerationLogItem[]>([]);
-  const [logsLoading, setLogsLoading] = useState(false);
-  const [logActionFilter, setLogActionFilter] = useState<'ALL' | 'APPROVED' | 'REJECTED'>('ALL');
+  const [rejectTarget, setRejectTarget] = useState<ModerationItem | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [previewItem, setPreviewItem] = useState<ModerationItem | null>(null);
+  const [actingKey, setActingKey] = useState<string | null>(null);
 
-  // Reject modal
-  const [rejectingItem, setRejectingItem] = useState<PendingItem | null>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [submittingReject, setSubmittingReject] = useState(false);
-  const [approvingId, setApprovingId] = useState<string | null>(null);
-
-  // Preview modal
-  const [previewItem, setPreviewItem] = useState<PendingItem | null>(null);
-
-  const isAdminOrMod = user && (user.role === 'ADMIN' || user.role === 'MODERATOR');
-
-  const fetchPending = () => {
-    if (!accessToken || !isAdminOrMod) return;
-    setLoading(true);
-    const param = filterType !== 'ALL' ? `?targetType=${filterType}` : '';
-    api
-      .get<{ data: PendingItem[] }>(`/admin/moderation/pending${param}`, { token: accessToken })
-      .then((res) => setItems(res.data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  };
-
-  const fetchLogs = () => {
-    if (!accessToken || !isAdminOrMod) return;
-    setLogsLoading(true);
-    const queryParams = new URLSearchParams();
-    if (filterType !== 'ALL') queryParams.append('targetType', filterType);
-    if (logActionFilter !== 'ALL') queryParams.append('action', logActionFilter);
-
-    api
-      .get<{ data: ModerationLogItem[] }>(`/admin/moderation/logs?${queryParams.toString()}`, { token: accessToken })
-      .then((res) => setLogs(res.data || []))
-      .catch(() => {})
-      .finally(() => setLogsLoading(false));
-  };
+  const [rejectAuthorApp, setRejectAuthorApp] = useState<AuthorApplicationItem | null>(null);
+  const [authorRejectNote, setAuthorRejectNote] = useState('');
+  const [reviewingAppId, setReviewingAppId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (activeTab === 'PENDING') {
-      fetchPending();
-    } else {
-      fetchLogs();
+    if (requestedTab) {
+      setTab(resolveRequestedTab(requestedTab, isAdmin));
     }
-  }, [accessToken, filterType, logActionFilter, activeTab, user]);
+  }, [requestedTab, isAdmin]);
 
-  const handleApprove = async (item: PendingItem) => {
-    if (!accessToken) return;
-    setApprovingId(item.targetId);
-    try {
-      await api.post(`/admin/moderation/${item.targetType}/${item.targetId}/approve`, {}, { token: accessToken });
-      setItems((prev) => prev.filter((i) => !(i.targetType === item.targetType && i.targetId === item.targetId)));
-      if (previewItem?.targetId === item.targetId) setPreviewItem(null);
-    } catch (err: any) {
-      alert(err?.message || 'Phê duyệt thất bại');
+  const handleTabChange = useCallback(
+    (nextTab: ModerationTab) => {
+      setTab(nextTab);
+      const nextQs = nextTab === 'pending' ? '' : `?tab=${nextTab}`;
+      router.replace(`/studio/moderation${nextQs}`, { scroll: false });
+    },
+    [router],
+  );
+
+  const loadData = useCallback(async () => {
+    if (!accessToken || !isStaff) {
+      setLoading(false);
+      return;
     }
-    setApprovingId(null);
+    setLoading(true);
+    try {
+      const [pRes, rRes, lRes, aRes] = await Promise.all([
+        api.get<{ data: ModerationItem[] }>('/moderation/pending', { token: accessToken }),
+        api.get<{ data: ReportItem[]; meta?: ReportListMeta }>('/reports?status=PENDING&limit=1', {
+          token: accessToken,
+        }),
+        api.get<{ data: ModerationLogEntry[] }>('/moderation/logs', { token: accessToken }),
+        isAdmin
+          ? api.get<{ data: AuthorApplicationItem[] }>('/admin/author-applications?status=ALL', {
+              token: accessToken,
+            })
+          : Promise.resolve({ data: [] as AuthorApplicationItem[] }),
+      ]);
+      setPending(pRes.data || []);
+      setPendingReportsCount(
+        rRes.meta?.summary?.pending ?? rRes.meta?.total ?? (rRes.data || []).length,
+      );
+      setLogs(lRes.data || []);
+      setAuthorApps(aRes.data || []);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Không thể tải dữ liệu kiểm duyệt');
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken, isAdmin, isStaff, toast]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleApprove = async (item: ModerationItem) => {
+    const key = `${item.targetType}:${item.targetId}`;
+    if (!accessToken || actingKey) return;
+    setActingKey(key);
+    try {
+      await api.patch(`/moderation/${item.targetType}/${item.targetId}/approve`, {}, { token: accessToken });
+      toast.success(`Đã phê duyệt "${item.title}"`);
+      await loadData();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Thao tác thất bại');
+    } finally {
+      setActingKey(null);
+    }
   };
 
-  const handleConfirmReject = async () => {
-    if (!accessToken || !rejectingItem || !rejectionReason.trim()) return;
-    setSubmittingReject(true);
+  const handleReject = async () => {
+    if (!accessToken || !rejectTarget || !rejectReason.trim() || actingKey) return;
+    const key = `${rejectTarget.targetType}:${rejectTarget.targetId}`;
+    setActingKey(key);
     try {
-      await api.post(
-        `/admin/moderation/${rejectingItem.targetType}/${rejectingItem.targetId}/reject`,
-        { reason: rejectionReason.trim() },
+      await api.patch(
+        `/moderation/${rejectTarget.targetType}/${rejectTarget.targetId}/reject`,
+        { reason: rejectReason.trim() },
         { token: accessToken },
       );
-      setItems((prev) => prev.filter((i) => !(i.targetType === rejectingItem.targetType && i.targetId === rejectingItem.targetId)));
-      if (previewItem?.targetId === rejectingItem.targetId) setPreviewItem(null);
-      setRejectingItem(null);
-      setRejectionReason('');
-    } catch (err: any) {
-      alert(err?.message || 'Từ chối thất bại');
+      toast.info(`Đã từ chối "${rejectTarget.title}"`);
+      setRejectTarget(null);
+      setRejectReason('');
+      await loadData();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Thao tác thất bại');
+    } finally {
+      setActingKey(null);
     }
-    setSubmittingReject(false);
   };
 
-  const handleToggleTrust = async (targetUserId: string, currentTrust: boolean) => {
+  const handleApproveAuthor = async (app: AuthorApplicationItem) => {
     if (!accessToken) return;
-    const nextState = !currentTrust;
-    const confirmMsg = nextState
-      ? 'Cấp quyền "Tác giả Uy tín" cho người dùng này?\n\nMọi tác phẩm/chương truyện tiếp theo của tác giả sẽ được TỰ ĐỘNG PHÊ DUYỆT và xuất bản ngay lập tức.'
-      : 'Hủy quyền "Tác giả Uy tín" của người dùng này?\n\nCác tác phẩm/chương truyện tiếp theo sẽ phải qua hàng đợi kiểm duyệt.';
-    if (!confirm(confirmMsg)) return;
-
+    setReviewingAppId(app.id);
     try {
-      await api.patch(`/admin/moderation/users/${targetUserId}/trust`, { isTrusted: nextState }, { token: accessToken });
-      setItems((prev) =>
-        prev.map((item) =>
-          item.author?.id === targetUserId
-            ? { ...item, author: { ...item.author, isTrusted: nextState } }
-            : item
-        )
+      await api.patch(
+        `/admin/author-applications/${app.id}/review`,
+        { decision: 'APPROVED' },
+        { token: accessToken },
       );
-      if (previewItem && previewItem.author?.id === targetUserId) {
-        setPreviewItem({
-          ...previewItem,
-          author: { ...previewItem.author, isTrusted: nextState },
-        });
-      }
-    } catch (err: any) {
-      alert(err?.message || 'Không thể cập nhật trạng thái uy tín');
+      toast.success(`Đã cấp quyền Tác giả cho ${app.user?.displayName || app.penName}`);
+      loadData();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Không thể phê duyệt đơn');
+    } finally {
+      setReviewingAppId(null);
     }
   };
 
-  if (user && !isAdminOrMod) {
+  const handleRejectAuthor = async () => {
+    if (!accessToken || !rejectAuthorApp || !authorRejectNote.trim()) return;
+    setReviewingAppId(rejectAuthorApp.id);
+    try {
+      await api.patch(
+        `/admin/author-applications/${rejectAuthorApp.id}/review`,
+        { decision: 'REJECTED', reviewNote: authorRejectNote.trim() },
+        { token: accessToken },
+      );
+      toast.info(`Đã từ chối đơn đăng ký "${rejectAuthorApp.penName}"`);
+      setRejectAuthorApp(null);
+      setAuthorRejectNote('');
+      loadData();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Thao tác thất bại');
+    } finally {
+      setReviewingAppId(null);
+    }
+  };
+
+  const pendingAuthorsCount = authorApps.filter((a) => a.status === AuthorApplicationStatus.PENDING).length;
+  const filteredAuthorApps =
+    authorStatusFilter === 'ALL'
+      ? authorApps
+      : authorApps.filter((a) => a.status === authorStatusFilter);
+
+  if (!isStaff) {
     return (
-      <div className="mx-auto max-w-4xl px-6 py-20 text-center">
-        <div className="mb-3 text-4xl">🔒</div>
-        <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Quyền truy cập bị hạn chế</h2>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          Chỉ có Quản trị viên (Admin) và Kiểm duyệt viên (Moderator) mới có quyền truy cập trang này.
-        </p>
-      </div>
+      <Card className="p-8 text-center text-sm text-[var(--danger)]">
+        Chỉ Kiểm duyệt viên (MODERATOR) hoặc Quản trị viên (ADMIN) mới có quyền truy cập khu vực này.
+      </Card>
     );
   }
 
-  const comicCount = items.filter((i) => i.targetType === 'COMIC').length;
-  const chapterCount = items.filter((i) => i.targetType === 'CHAPTER').length;
-  const newsCount = items.filter((i) => i.targetType === 'NEWS').length;
-
-  const filteredItems = items.filter((i) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      i.title.toLowerCase().includes(q) ||
-      i.author?.displayName?.toLowerCase().includes(q) ||
-      i.author?.username?.toLowerCase().includes(q)
-    );
-  });
-
-  const filteredLogs = logs.filter((l) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      l.title.toLowerCase().includes(q) ||
-      l.moderator?.displayName?.toLowerCase().includes(q) ||
-      l.moderator?.username?.toLowerCase().includes(q)
-    );
-  });
-
   return (
-    <div className="mx-auto max-w-6xl px-3.5 py-4 sm:px-6 sm:py-8">
-      {/* Header */}
-      <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-            🛡️ Trung tâm Kiểm duyệt
-          </h1>
-          <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-            Phê duyệt bài đăng và tra cứu Lịch sử nhật ký kiểm duyệt
-          </p>
-        </div>
-        <button
-          onClick={activeTab === 'PENDING' ? fetchPending : fetchLogs}
-          className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-xl bg-zinc-100 dark:bg-white/[0.06] px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300 transition-all hover:bg-zinc-200 dark:hover:bg-white/[0.1]"
-        >
-          🔄 Làm mới dữ liệu
-        </button>
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-serif text-2xl font-bold text-[var(--text-primary)]">Trung tâm Kiểm duyệt</h1>
+        <p className="text-sm text-[var(--text-secondary)]">
+          Phê duyệt tác phẩm mới, xét duyệt đơn đăng ký Tác giả và xử lý báo cáo vi phạm.
+        </p>
       </div>
 
-      {/* Primary Tab Switcher */}
-      <div className="mb-4 sm:mb-6 border-b border-zinc-200 dark:border-white/10 flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar">
-        <button
-          onClick={() => setActiveTab('PENDING')}
-          className={`pb-2.5 sm:pb-3 text-xs sm:text-sm font-semibold transition-all relative shrink-0 ${
-            activeTab === 'PENDING'
-              ? 'text-amber-600 dark:text-amber-400'
-              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
-          }`}
-        >
-          ⏳ Hàng chờ phê duyệt
-          {items.length > 0 && (
-            <span className="ml-1.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-300 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-bold">
-              {items.length}
-            </span>
-          )}
-          {activeTab === 'PENDING' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 rounded-full animate-fade-in" />
-          )}
-        </button>
+      <Tabs
+        value={tab}
+        onChange={handleTabChange}
+        items={[
+          { value: 'pending', label: 'Chờ duyệt nội dung', badge: pending.length, icon: <ShieldCheck className="h-4 w-4" /> },
+          ...(isAdmin
+            ? [
+                {
+                  value: 'authors' as const,
+                  label: 'Đơn Tác giả',
+                  badge: pendingAuthorsCount,
+                  icon: <UserCheck className="h-4 w-4" />,
+                },
+              ]
+            : []),
+          {
+            value: 'reports',
+            label: 'Báo cáo vi phạm',
+            badge: pendingReportsCount,
+            icon: <Flag className="h-4 w-4" />,
+          },
+          { value: 'logs', label: 'Nhật ký', icon: <History className="h-4 w-4" /> },
+        ]}
+      />
 
-        <button
-          onClick={() => setActiveTab('LOGS')}
-          className={`pb-2.5 sm:pb-3 text-xs sm:text-sm font-semibold transition-all relative shrink-0 ${
-            activeTab === 'LOGS'
-              ? 'text-amber-600 dark:text-amber-400'
-              : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
-          }`}
-        >
-          📜 Lịch sử kiểm duyệt
-          {activeTab === 'LOGS' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500 rounded-full animate-fade-in" />
-          )}
-        </button>
-      </div>
-
-      {/* ── TAB 1: PENDING QUEUE ── */}
-      {activeTab === 'PENDING' && (
-        <>
-          {/* Counter Stats Cards */}
-          <div className="mb-4 sm:mb-6 grid grid-cols-2 gap-2.5 sm:gap-4 sm:grid-cols-4">
-            <div
-              onClick={() => setFilterType('ALL')}
-              className={`cursor-pointer rounded-xl border p-3 sm:p-4 transition-all ${
-                filterType === 'ALL'
-                  ? 'border-amber-500 bg-amber-500/10 dark:bg-amber-500/15 shadow-md shadow-amber-500/10'
-                  : 'border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:border-zinc-300'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-medium">Tất cả yêu cầu</span>
-                <span className="text-base sm:text-lg">📋</span>
-              </div>
-              <div className="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">{items.length}</div>
-            </div>
-
-            <div
-              onClick={() => setFilterType('COMIC')}
-              className={`cursor-pointer rounded-xl border p-3 sm:p-4 transition-all ${
-                filterType === 'COMIC'
-                  ? 'border-amber-500 bg-amber-500/10 dark:bg-amber-500/15 shadow-md shadow-amber-500/10'
-                  : 'border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:border-zinc-300'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-medium">Truyện mới</span>
-                <span className="text-base sm:text-lg">📚</span>
-              </div>
-              <div className="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">{comicCount}</div>
-            </div>
-
-            <div
-              onClick={() => setFilterType('CHAPTER')}
-              className={`cursor-pointer rounded-xl border p-3 sm:p-4 transition-all ${
-                filterType === 'CHAPTER'
-                  ? 'border-blue-500 bg-blue-500/10 dark:bg-blue-500/15 shadow-md shadow-blue-500/10'
-                  : 'border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:border-zinc-300'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-medium">Chương mới</span>
-                <span className="text-base sm:text-lg">📖</span>
-              </div>
-              <div className="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">{chapterCount}</div>
-            </div>
-
-            <div
-              onClick={() => setFilterType('NEWS')}
-              className={`cursor-pointer rounded-xl border p-3 sm:p-4 transition-all ${
-                filterType === 'NEWS'
-                  ? 'border-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/15 shadow-md shadow-emerald-500/10'
-                  : 'border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] hover:border-zinc-300'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 font-medium">Bài viết News</span>
-                <span className="text-base sm:text-lg">📰</span>
-              </div>
-              <div className="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">{newsCount}</div>
-            </div>
-          </div>
-
-          {/* Search bar */}
-          <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative flex-1 max-w-md">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400">🔍</span>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm theo tiêu đề hoặc tên tác giả..."
-                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] py-2 sm:py-2.5 pl-9 sm:pl-10 pr-3 sm:pr-4 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-amber-500/50"
-              />
-            </div>
-          </div>
-
-          {/* Pending List */}
-          {loading ? (
-            <div className="flex justify-center py-16 sm:py-20">
-              <div className="h-7 w-7 sm:h-8 sm:w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
-            </div>
-          ) : filteredItems.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-10 sm:p-16 text-center shadow-sm dark:shadow-none">
-              <div className="mb-2 sm:mb-3 text-3xl sm:text-4xl">🎉</div>
-              <h3 className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-white">
-                {searchQuery ? 'Không tìm thấy kết quả phù hợp' : 'Hàng chờ kiểm duyệt đang trống'}
-              </h3>
-              <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-                {searchQuery ? 'Thử thay đổi từ khóa tìm kiếm' : 'Toàn bộ nội dung gửi lên đã được xử lý xong!'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2.5 sm:space-y-3">
-              {filteredItems.map((item) => {
-                const badge = typeBadges[item.targetType] || { label: item.targetType, class: 'bg-zinc-500/15 text-zinc-600', icon: '📄' };
-                return (
-                  <div
-                    key={`${item.targetType}-${item.targetId}`}
-                    className="group relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-3.5 sm:p-5 shadow-sm dark:shadow-none transition-all duration-200 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5"
-                  >
-                    <div className="flex items-start gap-3 sm:gap-4 min-w-0">
-                      <div className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800">
-                        {item.extraInfo?.coverUrl ? (
-                          <img src={item.extraInfo.coverUrl} alt="" className="h-full w-full object-cover" />
-                        ) : item.author?.avatarUrl ? (
-                          <img src={item.author.avatarUrl} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center font-bold text-base sm:text-lg text-zinc-400">
-                            {badge.icon}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-1 min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                          <span className={`rounded-full border px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold shrink-0 ${badge.class}`}>
-                            {badge.icon} {badge.label}
-                          </span>
-                          <h3 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors truncate max-w-full">
-                            {item.title}
-                          </h3>
-                        </div>
-                        <div className="flex items-center gap-2 sm:gap-4 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 flex-wrap">
-                          <span className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
-                            Tác giả: <strong className="text-zinc-700 dark:text-zinc-300">{item.author?.displayName}</strong> (@{item.author?.username})
-                            {item.author?.isTrusted && (
-                              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-amber-600 dark:text-amber-400 border border-amber-500/20" title="Tác giả uy tín - Tự động duyệt">
-                                ⭐ Uy tín
-                              </span>
-                            )}
-                            {item.author?.isVerified && (
-                              <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" title="Email đã xác thực">
-                                ✓ Email
-                              </span>
-                            )}
-                          </span>
-                          <span>{new Date(item.updatedAt).toLocaleString('vi-VN')}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 sm:gap-2 self-end sm:self-center shrink-0">
-                      <button
-                        onClick={() => setPreviewItem(item)}
-                        className="rounded-lg bg-zinc-100 dark:bg-white/[0.06] hover:bg-zinc-200 dark:hover:bg-white/[0.1] px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors"
-                      >
-                        👁️ <span className="hidden xs:inline">Xem</span> trước
-                      </button>
-
-                      <button
-                        onClick={() => handleApprove(item)}
-                        disabled={approvingId === item.targetId}
-                        className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-xs font-semibold text-white shadow-sm shadow-emerald-500/20 transition-all disabled:opacity-50"
-                      >
-                        {approvingId === item.targetId ? '...' : '✅ Duyệt'}
-                      </button>
-
-                      <button
-                        onClick={() => { setRejectingItem(item); setRejectionReason(''); }}
-                        className="rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 transition-all"
-                      >
-                        ❌ Từ chối
-                      </button>
-                    </div>
+      {loading && tab !== 'reports' ? (
+        <div className="h-48 animate-pulse rounded-2xl bg-[var(--bg-subtle)]" />
+      ) : tab === 'pending' ? (
+        pending.length === 0 ? (
+          <Card className="py-12 text-center text-sm text-[var(--text-muted)]">
+            Hàng đợi kiểm duyệt hiện đang trống.
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {pending.map((item) => (
+              <Card key={`${item.targetType}-${item.targetId}`} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="primary">{item.targetType}</Badge>
+                    <span className="text-xs text-[var(--text-muted)]">{formatRelativeTime(item.updatedAt)}</span>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
+                  <h3 className="text-base font-bold text-[var(--text-primary)]">{item.title}</h3>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    Tác giả: <strong>{item.author.displayName}</strong> (@{item.author.username})
+                  </p>
+                </div>
 
-      {/* ── TAB 2: MODERATION HISTORY LOGS ── */}
-      {activeTab === 'LOGS' && (
-        <>
-          {/* Filters Bar */}
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-zinc-500">Lọc kết quả:</span>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="xs" variant="outline" onClick={() => setPreviewItem(item)}>
+                    <Eye className="h-3.5 w-3.5" /> Xem trước
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="primary"
+                    isLoading={actingKey === `${item.targetType}:${item.targetId}`}
+                    disabled={Boolean(actingKey)}
+                    onClick={() => handleApprove(item)}
+                  >
+                    <Check className="h-3.5 w-3.5" /> Phê duyệt
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="danger"
+                    disabled={Boolean(actingKey)}
+                    onClick={() => setRejectTarget(item)}
+                  >
+                    <X className="h-3.5 w-3.5" /> Từ chối
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )
+      ) : tab === 'authors' && isAdmin ? (
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-1.5">
+            {(
+              [
+                { k: AuthorApplicationStatus.PENDING, l: 'Chờ duyệt' },
+                { k: AuthorApplicationStatus.APPROVED, l: 'Đã duyệt' },
+                { k: AuthorApplicationStatus.REJECTED, l: 'Đã từ chối' },
+                { k: 'ALL', l: 'Tất cả' },
+              ] as const
+            ).map((f) => (
               <button
-                onClick={() => setLogActionFilter('ALL')}
-                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
-                  logActionFilter === 'ALL'
-                    ? 'bg-amber-500 text-white shadow-sm'
-                    : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10'
+                key={f.k}
+                type="button"
+                onClick={() => setAuthorStatusFilter(f.k)}
+                className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold cursor-pointer transition-colors ${
+                  authorStatusFilter === f.k
+                    ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white'
+                    : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)]'
                 }`}
               >
-                Tất cả hành động
+                {f.l}
               </button>
-              <button
-                onClick={() => setLogActionFilter('APPROVED')}
-                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
-                  logActionFilter === 'APPROVED'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10'
-                }`}
-              >
-                ✅ Đã duyệt
-              </button>
-              <button
-                onClick={() => setLogActionFilter('REJECTED')}
-                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
-                  logActionFilter === 'REJECTED'
-                    ? 'bg-red-600 text-white shadow-sm'
-                    : 'bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10'
-                }`}
-              >
-                ❌ Bị từ chối
-              </button>
-            </div>
-
-            <div className="relative max-w-xs w-full">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400">🔍</span>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm tiêu đề hoặc tên Mod..."
-                className="w-full rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] py-2 pl-9 pr-3 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-amber-500/50"
-              />
-            </div>
+            ))}
           </div>
 
-          {/* Logs List */}
-          {logsLoading ? (
-            <div className="flex justify-center py-20">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
-            </div>
-          ) : filteredLogs.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-16 text-center shadow-sm dark:shadow-none">
-              <div className="mb-3 text-4xl">📜</div>
-              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">Chưa có nhật ký kiểm duyệt nào</h3>
-              <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Lịch sử phê duyệt và từ chối sẽ được lưu vết tại đây</p>
-            </div>
+          {filteredAuthorApps.length === 0 ? (
+            <Card className="py-12 text-center text-sm text-[var(--text-muted)]">
+              Không có đơn đăng ký Tác giả nào trong mục này.
+            </Card>
           ) : (
             <div className="space-y-3">
-              {filteredLogs.map((log) => {
-                const badge = typeBadges[log.targetType] || { label: log.targetType, class: 'bg-zinc-500/15 text-zinc-600', icon: '📄' };
-                const isApproved = log.action === 'APPROVED';
-                return (
-                  <div
-                    key={log.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-4 text-xs transition-all hover:border-zinc-300 dark:hover:border-white/10"
-                  >
-                    <div className="flex items-start gap-3.5">
-                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800">
-                        {log.extraInfo?.coverUrl ? (
-                          <img src={log.extraInfo.coverUrl} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-base">{badge.icon}</div>
-                        )}
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${badge.class}`}>
-                            {badge.icon} {badge.label}
-                          </span>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                              isApproved ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20'
-                            }`}
+              {filteredAuthorApps.map((app) => (
+                <Card key={app.id} className="space-y-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar
+                        src={app.user?.avatarUrl}
+                        name={app.user?.displayName || app.penName}
+                        size="md"
+                      />
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-bold text-[var(--text-primary)]">
+                            {app.penName}
+                          </h3>
+                          <Badge
+                            variant={
+                              app.status === AuthorApplicationStatus.PENDING
+                                ? 'warning'
+                                : app.status === AuthorApplicationStatus.APPROVED
+                                  ? 'success'
+                                  : 'danger'
+                            }
                           >
-                            {isApproved ? '✅ ĐÃ PHÊ DUYỆT' : '❌ ĐÃ TỪ CHỐI'}
-                          </span>
-                          <h4 className="font-bold text-zinc-900 dark:text-white">{log.title}</h4>
+                            {app.status === AuthorApplicationStatus.PENDING
+                              ? 'Chờ duyệt'
+                              : app.status === AuthorApplicationStatus.APPROVED
+                                ? 'Đã duyệt'
+                                : 'Từ chối'}
+                          </Badge>
                         </div>
-
-                        {log.reason && (
-                          <p className="text-red-600 dark:text-red-400 italic bg-red-500/5 p-2 rounded-lg border border-red-500/10 mt-1">
-                            Lý do từ chối: "{log.reason}"
-                          </p>
-                        )}
-
-                        <div className="flex items-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
-                          <span>
-                            Kiểm duyệt bởi: <strong className="text-zinc-700 dark:text-zinc-300">{log.moderator?.displayName}</strong> (@{log.moderator?.username})
-                          </span>
-                          <span>•</span>
-                          <span>Thời gian: {new Date(log.createdAt).toLocaleString('vi-VN')}</span>
-                        </div>
+                        <p className="text-xs text-[var(--text-muted)]">
+                          {app.user?.displayName} (@{app.user?.username}) · {app.user?.email} · Cấp{' '}
+                          {app.user?.level ?? 1} · Gửi {formatRelativeTime(app.createdAt)}
+                        </p>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
 
-      {/* ── RICH PREVIEW MODAL ── */}
-      {previewItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-fade-in">
-          <div className="flex flex-col w-full max-w-3xl max-h-[85vh] rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121217] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 px-6 py-4 shrink-0 bg-zinc-50 dark:bg-white/[0.02]">
-              <div className="flex items-center gap-3">
-                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${typeBadges[previewItem.targetType]?.class}`}>
-                  {typeBadges[previewItem.targetType]?.icon} {typeBadges[previewItem.targetType]?.label}
-                </span>
-                <h3 className="text-base font-bold text-zinc-900 dark:text-white truncate max-w-md">
-                  {previewItem.title}
-                </h3>
-              </div>
-              <button
-                onClick={() => setPreviewItem(null)}
-                className="h-8 w-8 rounded-full flex items-center justify-center text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-white transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              <div className="flex items-center justify-between gap-4 text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-white/[0.03] p-3.5 rounded-xl border border-zinc-200 dark:border-white/[0.06]">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-zinc-200 dark:border-white/10">
-                    {previewItem.author?.avatarUrl ? (
-                      <img src={previewItem.author.avatarUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center font-bold text-zinc-400">
-                        {previewItem.author?.displayName?.[0]}
+                    {app.status === AuthorApplicationStatus.PENDING && (
+                      <div className="flex flex-wrap gap-2 shrink-0">
+                        <Button
+                          size="xs"
+                          variant="primary"
+                          isLoading={reviewingAppId === app.id}
+                          onClick={() => handleApproveAuthor(app)}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          Phê duyệt thành Tác giả
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="danger"
+                          disabled={reviewingAppId === app.id}
+                          onClick={() => {
+                            setRejectAuthorApp(app);
+                            setAuthorRejectNote('');
+                          }}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          Từ chối
+                        </Button>
                       </div>
                     )}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className="font-semibold text-zinc-900 dark:text-white">{previewItem.author?.displayName}</p>
-                      {previewItem.author?.isTrusted && (
-                        <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                          ⭐ Uy tín
-                        </span>
-                      )}
-                      {previewItem.author?.isVerified && (
-                        <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          ✓ Email
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <p className="text-zinc-500 dark:text-zinc-400">@{previewItem.author?.username}</p>
-                      {previewItem.author?.id && (
-                        <>
-                          <span>•</span>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleTrust(previewItem.author.id, !!previewItem.author?.isTrusted)}
-                            className={`text-xs font-medium underline transition-colors cursor-pointer ${
-                              previewItem.author?.isTrusted
-                                ? 'text-red-500 hover:text-red-600'
-                                : 'text-amber-600 hover:text-amber-500 dark:text-amber-400'
-                            }`}
-                          >
-                            {previewItem.author?.isTrusted ? 'Hủy quyền uy tín' : 'Cấp quyền Tác giả Uy tín ⭐'}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium text-zinc-700 dark:text-zinc-300">Gửi duyệt lúc</p>
-                  <p>{new Date(previewItem.updatedAt).toLocaleString('vi-VN')}</p>
-                </div>
-              </div>
 
-              {/* 1. COMIC PREVIEW */}
-              {previewItem.targetType === 'COMIC' && (
-                <div className="space-y-5">
-                  <div className="relative h-44 w-full rounded-2xl overflow-hidden bg-gradient-to-r from-amber-950 to-zinc-900 border border-zinc-200 dark:border-white/10">
-                    {previewItem.extraInfo?.bannerUrl && (
-                      <img src={previewItem.extraInfo.bannerUrl} alt="" className="h-full w-full object-cover opacity-50" />
+                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] p-3.5 space-y-2 text-sm">
+                    {app.sampleWorkTitle && (
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        <strong>Tác phẩm dự kiến:</strong> {app.sampleWorkTitle}
+                      </p>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-5 flex items-end gap-4">
-                      {previewItem.extraInfo?.coverUrl && (
-                        <img
-                          src={previewItem.extraInfo.coverUrl}
-                          alt=""
-                          className="h-24 w-18 shrink-0 rounded-lg border-2 border-white/20 object-cover shadow-xl"
-                        />
-                      )}
-                      <div>
-                        <h2 className="text-xl font-bold text-white">{previewItem.title}</h2>
-                        <div className="mt-1 flex items-center gap-2 text-xs text-zinc-300">
-                          <span>🌐 Ngôn ngữ: {previewItem.extraInfo?.originalLanguage || 'vi'}</span>
-                          <span>•</span>
-                          <span>🔞 Đánh giá: {previewItem.extraInfo?.contentRating || 'EVERYONE'}</span>
-                        </div>
+                    <p className="whitespace-pre-line text-[var(--text-primary)] leading-relaxed">
+                      {app.bio}
+                    </p>
+                    {app.experience && (
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        <strong>Kinh nghiệm:</strong> {app.experience}
+                      </p>
+                    )}
+                    {(app.portfolioUrl || app.sampleWorkLink) && (
+                      <div className="flex flex-wrap gap-3 pt-1">
+                        {app.portfolioUrl &&
+                          (/^https?:\/\//i.test(app.portfolioUrl) ? (
+                            <a
+                              href={app.portfolioUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-primary)] hover:underline"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" /> Portfolio
+                            </a>
+                          ) : (
+                            <span className="text-xs text-[var(--text-secondary)]">
+                              Portfolio: {app.portfolioUrl}
+                            </span>
+                          ))}
+                        {app.sampleWorkLink &&
+                          (/^https?:\/\//i.test(app.sampleWorkLink) ? (
+                            <a
+                              href={app.sampleWorkLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-warm)] hover:underline"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" /> Bản mẫu
+                            </a>
+                          ) : (
+                            <span className="text-xs text-[var(--text-secondary)]">
+                              Bản mẫu: {app.sampleWorkLink}
+                            </span>
+                          ))}
                       </div>
-                    </div>
+                    )}
                   </div>
 
-                  {previewItem.extraInfo?.genres && previewItem.extraInfo.genres.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">Thể loại</h4>
-                      <div className="flex flex-wrap gap-1.5">
-                        {previewItem.extraInfo.genres.map((g: string) => (
-                          <span key={g} className="rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-500/20 px-2.5 py-1 text-xs font-medium">
-                            {g}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+                  {app.status !== AuthorApplicationStatus.PENDING && app.reviewedAt && (
+                    <p className="text-xs text-[var(--text-muted)]">
+                      Đã xử lý lúc {formatDate(app.reviewedAt)}
+                      {app.reviewer ? ` bởi ${app.reviewer.displayName}` : ''}
+                      {app.reviewNote ? ` · Ghi chú: "${app.reviewNote}"` : ''}
+                    </p>
                   )}
-
-                  <div>
-                    <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">Mô tả nội dung</h4>
-                    <div className="rounded-xl bg-zinc-50 dark:bg-white/[0.03] p-4 text-sm text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-white/[0.06] whitespace-pre-wrap leading-relaxed">
-                      {previewItem.extraInfo?.description || 'Chưa có mô tả'}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 2. CHAPTER PREVIEW (FULL IMAGES READER) */}
-              {previewItem.targetType === 'CHAPTER' && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between rounded-xl bg-blue-500/10 border border-blue-500/20 p-3.5 text-xs text-blue-700 dark:text-blue-300">
-                    <span className="font-semibold">📖 Xem trước danh sách trang ảnh trong chương</span>
-                    <span className="font-bold">Tổng cộng: {previewItem.extraInfo?.pages?.length || 0} trang</span>
-                  </div>
-
-                  {previewItem.extraInfo?.pages && previewItem.extraInfo.pages.length > 0 ? (
-                    <div className="space-y-3 max-h-[50vh] overflow-y-auto p-2 bg-zinc-950 rounded-2xl border border-zinc-800">
-                      {previewItem.extraInfo.pages.map((p: { pageNumber: number; imageUrl: string }) => (
-                        <div key={p.pageNumber} className="relative group flex flex-col items-center">
-                          <span className="mb-1 text-[10px] font-mono text-zinc-400">Trang {p.pageNumber}</span>
-                          <img
-                            src={p.imageUrl}
-                            alt={`Trang ${p.pageNumber}`}
-                            className="max-w-full rounded-lg shadow-lg object-contain border border-zinc-800"
-                            loading="lazy"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-10 text-center text-sm text-zinc-500 bg-zinc-50 dark:bg-white/5 rounded-xl">
-                      Chương này chưa có hình ảnh nào được tải lên!
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 3. NEWS PREVIEW */}
-              {previewItem.targetType === 'NEWS' && (
-                <div className="space-y-4">
-                  {previewItem.extraInfo?.coverUrl && (
-                    <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-zinc-900">
-                      <img src={previewItem.extraInfo.coverUrl} alt="" className="h-full w-full object-cover" />
-                    </div>
-                  )}
-
-                  {previewItem.extraInfo?.category && (
-                    <span className="inline-block rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-3 py-1 text-xs font-semibold">
-                      🏷️ Danh mục: {previewItem.extraInfo.category}
-                    </span>
-                  )}
-
-                  {previewItem.extraInfo?.excerpt && (
-                    <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-800 dark:text-amber-300 font-medium italic">
-                      " {previewItem.extraInfo.excerpt} "
-                    </div>
-                  )}
-
-                  <div>
-                    <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">Nội dung bài viết</h4>
-                    <div className="rounded-xl bg-zinc-50 dark:bg-white/[0.03] p-4 text-sm text-zinc-900 dark:text-white border border-zinc-200 dark:border-white/[0.06] whitespace-pre-wrap leading-relaxed">
-                      {previewItem.extraInfo?.content || 'Chưa có nội dung'}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-3 border-t border-zinc-200 dark:border-white/10 px-6 py-4 shrink-0 bg-zinc-50 dark:bg-white/[0.02]">
-              <button
-                onClick={() => setPreviewItem(null)}
-                className="rounded-xl px-4 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors"
-              >
-                Đóng
-              </button>
-
-              <button
-                onClick={() => { setRejectingItem(previewItem); setRejectionReason(''); }}
-                className="rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 px-5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 transition-colors"
-              >
-                ❌ Từ chối
-              </button>
-
-              <button
-                onClick={() => handleApprove(previewItem)}
-                disabled={approvingId === previewItem.targetId}
-                className="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-6 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50"
-              >
-                {approvingId === previewItem.targetId ? 'Đang duyệt...' : '✅ Phê duyệt ngay'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── REJECT MODAL ── */}
-      {rejectingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121217] p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-zinc-900 dark:text-white">
-              Từ chối bài đăng: "{rejectingItem.title}"
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Chọn nhanh hoặc nhập lý do chi tiết để thông báo cho tác giả:
-            </p>
-
-            <div className="flex flex-wrap gap-1.5">
-              {quickReasons.map((qr) => (
-                <button
-                  key={qr}
-                  onClick={() => setRejectionReason(qr)}
-                  className="rounded-lg bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 px-2.5 py-1 text-[11px] text-zinc-700 dark:text-zinc-300 transition-colors text-left"
-                >
-                  + {qr}
-                </button>
+                </Card>
               ))}
             </div>
+          )}
+        </div>
+      ) : tab === 'reports' ? (
+        <ReportModerationPanel
+          accessToken={accessToken}
+          currentUserId={user?.id}
+          currentUserRole={user?.role}
+          onPendingCountChange={setPendingReportsCount}
+          onActionCompleted={loadData}
+        />
+      ) : (
+        <Card padded={false} className="divide-y divide-[var(--border-subtle)] overflow-hidden">
+          {logs.map((l) => (
+            <div key={l.id} className="flex items-center justify-between gap-4 p-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={l.action === 'APPROVED' ? 'success' : 'danger'}>{l.action}</Badge>
+                  <span className="text-xs font-semibold text-[var(--text-muted)]">{l.targetType}</span>
+                </div>
+                <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{l.targetTitle}</p>
+                {l.reason && <p className="text-xs text-[var(--danger)]">Lý do: {l.reason}</p>}
+              </div>
+              <div className="text-right text-xs text-[var(--text-muted)]">
+                <p>{l.moderator.displayName}</p>
+                <p>{formatRelativeTime(l.createdAt)}</p>
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
 
-            <textarea
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
+      {rejectTarget && (
+        <Modal open onClose={() => setRejectTarget(null)} title="Từ chối nội dung">
+          <div className="space-y-4">
+            <Textarea
+              label="Lý do từ chối *"
               rows={3}
-              placeholder="Nhập chi tiết lý do từ chối..."
-              className="w-full rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 p-3 text-xs text-zinc-900 dark:text-white outline-none focus:border-red-500/50"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Ghi rõ lý do để tác giả chỉnh sửa..."
             />
-
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                onClick={() => setRejectingItem(null)}
-                className="rounded-lg px-4 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={handleConfirmReject}
-                disabled={submittingReject || !rejectionReason.trim()}
-                className="rounded-lg bg-red-600 hover:bg-red-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
-              >
-                {submittingReject ? 'Đang gửi...' : 'Xác nhận Từ chối'}
-              </button>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setRejectTarget(null)}>Hủy</Button>
+              <Button variant="danger" onClick={handleReject} disabled={!rejectReason.trim()}>Xác nhận từ chối</Button>
             </div>
           </div>
-        </div>
+        </Modal>
+      )}
+
+      {rejectAuthorApp && (
+        <Modal
+          open
+          onClose={() => setRejectAuthorApp(null)}
+          title={`Từ chối đơn Tác giả — ${rejectAuthorApp.penName}`}
+        >
+          <div className="space-y-4">
+            <Textarea
+              label="Lý do từ chối *"
+              rows={3}
+              value={authorRejectNote}
+              onChange={(e) => setAuthorRejectNote(e.target.value)}
+              placeholder="Ví dụ: Vui lòng bổ sung link bản mẫu hoặc mô tả chi tiết hơn về định hướng truyện..."
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setRejectAuthorApp(null)}>Hủy</Button>
+              <Button
+                variant="danger"
+                onClick={handleRejectAuthor}
+                isLoading={reviewingAppId === rejectAuthorApp.id}
+                disabled={!authorRejectNote.trim()}
+              >
+                Xác nhận từ chối
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {previewItem && (
+        <Modal open onClose={() => setPreviewItem(null)} title={previewItem.title} maxWidthClass="max-w-2xl">
+          <div className="space-y-4 text-sm">
+            {Boolean(previewItem.extraInfo?.coverUrl) && (
+              <img
+                src={String(previewItem.extraInfo.coverUrl)}
+                alt=""
+                className="h-56 rounded-xl object-cover"
+              />
+            )}
+            {Boolean(previewItem.extraInfo?.description) && (
+              <p className="text-[var(--text-secondary)]">{String(previewItem.extraInfo.description)}</p>
+            )}
+            {Array.isArray(previewItem.extraInfo?.pages) && (
+              <div className="grid grid-cols-3 gap-2">
+                {(previewItem.extraInfo.pages as Array<{ pageNumber: number; imageUrl: string }>).map((p) => (
+                  <img key={p.pageNumber} src={p.imageUrl} alt="" className="rounded-lg border border-[var(--border-subtle)]" />
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
       )}
     </div>
+  );
+}
+
+export default function ModerationPage() {
+  return (
+    <Suspense fallback={<div className="h-48 animate-pulse rounded-2xl bg-[var(--bg-subtle)]" />}>
+      <ModerationContent />
+    </Suspense>
   );
 }

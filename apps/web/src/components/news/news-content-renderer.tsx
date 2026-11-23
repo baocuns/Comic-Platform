@@ -1,130 +1,137 @@
 'use client';
 
 import React from 'react';
+import { sanitizeSafeUrl } from '@/lib/format';
 
-interface NewsContentRendererProps {
-  content: string;
-}
-
-export function NewsContentRenderer({ content }: NewsContentRendererProps) {
-  if (!content) return null;
-
-  // 1. Normalize line endings (\r\n -> \n)
-  const normalized = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-  // 2. Split content by double newlines into blocks
-  const blocks = normalized.split(/\n\n+/);
-
-  return (
-    <div className="space-y-4 text-zinc-800 dark:text-zinc-200 leading-relaxed text-sm sm:text-base">
-      {blocks.map((block, index) => {
-        const trimmed = block.trim();
-        if (!trimmed) return null;
-
-        const elements = parseBlockMarkdown(trimmed);
-        return <div key={index}>{elements}</div>;
-      })}
-    </div>
-  );
-}
-
-function parseBlockMarkdown(text: string): React.ReactNode[] {
-  // 1. Headings
-  if (text.startsWith('# ')) {
-    return [
-      <h1 key="h1" className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white mt-6 mb-3">
-        {text.replace(/^#\s+/, '')}
-      </h1>,
-    ];
-  }
-  if (text.startsWith('## ')) {
-    return [
-      <h2 key="h2" className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white mt-5 mb-2">
-        {text.replace(/^##\s+/, '')}
-      </h2>,
-    ];
-  }
-  if (text.startsWith('### ')) {
-    return [
-      <h3 key="h3" className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-white mt-4 mb-2">
-        {text.replace(/^###\s+/, '')}
-      </h3>,
-    ];
-  }
-
-  // 2. Blockquotes
-  if (text.startsWith('> ')) {
-    return [
-      <blockquote
-        key="bq"
-        className="my-4 border-l-4 border-amber-500 bg-amber-500/5 dark:bg-amber-500/10 p-4 rounded-r-xl italic text-zinc-700 dark:text-zinc-300"
-      >
-        {text.replace(/^>\s+/, '')}
-      </blockquote>,
-    ];
-  }
-
-  // 3. Parse Markdown images: ![alt](url)
-  const imgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
-  const elements: React.ReactNode[] = [];
-  let lastIndex = 0;
+function renderInlineMarkdown(text: string): React.ReactNode[] {
+  const tokenRegex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|\[([^\]]+)\]\(([^)\s]+)\))/g;
+  const nodes: React.ReactNode[] = [];
+  let lastIdx = 0;
   let match: RegExpExecArray | null;
+  let keyCounter = 0;
 
-  while ((match = imgRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      const textPart = text.substring(lastIndex, match.index);
-      if (textPart) {
-        elements.push(<span key={`txt-${lastIndex}`}>{parseFormattedText(textPart)}</span>);
+  while ((match = tokenRegex.exec(text)) !== null) {
+    if (match.index > lastIdx) {
+      nodes.push(text.slice(lastIdx, match.index));
+    }
+
+    if (match[2] !== undefined) {
+      nodes.push(
+        <strong key={`b-${keyCounter++}`} className="font-semibold text-[var(--text-primary)]">
+          {match[2]}
+        </strong>,
+      );
+    } else if (match[3] !== undefined) {
+      nodes.push(
+        <em key={`i-${keyCounter++}`} className="italic">
+          {match[3]}
+        </em>,
+      );
+    } else if (match[4] !== undefined) {
+      nodes.push(
+        <code
+          key={`c-${keyCounter++}`}
+          className="rounded bg-[var(--bg-subtle)] px-1.5 py-0.5 text-xs font-mono"
+        >
+          {match[4]}
+        </code>,
+      );
+    } else if (match[5] !== undefined && match[6] !== undefined) {
+      const safeHref = sanitizeSafeUrl(match[6], true);
+      if (safeHref) {
+        const isExternal = safeHref.startsWith('http');
+        nodes.push(
+          <a
+            key={`a-${keyCounter++}`}
+            href={safeHref}
+            target={isExternal ? '_blank' : undefined}
+            rel={isExternal ? 'noopener noreferrer' : undefined}
+            className="font-medium text-[var(--accent-primary)] underline underline-offset-2 hover:opacity-85"
+          >
+            {match[5]}
+          </a>,
+        );
+      } else {
+        nodes.push(match[5]);
       }
     }
 
-    const alt = match[1]?.trim() || '';
-    const src = match[2]?.trim() || '';
-
-    if (src) {
-      elements.push(
-        <figure key={`img-${match.index}`} className="my-6 flex flex-col items-center justify-center">
-          <img
-            src={src}
-            alt={alt || 'Hình ảnh tin tức'}
-            className="max-h-[550px] w-auto max-w-full rounded-2xl border border-zinc-200 dark:border-white/[0.08] shadow-lg object-contain"
-          />
-          {alt && <figcaption className="mt-2 text-center text-xs text-zinc-500 dark:text-zinc-400 italic">{alt}</figcaption>}
-        </figure>
-      );
-    }
-
-    lastIndex = match.index + match[0].length;
+    lastIdx = match.index + match[0].length;
   }
 
-  if (lastIndex < text.length) {
-    const textPart = text.substring(lastIndex);
-    if (textPart) {
-      elements.push(<span key={`txt-${lastIndex}`}>{parseFormattedText(textPart)}</span>);
-    }
+  if (lastIdx < text.length) {
+    nodes.push(text.slice(lastIdx));
   }
 
-  return elements;
+  return nodes;
 }
 
-function parseFormattedText(text: string): React.ReactNode {
-  // Regex to split by **bold** and *italic*
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return (
-        <strong key={i} className="font-bold text-zinc-900 dark:text-white">
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
-    if (part.startsWith('*') && part.endsWith('*')) {
-      return (
-        <em key={i} className="italic">
-          {part.slice(1, -1)}
-        </em>
-      );
-    }
-    return part;
-  });
+export function NewsContentRenderer({ content }: { content: string }) {
+  const blocks = (content || '').split(/\n\n+/);
+
+  return (
+    <div className="space-y-4 text-[15px] leading-7 text-[var(--text-primary)]">
+      {blocks.map((block, idx) => {
+        const trimmed = block.trim();
+        if (!trimmed) return null;
+
+        if (trimmed.startsWith('### ')) {
+          return (
+            <h3 key={idx} className="font-serif text-lg font-bold text-[var(--text-primary)] pt-2">
+              {renderInlineMarkdown(trimmed.slice(4))}
+            </h3>
+          );
+        }
+        if (trimmed.startsWith('## ')) {
+          return (
+            <h2 key={idx} className="font-serif text-xl sm:text-2xl font-bold text-[var(--text-primary)] pt-3">
+              {renderInlineMarkdown(trimmed.slice(3))}
+            </h2>
+          );
+        }
+        if (trimmed.startsWith('> ')) {
+          return (
+            <blockquote
+              key={idx}
+              className="border-l-4 border-[var(--accent-primary)] bg-[var(--bg-subtle)]/60 px-4 py-3 italic text-[var(--text-secondary)] rounded-r-xl"
+            >
+              {renderInlineMarkdown(trimmed.slice(2))}
+            </blockquote>
+          );
+        }
+        if (trimmed.startsWith('![')) {
+          const match = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
+          if (match) {
+            const safeSrc = sanitizeSafeUrl(match[2], true);
+            if (!safeSrc) return null;
+            return (
+              <figure key={idx} className="my-4 overflow-hidden rounded-2xl border border-[var(--border-subtle)]">
+                <img src={safeSrc} alt={match[1]} className="w-full object-cover" />
+                {match[1] && (
+                  <figcaption className="bg-[var(--bg-subtle)] px-3 py-2 text-center text-xs text-[var(--text-muted)]">
+                    {match[1]}
+                  </figcaption>
+                )}
+              </figure>
+            );
+          }
+        }
+        if (trimmed.split('\n').every((line) => line.trim().startsWith('- '))) {
+          return (
+            <ul key={idx} className="list-disc space-y-1.5 pl-5 text-[var(--text-secondary)]">
+              {trimmed.split('\n').map((line, lIdx) => (
+                <li key={lIdx}>{renderInlineMarkdown(line.trim().slice(2))}</li>
+              ))}
+            </ul>
+          );
+        }
+
+        return (
+          <p key={idx} className="whitespace-pre-line text-[var(--text-secondary)] leading-relaxed">
+            {renderInlineMarkdown(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
 }

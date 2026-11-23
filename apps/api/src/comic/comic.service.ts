@@ -1,58 +1,154 @@
-import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
+import {
+  ApprovalStatus,
+  ComicStatus,
+  ComicType,
+  ContentRating,
+  ModerationTargetType,
+  Prisma,
+  UserRole,
+} from '@prisma/client';
+import { getCultivationInfo, normalizeSearchText } from 'shared';
+import slugify from 'slugify';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { CreateComicDto, UpdateComicDto, ComicQueryDto, RecommendationQueryDto } from './dto/comic.dto';
-import { ComicStatus, ContentRating, ApprovalStatus, Prisma, ModerationTargetType } from '@prisma/client';
 import { ModerationService } from '../moderation/moderation.service';
-import slugify from 'slugify';
+import { GenreService } from '../genre/genre.service';
+import {
+  ComicQueryDto,
+  CreateComicDto,
+  RankingsQueryDto,
+  RecommendationQueryDto,
+  UpdateComicDto,
+} from './dto/comic.dto';
+
+const RESERVED_COMIC_SLUGS = new Set([
+  'create',
+  'new',
+  'search',
+  'rankings',
+  'popular',
+  'latest',
+  'manage',
+  'edit',
+  'admin',
+  'studio',
+]);
 
 @Injectable()
 export class ComicService {
   private readonly logger = new Logger(ComicService.name);
 
+  private readonly baseInclude = {
+    author: {
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        level: true,
+        isVerified: true,
+        isTrusted: true,
+      },
+    },
+    genres: { include: { genre: true } },
+    chapters: {
+      where: { deletedAt: null, approvalStatus: ApprovalStatus.APPROVED },
+      orderBy: { number: 'desc' as const },
+      take: 2,
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        isPremium: true,
+        priceCoins: true,
+        publishedAt: true,
+      },
+    },
+  };
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly moderationService: ModerationService,
-  ) { }
+    private readonly genreService: GenreService,
+  ) {}
 
-  // ── Create Comic ──
+  private buildSearchText(parts: Array<string | string[] | null | undefined>): string {
+    const raw = parts
+      .flatMap((p) => (Array.isArray(p) ? p : p ? [p] : []))
+      .join(' ');
+    return normalizeSearchText(raw);
+  }
 
   async create(authorId: string, dto: CreateComicDto) {
     const slug = await this.generateUniqueSlug(dto.title);
+    const author = await this.prisma.user.findUnique({
+      where: { id: authorId },
+      select: { displayName: true },
+    });
+
+    const searchText = this.buildSearchText([
+      dto.title,
+      dto.alternativeTitles,
+      dto.tags,
+      dto.artistName,
+      dto.originalAuthor,
+      author?.displayName,
+    ]);
 
     const comic = await this.prisma.comic.create({
       data: {
         authorId,
-        title: dto.title,
+        title: dto.title.trim(),
         slug,
+        alternativeTitles: dto.alternativeTitles || [],
+        searchText,
         description: dto.description,
+        artistName: dto.artistName,
+        originalAuthor: dto.originalAuthor,
+        type: dto.type || ComicType.VIETNAM,
         contentRating: dto.contentRating || ContentRating.EVERYONE,
         originalLanguage: dto.originalLanguage || 'vi',
+        releaseYear: dto.releaseYear,
+        tags: dto.tags || [],
         status: ComicStatus.DRAFT,
         approvalStatus: ApprovalStatus.DRAFT,
-        ...(dto.genreIds && {
+        ...(dto.genreIds?.length && {
           genres: {
             create: dto.genreIds.map((genreId) => ({ genreId })),
           },
         }),
       },
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-        genres: { include: { genre: true } },
-      },
+      include: this.baseInclude,
     });
 
     this.logger.log(`Comic created: ${comic.title} by ${authorId}`);
-    return this.formatComic(comic);
+    return this.formatComic(comic, true);
   }
 
-  // ── Get All Comics (paginated, filtered) ──
-
   async findAll(query: ComicQueryDto) {
-    const page = Number(query.page) || 1;
-    const limit = Math.min(Number(query.limit) || 20, 50);
+    const page = Math.max(1, Math.floor(Number(query.page) || 1));
+    const limit = Math.min(Math.max(1, Math.floor(Number(query.limit) || 20)), 50);
     const skip = (page - 1) * limit;
+
+    if (query.status === ComicStatus.DRAFT) {
+      return {
+        data: [],
+        meta: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+        },
+      };
+    }
 
     const where: Prisma.ComicWhereInput = {
       deletedAt: null,
@@ -60,33 +156,64 @@ export class ComicService {
       status: query.status || { not: ComicStatus.DRAFT },
     };
 
-    // Genre filter
-    if (query.genre) {
-      where.genres = { some: { genre: { slug: query.genre } } };
+    if (query.type) where.type = query.type;
+    if (query.contentRating) where.contentRating = query.contentRating;
+
+    const includeSlugs = [
+      ...(query.genre ? [query.genre.trim()] : []),
+      ...(query.genres ? query.genres.split(',').map((s) => s.trim()).filter(Boolean) : []),
+    ]
+      .filter(Boolean)
+      .slice(0, 10);
+    const excludeSlugs = query.excludeGenres
+      ? query.excludeGenres.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 10)
+      : [];
+
+    const andConditions: Prisma.ComicWhereInput[] = [];
+    for (const slug of includeSlugs) {
+      andConditions.push({ genres: { some: { genre: { slug } } } });
+    }
+    if (excludeSlugs.length > 0) {
+      andConditions.push({ genres: { none: { genre: { slug: { in: excludeSlugs } } } } });
     }
 
-    // Search
-    if (query.search) {
-      const searchPattern = `%${query.search}%`;
-      const matchedComics = await this.prisma.$queryRaw<Array<{ id: string }>>`
-        SELECT id FROM "comics"
-        WHERE (unaccent(title) ILIKE unaccent(${searchPattern}) OR unaccent(description) ILIKE unaccent(${searchPattern}))
-          AND "deleted_at" IS NULL
-      `;
-      const matchedIds = matchedComics.map((c) => c.id);
-      where.id = { in: matchedIds };
+    if (query.search && query.search.trim().length > 0) {
+      const normalized = normalizeSearchText(query.search);
+      const tokens = normalized.split(' ').filter(Boolean).slice(0, 8);
+      for (const token of tokens) {
+        andConditions.push({ searchText: { contains: token, mode: 'insensitive' } });
+      }
     }
 
-    // Sort
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
     let orderBy: Prisma.ComicOrderByWithRelationInput | Prisma.ComicOrderByWithRelationInput[] = [
       { lastChapterAt: { sort: 'desc', nulls: 'last' } },
       { updatedAt: 'desc' },
     ];
     switch (query.sort) {
-      case 'popular': orderBy = { totalViews: 'desc' }; break;
-      case 'rating': orderBy = { avgRating: 'desc' }; break;
-      case 'latest': orderBy = { publishedAt: 'desc' }; break;
-      case 'updated': orderBy = [{ lastChapterAt: { sort: 'desc', nulls: 'last' } }, { updatedAt: 'desc' }]; break;
+      case 'popular':
+        orderBy = [{ totalViews: 'desc' }, { avgRating: 'desc' }];
+        break;
+      case 'weekly':
+        orderBy = [{ weeklyViews: 'desc' }, { totalViews: 'desc' }];
+        break;
+      case 'monthly':
+        orderBy = [{ monthlyViews: 'desc' }, { totalViews: 'desc' }];
+        break;
+      case 'rating':
+        orderBy = [{ avgRating: 'desc' }, { totalRatings: 'desc' }];
+        break;
+      case 'newest':
+        orderBy = [{ publishedAt: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }];
+        break;
+      case 'bookmarks':
+        orderBy = [{ totalBookmarks: 'desc' }, { totalViews: 'desc' }];
+        break;
+      default:
+        orderBy = [{ lastChapterAt: { sort: 'desc', nulls: 'last' } }, { updatedAt: 'desc' }];
     }
 
     const [comics, total] = await Promise.all([
@@ -95,16 +222,13 @@ export class ComicService {
         orderBy,
         skip,
         take: limit,
-        include: {
-          author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-          genres: { include: { genre: true } },
-        },
+        include: this.baseInclude,
       }),
       this.prisma.comic.count({ where }),
     ]);
 
     return {
-      data: comics.map(this.formatComic),
+      data: comics.map((c) => this.formatComic(c)),
       meta: {
         page,
         limit,
@@ -115,547 +239,615 @@ export class ComicService {
     };
   }
 
-  // ── Get Comic by Slug ──
-
-  async findBySlug(slug: string) {
-    // Try cache first (Upstash auto-deserializes JSON)
-    const cached = await this.redis.get(`comic:${slug}`);
+  async getHomepageSections(takeParam = 12) {
+    const take = Math.max(4, Math.min(Number(takeParam) || 12, 30));
+    const cacheKey = `homepage:v2:${take}`;
+    const cached = await this.redis.get(cacheKey);
     if (cached) return cached;
 
-    const comic = await this.prisma.comic.findUnique({
-      where: { slug, deletedAt: null },
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-        genres: { include: { genre: true } },
-        chapters: {
-          where: { deletedAt: null, approvalStatus: ApprovalStatus.APPROVED, publishedAt: { not: null } },
-          orderBy: { orderIndex: 'asc' },
-          select: { id: true, number: true, title: true, totalPages: true, isPremium: true, views: true, publishedAt: true },
-        },
-      },
-    });
-
-    if (!comic || comic.approvalStatus !== ApprovalStatus.APPROVED) {
-      throw new NotFoundException('Comic not found');
-    }
-
-    const result = {
-      ...this.formatComic(comic),
-      chapters: comic.chapters,
+    const baseWhere: Prisma.ComicWhereInput = {
+      deletedAt: null,
+      approvalStatus: ApprovalStatus.APPROVED,
+      status: { not: ComicStatus.DRAFT },
     };
 
-    // Cache for 5 minutes (Upstash auto-serializes JSON)
-    await this.redis.set(`comic:${slug}`, result, 300);
+    const [featuredRaw, trendingRaw, latestRaw, topRatedRaw] = await Promise.all([
+      this.prisma.comic.findMany({
+        where: { ...baseWhere, isFeatured: true },
+        orderBy: [{ totalViews: 'desc' }],
+        take: 5,
+        include: this.baseInclude,
+      }),
+      this.prisma.comic.findMany({
+        where: baseWhere,
+        orderBy: [{ weeklyViews: 'desc' }, { totalViews: 'desc' }],
+        take,
+        include: this.baseInclude,
+      }),
+      this.prisma.comic.findMany({
+        where: baseWhere,
+        orderBy: [{ lastChapterAt: { sort: 'desc', nulls: 'last' } }, { updatedAt: 'desc' }],
+        take,
+        include: this.baseInclude,
+      }),
+      this.prisma.comic.findMany({
+        where: { ...baseWhere, totalRatings: { gte: 1 } },
+        orderBy: [{ avgRating: 'desc' }, { totalRatings: 'desc' }],
+        take: 8,
+        include: this.baseInclude,
+      }),
+    ]);
 
+    const featured =
+      featuredRaw.length >= 3
+        ? featuredRaw
+        : trendingRaw.slice(0, 5);
+
+    const result = {
+      featured: featured.map((c) => this.formatComic(c)),
+      trending: trendingRaw.map((c) => this.formatComic(c)),
+      latest: latestRaw.map((c) => this.formatComic(c)),
+      topRated: topRatedRaw.map((c) => this.formatComic(c)),
+    };
+
+    await this.redis.set(cacheKey, result, 180);
     return result;
   }
 
-  // ── Update Comic ──
+  async getRankings(query: RankingsQueryDto) {
+    const limit = Math.min(Math.max(Number(query.limit) || 20, 5), 50);
+    const cacheKey = `rankings:${query.period || 'week'}:${query.metric || 'views'}:${query.type || 'all'}:${limit}`;
+    const cached = await this.redis.get(cacheKey);
+    if (cached) return cached;
 
-  async update(comicId: string, userId: string, dto: UpdateComicDto) {
-    const comic = await this.prisma.comic.findUnique({ where: { id: comicId } });
-    if (!comic) throw new NotFoundException('Comic not found');
-    if (comic.authorId !== userId) throw new ForbiddenException('Not the author');
+    const where: Prisma.ComicWhereInput = {
+      deletedAt: null,
+      approvalStatus: ApprovalStatus.APPROVED,
+      status: { not: ComicStatus.DRAFT },
+      ...(query.type && { type: query.type }),
+    };
 
-    const data: Prisma.ComicUpdateInput = {};
-    if (dto.title) {
-      data.title = dto.title.trim();
-      data.slug = await this.generateUniqueSlug(dto.title.trim(), comicId);
+    let orderBy: Prisma.ComicOrderByWithRelationInput[];
+    if (query.metric === 'rating') {
+      orderBy = [{ avgRating: 'desc' }, { totalRatings: 'desc' }, { totalViews: 'desc' }];
+    } else if (query.metric === 'bookmarks') {
+      orderBy = [{ totalBookmarks: 'desc' }, { totalViews: 'desc' }];
+    } else if (query.metric === 'newest') {
+      orderBy = [{ publishedAt: { sort: 'desc', nulls: 'last' } }, { totalViews: 'desc' }];
+    } else {
+      if (query.period === 'day') orderBy = [{ dailyViews: 'desc' }, { totalViews: 'desc' }];
+      else if (query.period === 'week') orderBy = [{ weeklyViews: 'desc' }, { totalViews: 'desc' }];
+      else if (query.period === 'month') orderBy = [{ monthlyViews: 'desc' }, { totalViews: 'desc' }];
+      else orderBy = [{ totalViews: 'desc' }];
     }
-    if (dto.description !== undefined) data.description = dto.description;
-    if (dto.status) data.status = dto.status;
-    if (dto.contentRating) data.contentRating = dto.contentRating;
-    if (dto.bannerPosition !== undefined) data.bannerPosition = Math.max(0, Math.min(100, dto.bannerPosition));
 
-    // Update genres
-    if (dto.genreIds) {
-      await this.prisma.comicGenre.deleteMany({ where: { comicId } });
-      await this.prisma.comicGenre.createMany({
-        data: dto.genreIds.map((genreId) => ({ comicId, genreId })),
-      });
-    }
-
-    const updated = await this.prisma.comic.update({
-      where: { id: comicId },
-      data,
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-        genres: { include: { genre: true } },
-      },
+    const comics = await this.prisma.comic.findMany({
+      where,
+      orderBy,
+      take: limit,
+      include: this.baseInclude,
     });
 
-    // Invalidate cache
-    await this.redis.del(`comic:${comic.slug}`);
-    if (updated.slug !== comic.slug) await this.redis.del(`comic:${updated.slug}`);
-    await this.redis.deletePattern('homepage*');
+    const formatted = comics.map((c, index) => ({
+      rank: index + 1,
+      ...this.formatComic(c),
+    }));
 
-    return this.formatComic(updated);
+    await this.redis.set(cacheKey, formatted, 180);
+    return formatted;
   }
 
-  // ── Delete Comic (soft) ──
+  async search(query: string, page = 1) {
+    if (!query || query.trim().length < 1) {
+      return {
+        data: [],
+        meta: { page, limit: 20, total: 0, totalPages: 0, hasNext: false },
+      };
+    }
+    return this.findAll({ search: query, page, limit: 20, sort: 'popular' });
+  }
 
-  async remove(comicId: string, userId: string) {
-    const comic = await this.prisma.comic.findUnique({ where: { id: comicId } });
-    if (!comic) throw new NotFoundException('Comic not found');
-    if (comic.authorId !== userId) throw new ForbiddenException('Not the author');
+  async findBySlug(slug: string, userId?: string) {
+    const cacheKey = `comic:${slug}`;
+    let baseComic = await this.redis.get<any>(cacheKey);
+    const now = new Date();
+
+    if (!baseComic) {
+      const comic = await this.prisma.comic.findUnique({
+        where: { slug },
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+              avatarUrl: true,
+              level: true,
+              isVerified: true,
+              isTrusted: true,
+            },
+          },
+          genres: { include: { genre: true } },
+          chapters: {
+            where: {
+              deletedAt: null,
+              approvalStatus: ApprovalStatus.APPROVED,
+              OR: [{ scheduledAt: null }, { scheduledAt: { lte: now } }],
+            },
+            orderBy: { number: 'asc' },
+            select: {
+              id: true,
+              comicId: true,
+              number: true,
+              title: true,
+              totalPages: true,
+              isPremium: true,
+              priceCoins: true,
+              views: true,
+              approvalStatus: true,
+              scheduledAt: true,
+              publishedAt: true,
+              createdAt: true,
+            },
+          },
+        },
+      });
+
+      if (
+        !comic ||
+        comic.deletedAt ||
+        comic.approvalStatus !== ApprovalStatus.APPROVED ||
+        comic.status === ComicStatus.DRAFT
+      ) {
+        throw new NotFoundException('Không tìm thấy bộ truyện này');
+      }
+
+      const ratingGroups = await this.prisma.rating.groupBy({
+        by: ['score'],
+        where: { comicId: comic.id },
+        _count: { score: true },
+      });
+
+      const ratingBreakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      for (const g of ratingGroups) {
+        if (g.score >= 1 && g.score <= 5) {
+          ratingBreakdown[g.score as 1 | 2 | 3 | 4 | 5] = g._count.score;
+        }
+      }
+
+      baseComic = {
+        ...this.formatComic(comic),
+        artistName: comic.artistName,
+        originalAuthor: comic.originalAuthor,
+        chapters: comic.chapters.map((ch) => ({
+          ...ch,
+          number: Number(ch.number),
+        })),
+        ratingBreakdown,
+      };
+
+      await this.redis.set(cacheKey, baseComic, 240);
+    }
+
+    const visibleChapters = (baseComic.chapters || []).filter(
+      (ch: any) => !ch.scheduledAt || new Date(ch.scheduledAt) <= now,
+    );
+    const normalizedBase = { ...baseComic, chapters: visibleChapters };
+
+    if (!userId) {
+      return normalizedBase;
+    }
+
+    const [bookmark, unlocks, historyRows, myRating, follow] = await Promise.all([
+      this.prisma.bookmark.findUnique({
+        where: { userId_comicId: { userId, comicId: baseComic.id } },
+      }),
+      this.prisma.chapterUnlock.findMany({
+        where: { userId, chapter: { comicId: baseComic.id } },
+        select: { chapterId: true },
+      }),
+      this.prisma.readingHistory.findMany({
+        where: { userId, comicId: baseComic.id },
+        orderBy: { readAt: 'desc' },
+        select: { chapterId: true, lastPage: true },
+      }),
+      this.prisma.rating.findUnique({
+        where: { userId_comicId: { userId, comicId: baseComic.id } },
+        select: { id: true, score: true, review: true },
+      }),
+      this.prisma.follow.findUnique({
+        where: { followerId_followingId: { followerId: userId, followingId: baseComic.author.id } },
+      }),
+    ]);
+
+    const unlockedChapterIds = unlocks.map((u) => u.chapterId);
+    const readChapterIds = historyRows.map((h) => h.chapterId);
+    const latestHistory = historyRows[0];
+
+    return {
+      ...normalizedBase,
+      chapters: normalizedBase.chapters.map((ch: any) => ({
+        ...ch,
+        isUnlocked:
+          !ch.isPremium ||
+          ch.priceCoins === 0 ||
+          unlockedChapterIds.includes(ch.id) ||
+          normalizedBase.author.id === userId,
+        isRead: readChapterIds.includes(ch.id),
+      })),
+      userState: {
+        isBookmarked: !!bookmark,
+        readingStatus: bookmark?.status || null,
+        isFavorite: bookmark?.isFavorite || false,
+        notifyUpdate: bookmark?.notifyUpdate ?? true,
+        lastChapterId: bookmark?.lastChapterId || latestHistory?.chapterId || null,
+        lastPage: bookmark?.lastPage || latestHistory?.lastPage || null,
+        unlockedChapterIds,
+        readChapterIds,
+        myRating: myRating || null,
+        isFollowingAuthor: !!follow,
+      },
+    };
+  }
+
+  async findByIdForStudio(comicId: string, userId: string, role: UserRole) {
+    const comic = await this.prisma.comic.findUnique({
+      where: { id: comicId },
+      include: {
+        ...this.baseInclude,
+        chapters: {
+          where: { deletedAt: null },
+          orderBy: { number: 'desc' },
+        },
+      },
+    });
+    if (!comic || comic.deletedAt) throw new NotFoundException('Không tìm thấy truyện');
+    if (comic.authorId !== userId && role !== UserRole.ADMIN && role !== UserRole.MODERATOR) {
+      throw new ForbiddenException('Bạn không có quyền truy cập truyện này');
+    }
+
+    return {
+      ...this.formatComic(comic, true),
+      artistName: comic.artistName,
+      originalAuthor: comic.originalAuthor,
+      chapters: comic.chapters.map((ch) => ({ ...ch, number: Number(ch.number) })),
+    };
+  }
+
+  async findByAuthor(authorId: string) {
+    const comics = await this.prisma.comic.findMany({
+      where: { authorId, deletedAt: null },
+      orderBy: { updatedAt: 'desc' },
+      include: this.baseInclude,
+    });
+    return comics.map((c) => this.formatComic(c, true));
+  }
+
+  async update(comicId: string, userId: string, role: UserRole, dto: UpdateComicDto) {
+    const comic = await this.prisma.comic.findUnique({
+      where: { id: comicId },
+      include: {
+        author: { select: { displayName: true } },
+        genres: { select: { genreId: true } },
+      },
+    });
+    if (!comic || comic.deletedAt) throw new NotFoundException('Không tìm thấy truyện');
+    if (comic.authorId !== userId && role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Bạn không có quyền chỉnh sửa truyện này');
+    }
+
+    if (
+      comic.contentRating === ContentRating.MATURE &&
+      dto.contentRating !== undefined &&
+      dto.contentRating !== ContentRating.MATURE &&
+      role !== UserRole.ADMIN &&
+      role !== UserRole.MODERATOR
+    ) {
+      throw new ForbiddenException('Chỉ quản trị viên hoặc kiểm duyệt viên mới có thể hạ nhãn nội dung 18+');
+    }
+
+    const data: Prisma.ComicUpdateInput = {};
+    const nextTitle = dto.title?.trim() || comic.title;
+    if (dto.title && dto.title.trim() !== comic.title) {
+      data.title = nextTitle;
+      data.slug = await this.generateUniqueSlug(nextTitle, comicId);
+    }
+    if (dto.alternativeTitles !== undefined) data.alternativeTitles = dto.alternativeTitles;
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.artistName !== undefined) data.artistName = dto.artistName;
+    if (dto.originalAuthor !== undefined) data.originalAuthor = dto.originalAuthor;
+    if (dto.type !== undefined) data.type = dto.type;
+    if (dto.status !== undefined) data.status = dto.status;
+    if (dto.contentRating !== undefined) data.contentRating = dto.contentRating;
+    if (dto.originalLanguage !== undefined) data.originalLanguage = dto.originalLanguage;
+    if (dto.releaseYear !== undefined) data.releaseYear = dto.releaseYear;
+    if (dto.tags !== undefined) data.tags = dto.tags;
+    if (dto.bannerPosition !== undefined) data.bannerPosition = Math.max(0, Math.min(100, dto.bannerPosition));
+    if (dto.isFeatured !== undefined && (role === UserRole.ADMIN || role === UserRole.MODERATOR)) {
+      data.isFeatured = dto.isFeatured;
+    }
+
+    data.searchText = this.buildSearchText([
+      nextTitle,
+      dto.alternativeTitles ?? comic.alternativeTitles,
+      dto.tags ?? comic.tags,
+      dto.artistName ?? comic.artistName,
+      dto.originalAuthor ?? comic.originalAuthor,
+      comic.author?.displayName,
+    ]);
+
+    const oldGenreIds = comic.genres.map((g) => g.genreId);
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (dto.genreIds) {
+        await tx.comicGenre.deleteMany({ where: { comicId } });
+        if (dto.genreIds.length > 0) {
+          await tx.comicGenre.createMany({
+            data: dto.genreIds.map((genreId) => ({ comicId, genreId })),
+          });
+        }
+      }
+
+      return tx.comic.update({
+        where: { id: comicId },
+        data,
+        include: this.baseInclude,
+      });
+    });
+
+    const draftToggled =
+      dto.status !== undefined &&
+      (comic.status === ComicStatus.DRAFT) !== (updated.status === ComicStatus.DRAFT);
+
+    if (dto.genreIds || draftToggled) {
+      const affected = Array.from(new Set([...oldGenreIds, ...(dto.genreIds ?? oldGenreIds)]));
+      if (affected.length > 0) {
+        await this.genreService.recalculateCounts(affected).catch(() => {});
+      }
+    }
+
+    await Promise.all([
+      this.redis.del(`comic:${comic.slug}`),
+      updated.slug !== comic.slug ? this.redis.del(`comic:${updated.slug}`) : Promise.resolve(),
+      this.redis.deletePattern('homepage*'),
+      this.redis.deletePattern('rankings*'),
+      this.redis.deletePattern('rec:*'),
+    ]);
+
+    return this.formatComic(updated, true);
+  }
+
+  async remove(comicId: string, userId: string, role: UserRole) {
+    const comic = await this.prisma.comic.findUnique({
+      where: { id: comicId },
+      include: { genres: { select: { genreId: true } } },
+    });
+    if (!comic || comic.deletedAt) throw new NotFoundException('Không tìm thấy truyện');
+    if (comic.authorId !== userId && role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Bạn không có quyền xóa truyện này');
+    }
 
     await this.prisma.comic.update({
       where: { id: comicId },
       data: { deletedAt: new Date() },
     });
 
+    await this.genreService.recalculateCounts(comic.genres.map((g) => g.genreId)).catch(() => {});
     await this.redis.del(`comic:${comic.slug}`);
     await this.redis.deletePattern('homepage*');
+    await this.redis.deletePattern('rankings*');
+    return { deleted: true };
   }
-
-  // ── Submit Comic Review ──
-
-  async submitReview(comicId: string, userId: string) {
-    return this.moderationService.submitForReview(userId, ModerationTargetType.COMIC, comicId);
-  }
-
-  // ── Publish Comic (Submits for review / Auto approves if verified) ──
 
   async publish(comicId: string, userId: string) {
-    const comic = await this.prisma.comic.findUnique({ where: { id: comicId } });
-    if (!comic) throw new NotFoundException('Comic not found');
-    if (comic.authorId !== userId) throw new ForbiddenException('Not the author');
-
     return this.moderationService.submitForReview(userId, ModerationTargetType.COMIC, comicId);
   }
 
-  // ── Get Author's Comics ──
-
-  async findByAuthor(authorId: string) {
-    const comics = await this.prisma.comic.findMany({
-      where: { authorId, deletedAt: null },
-      orderBy: { updatedAt: 'desc' },
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-        genres: { include: { genre: true } },
-      },
-    });
-
-    return comics.map((c) => this.formatComic(c));
-  }
-
-  // ── Homepage Sections ──
-
-  async getHomepageSections(_take: number = 12) {
-    const take = Math.max(1, Math.min(Number(_take) || 12, 50));
-    const cacheKey = take === 12 ? 'homepage' : `homepage:${take}`;
-
-    // Upstash auto-deserializes JSON
-    const cached = await this.redis.get(cacheKey);
-    if (cached) return cached;
-
-    const baseInclude = {
-      author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-      genres: { include: { genre: true } },
-    };
-    const notDraft = ComicStatus.DRAFT;
-    const baseWhere = { deletedAt: null, approvalStatus: ApprovalStatus.APPROVED, status: { not: notDraft } };
-
-    const [trending, latest, topRated] = await Promise.all([
-      this.prisma.comic.findMany({
-        where: baseWhere,
-        orderBy: { totalViews: 'desc' },
-        take,
-        include: baseInclude,
-      }),
-      this.prisma.comic.findMany({
-        where: baseWhere,
-        orderBy: [{ lastChapterAt: { sort: 'desc', nulls: 'last' } }, { updatedAt: 'desc' }],
-        take,
-        include: baseInclude,
-      }),
-      this.prisma.comic.findMany({
-        where: { ...baseWhere, totalRatings: { gte: 1 } },
-        orderBy: { avgRating: 'desc' },
-        take,
-        include: baseInclude,
-      }),
-    ]);
-
-    const result = {
-      trending: trending.map(this.formatComic),
-      latest: latest.map(this.formatComic),
-      topRated: topRated.map(this.formatComic),
-    };
-
-    // Upstash auto-serializes JSON
-    await this.redis.set(cacheKey, result, 300);
-    return result;
-  }
-
-  // ── Search ──
-
-  async search(query: string, page = 1) {
-    if (!query || query.trim().length < 2) return { data: [], meta: { page, limit: 20, total: 0, hasNext: false } };
-
-    const limit = 20;
-    const skip = (page - 1) * limit;
-    const searchPattern = `%${query}%`;
-
-    const matchedComics = await this.prisma.$queryRaw<Array<{ id: string }>>`
-      SELECT id FROM "comics"
-      WHERE (unaccent(title) ILIKE unaccent(${searchPattern}) OR unaccent(description) ILIKE unaccent(${searchPattern}))
-        AND "deleted_at" IS NULL
-        AND status::text != 'DRAFT'
-      ORDER BY "total_views" DESC
-    `;
-
-    const total = matchedComics.length;
-    if (total === 0) {
-      return { data: [], meta: { page, limit, total: 0, hasNext: false } };
-    }
-
-    const paginatedIds = matchedComics
-      .slice(skip, skip + limit)
-      .map((item) => item.id);
-
-    const comics = await this.prisma.comic.findMany({
-      where: {
-        id: { in: paginatedIds },
-      },
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-        genres: { include: { genre: true } },
-      },
-    });
-
-    const sortedComics = paginatedIds
-      .map((id) => comics.find((c) => c.id === id)!)
-      .filter(Boolean);
-
-    return {
-      data: sortedComics.map(this.formatComic.bind(this)),
-      meta: { page, limit, total, hasNext: skip + limit < total },
-    };
-  }
-
-  // ── Get Genres ──
-
-  async getGenres() {
-    // Upstash auto-deserializes JSON
-    const cached = await this.redis.get('genres');
-    if (cached) return cached;
-
-    const genres = await this.prisma.genre.findMany({
-      where: { isActive: true },
-      orderBy: { displayOrder: 'asc' },
-    });
-
-    // Upstash auto-serializes JSON
-    await this.redis.set('genres', genres, 3600);
-    return genres;
-  }
-
-  // ── Record Search Query ──
-
   async recordSearch(userId?: string, query?: string) {
-    if (!query || query.trim().length < 2) return;
-    const cleanQuery = query.trim().toLowerCase();
-
-    try {
-      if (userId) {
-        const key = `user:search:${userId}`;
-        const existing = (await this.redis.get<string[]>(key)) || [];
-        const updated = [cleanQuery, ...existing.filter((q) => q !== cleanQuery)].slice(0, 10);
-        await this.redis.set(key, updated, 30 * 86400); // 30 days TTL
-      }
-    } catch (err: any) {
-      this.logger.warn(`Failed to record search query: ${err.message}`);
-    }
+    if (!query || query.trim().length < 2 || !userId) return;
+    const clean = query.trim().toLowerCase();
+    const key = `user:search:${userId}`;
+    const existing = (await this.redis.get<string[]>(key)) || [];
+    const updated = [clean, ...existing.filter((q) => q !== clean)].slice(0, 10);
+    await this.redis.set(key, updated, 30 * 86400);
   }
-
-  // ── Get Personalized Recommendations ──
 
   async getRecommendations(userId: string | undefined, query: RecommendationQueryDto) {
-    const limit = Math.min(Number(query.limit) || 5, 20);
+    const limit = Math.min(Number(query.limit) || 6, 20);
     const comicId = query.comicId;
     const guestGenres = query.genres
       ? query.genres.split(',').map((g) => g.trim().toLowerCase()).filter(Boolean)
       : [];
 
     const cacheKey = `rec:${userId || 'guest'}:${comicId || 'none'}:${guestGenres.sort().join('_') || 'none'}:${limit}`;
-    const cached = await this.redis.get<{ data: any[]; reason: string }>(cacheKey);
+    const cached = await this.redis.get<{ data: unknown[]; reason: string }>(cacheKey);
     if (cached) return cached;
 
-    const baseInclude = {
-      author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-      genres: { include: { genre: true } },
-    };
-    const baseWhere: any = {
+    const baseWhere: Prisma.ComicWhereInput = {
       deletedAt: null,
-      status: { not: ComicStatus.DRAFT },
       approvalStatus: ApprovalStatus.APPROVED,
+      status: { not: ComicStatus.DRAFT },
     };
 
-    let recommendedComics: any[] = [];
-    let recommendationReason = 'Đề xuất dành riêng cho bạn';
+    const recommended: any[] = [];
+    let reason = 'Tác phẩm nổi bật dành cho bạn';
+    const excludeIds = new Set<string>(comicId ? [comicId] : []);
 
-    // 1. If User is logged in: Content-based Affinity Scoring
     if (userId) {
-      try {
-        const [recentHistory, bookmarks, highRatings, userSearches] = await Promise.all([
-          // Recent 40 reads
-          this.prisma.readingHistory.findMany({
-            where: { userId },
-            orderBy: { readAt: 'desc' },
-            take: 40,
-            select: {
-              comicId: true,
-              chapter: {
-                select: {
-                  comic: {
-                    select: {
-                      id: true,
-                      genres: { select: { genre: { select: { id: true, name: true, slug: true } } } },
-                    },
-                  },
-                },
-              },
-            },
-          }),
-          // Bookmarks
-          this.prisma.bookmark.findMany({
-            where: { userId },
-            select: {
-              comicId: true,
-              comic: {
-                select: {
-                  id: true,
-                  genres: { select: { genre: { select: { id: true, name: true, slug: true } } } },
-                },
-              },
-            },
-          }),
-          // Ratings >= 4
-          this.prisma.rating.findMany({
-            where: { userId, score: { gte: 4 } },
-            select: {
-              comicId: true,
-              comic: {
-                select: {
-                  id: true,
-                  genres: { select: { genre: { select: { id: true, name: true, slug: true } } } },
-                },
-              },
-            },
-          }),
-          // Search queries from Redis
-          this.redis.get<string[]>(`user:search:${userId}`),
-        ]);
+      const [history, bookmarks, ratings] = await Promise.all([
+        this.prisma.readingHistory.findMany({
+          where: { userId },
+          orderBy: { readAt: 'desc' },
+          take: 25,
+          select: {
+            comicId: true,
+            comic: { select: { genres: { select: { genre: { select: { id: true, name: true } } } } } },
+          },
+        }),
+        this.prisma.bookmark.findMany({
+          where: { userId },
+          select: {
+            comicId: true,
+            comic: { select: { genres: { select: { genre: { select: { id: true, name: true } } } } } },
+          },
+        }),
+        this.prisma.rating.findMany({
+          where: { userId, score: { gte: 4 } },
+          select: {
+            comicId: true,
+            comic: { select: { genres: { select: { genre: { select: { id: true, name: true } } } } } },
+          },
+        }),
+      ]);
 
-        const genreScores = new Map<string, { id: string; name: string; score: number }>();
-        const readComicIds = new Set<string>();
+      const scores = new Map<string, { id: string; name: string; score: number }>();
+      const addScore = (g: { id: string; name: string }, pts: number) => {
+        const cur = scores.get(g.id) || { ...g, score: 0 };
+        cur.score += pts;
+        scores.set(g.id, cur);
+      };
 
-        if (comicId) readComicIds.add(comicId);
+      for (const h of history) {
+        excludeIds.add(h.comicId);
+        h.comic.genres.forEach((cg) => addScore(cg.genre, 2));
+      }
+      for (const b of bookmarks) {
+        excludeIds.add(b.comicId);
+        b.comic.genres.forEach((cg) => addScore(cg.genre, 4));
+      }
+      for (const r of ratings) {
+        excludeIds.add(r.comicId);
+        r.comic.genres.forEach((cg) => addScore(cg.genre, 3));
+      }
 
-        const addGenreScore = (genre: { id: string; name: string }, points: number) => {
-          const current = genreScores.get(genre.id) || { id: genre.id, name: genre.name, score: 0 };
-          current.score += points;
-          genreScores.set(genre.id, current);
-        };
-
-        // Score from reading history (+2 points per chap read)
-        for (const item of recentHistory) {
-          if (item.comicId) readComicIds.add(item.comicId);
-          const genres = item.chapter?.comic?.genres || [];
-          for (const g of genres) {
-            addGenreScore(g.genre, 2);
-          }
-        }
-
-        // Score from bookmarks (+5 points)
-        for (const b of bookmarks) {
-          if (b.comicId) readComicIds.add(b.comicId);
-          const genres = b.comic?.genres || [];
-          for (const g of genres) {
-            addGenreScore(g.genre, 5);
-          }
-        }
-
-        // Score from ratings (+4 points)
-        for (const r of highRatings) {
-          if (r.comicId) readComicIds.add(r.comicId);
-          const genres = r.comic?.genres || [];
-          for (const g of genres) {
-            addGenreScore(g.genre, 4);
-          }
-        }
-
-        // Score from search queries (+3 points if matches genre)
-        if (userSearches && userSearches.length > 0) {
-          const allGenres = await this.prisma.genre.findMany({
-            where: { isActive: true },
-            select: { id: true, name: true, slug: true },
-          });
-          for (const q of userSearches) {
-            const matched = allGenres.filter(
-              (g: any) =>
-                g.slug.toLowerCase().includes(q) ||
-                g.name.toLowerCase().includes(q) ||
-                q.includes(g.name.toLowerCase()),
-            );
-            for (const mg of matched) {
-              addGenreScore(mg, 3);
-            }
-          }
-        }
-
-        const sortedGenres = Array.from(genreScores.values()).sort((a, b) => b.score - a.score);
-
-        if (sortedGenres.length > 0) {
-          const topGenreIds = sortedGenres.slice(0, 4).map((g) => g.id);
-          const topGenreNames = sortedGenres.slice(0, 2).map((g) => g.name).join(', ');
-          recommendationReason = `Dựa trên sở thích: ${topGenreNames}`;
-
-          const candidateWhere: any = {
+      const topGenres = Array.from(scores.values()).sort((a, b) => b.score - a.score).slice(0, 3);
+      if (topGenres.length > 0) {
+        reason = `Hợp gu của bạn (${topGenres.slice(0, 2).map((g) => g.name).join(', ')})`;
+        const matches = await this.prisma.comic.findMany({
+          where: {
             ...baseWhere,
-            genres: { some: { genreId: { in: topGenreIds } } },
-          };
-          if (readComicIds.size > 0) {
-            candidateWhere.id = { notIn: Array.from(readComicIds) };
-          }
-
-          const candidates = await this.prisma.comic.findMany({
-            where: candidateWhere,
-            take: limit * 4,
-            include: baseInclude,
-          });
-
-          const scoredCandidates = candidates.map((c) => {
-            const matchedCount = c.genres.filter((cg: any) => topGenreIds.includes(cg.genreId)).length;
-            const qualityScore = Number(c.avgRating) * 2 + Math.log10(c.totalViews + 10);
-            return {
-              comic: c,
-              score: matchedCount * 10 + qualityScore,
-            };
-          });
-
-          scoredCandidates.sort((a, b) => b.score - a.score);
-          recommendedComics = scoredCandidates.slice(0, limit).map((sc) => sc.comic);
+            id: { notIn: Array.from(excludeIds) },
+            genres: { some: { genreId: { in: topGenres.map((g) => g.id) } } },
+          },
+          orderBy: [{ avgRating: 'desc' }, { totalViews: 'desc' }],
+          take: limit,
+          include: this.baseInclude,
+        });
+        for (const m of matches) {
+          recommended.push(m);
+          excludeIds.add(m.id);
         }
-      } catch (err: any) {
-        this.logger.error(`Personalized recommendation error: ${err.message}`);
       }
     }
 
-    // 2. If Guest or Cold-start (recommendedComics not enough):
-    if (recommendedComics.length < limit) {
-      const remainingNeeded = limit - recommendedComics.length;
-      const excludeIds = new Set<string>(recommendedComics.map((c) => c.id));
-      if (comicId) excludeIds.add(comicId);
-
+    if (recommended.length < limit && (comicId || guestGenres.length > 0)) {
       let targetGenreIds: string[] = [];
       if (comicId) {
-        const curComic = await this.prisma.comic.findUnique({
-          where: { id: comicId },
+        const current = await this.prisma.comic.findFirst({
+          where: {
+            id: comicId,
+            deletedAt: null,
+            approvalStatus: ApprovalStatus.APPROVED,
+            status: { not: ComicStatus.DRAFT },
+          },
           include: { genres: true },
         });
-        if (curComic) {
-          targetGenreIds = curComic.genres.map((cg) => cg.genreId);
-        }
-      }
-
-      if (targetGenreIds.length === 0 && guestGenres.length > 0) {
-        const matchedDbGenres = await this.prisma.genre.findMany({
-          where: { slug: { in: guestGenres } },
+        targetGenreIds = current?.genres.map((g) => g.genreId) || [];
+      } else if (guestGenres.length > 0) {
+        const matched = await this.prisma.genre.findMany({
+          where: { slug: { in: guestGenres.slice(0, 10) } },
           select: { id: true },
         });
-        targetGenreIds = matchedDbGenres.map((g) => g.id);
+        targetGenreIds = matched.map((g) => g.id);
       }
 
       if (targetGenreIds.length > 0) {
-        if (!userId) {
-          recommendationReason = 'Có thể bạn sẽ thích (cùng thể loại)';
-        }
-        const similarComics = await this.prisma.comic.findMany({
+        if (!userId) reason = 'Cùng thể loại có thể bạn sẽ thích';
+        const similar = await this.prisma.comic.findMany({
           where: {
             ...baseWhere,
             id: { notIn: Array.from(excludeIds) },
             genres: { some: { genreId: { in: targetGenreIds } } },
           },
           orderBy: [{ totalViews: 'desc' }, { avgRating: 'desc' }],
-          take: remainingNeeded,
-          include: baseInclude,
+          take: limit - recommended.length,
+          include: this.baseInclude,
         });
-
-        for (const sc of similarComics) {
-          if (!excludeIds.has(sc.id)) {
-            recommendedComics.push(sc);
-            excludeIds.add(sc.id);
-          }
+        for (const s of similar) {
+          recommended.push(s);
+          excludeIds.add(s.id);
         }
       }
     }
 
-    // 3. Fallback: Popular comics
-    if (recommendedComics.length < limit) {
-      const remainingNeeded = limit - recommendedComics.length;
-      const excludeIds = new Set<string>(recommendedComics.map((c) => c.id));
-      if (comicId) excludeIds.add(comicId);
-
-      const popularComics = await this.prisma.comic.findMany({
+    if (recommended.length < limit) {
+      const popular = await this.prisma.comic.findMany({
         where: {
           ...baseWhere,
           id: { notIn: Array.from(excludeIds) },
         },
         orderBy: [{ totalViews: 'desc' }, { avgRating: 'desc' }],
-        take: remainingNeeded,
-        include: baseInclude,
+        take: limit - recommended.length,
+        include: this.baseInclude,
       });
-
-      for (const pc of popularComics) {
-        recommendedComics.push(pc);
-      }
-      if (!userId && !comicId) {
-        recommendationReason = 'Truyện nổi bật được yêu thích';
-      }
+      recommended.push(...popular);
     }
 
-    const formatted = recommendedComics.map((c) => ({
-      ...this.formatComic(c),
-      recommendReason: recommendationReason,
-    }));
-
     const result = {
-      data: formatted,
-      reason: recommendationReason,
+      data: recommended.map((c) => ({ ...this.formatComic(c), recommendReason: reason })),
+      reason,
     };
 
-    // Cache in Redis for 3 minutes (180s)
     await this.redis.set(cacheKey, result, 180);
     return result;
   }
 
-  // ── Helpers ──
-
-  private formatComic(comic: any) {
+  private formatComic(comic: any, includePrivate = false) {
     return {
       id: comic.id,
       title: comic.title,
       slug: comic.slug,
+      alternativeTitles: comic.alternativeTitles || [],
       description: comic.description,
       coverUrl: comic.coverUrl,
       bannerUrl: comic.bannerUrl,
       bannerPosition: comic.bannerPosition ?? 50,
+      type: comic.type,
       status: comic.status,
       approvalStatus: comic.approvalStatus,
-      rejectionReason: comic.rejectionReason,
+      ...(includePrivate ? { rejectionReason: comic.rejectionReason } : {}),
       contentRating: comic.contentRating,
       originalLanguage: comic.originalLanguage,
-      author: comic.author,
-      genres: comic.genres?.map((cg: any) => ({
-        id: cg.genre.id,
-        name: cg.genre.name,
-        slug: cg.genre.slug,
-        icon: cg.genre.icon,
-      })) || [],
+      releaseYear: comic.releaseYear,
+      tags: comic.tags || [],
+      isFeatured: comic.isFeatured,
+      author: comic.author
+        ? {
+            ...comic.author,
+            cultivation: comic.author.level ? getCultivationInfo(comic.author.level, 0) : undefined,
+          }
+        : null,
+      genres:
+        comic.genres?.map((cg: any) => ({
+          id: cg.genre.id,
+          name: cg.genre.name,
+          slug: cg.genre.slug,
+          icon: cg.genre.icon,
+          color: cg.genre.color,
+        })) || [],
+      latestChapters:
+        comic.chapters?.slice(0, 2).map((ch: any) => ({
+          id: ch.id,
+          number: Number(ch.number),
+          title: ch.title,
+          isPremium: ch.isPremium,
+          priceCoins: ch.priceCoins,
+          publishedAt: ch.publishedAt,
+        })) || [],
       stats: {
         totalViews: comic.totalViews,
+        dailyViews: comic.dailyViews,
+        weeklyViews: comic.weeklyViews,
+        monthlyViews: comic.monthlyViews,
         avgRating: Number(comic.avgRating),
         totalRatings: comic.totalRatings,
         totalBookmarks: comic.totalBookmarks,
@@ -667,18 +859,18 @@ export class ComicService {
     };
   }
 
-  private async generateUniqueSlug(title: string, excludeComicId?: string): Promise<string> {
+  private async generateUniqueSlug(title: string, excludeId?: string): Promise<string> {
     const base = slugify(title, { lower: true, strict: true, locale: 'vi' }) || 'comic';
-    let slug = base;
     let counter = 1;
-
+    let slug = RESERVED_COMIC_SLUGS.has(base) ? `${base}-${counter++}` : base;
     while (true) {
-      const existing = await this.prisma.comic.findUnique({ where: { slug } });
-      if (!existing || (excludeComicId && existing.id === excludeComicId)) {
-        return slug;
+      if (!RESERVED_COMIC_SLUGS.has(slug)) {
+        const existing = await this.prisma.comic.findUnique({ where: { slug } });
+        if (!existing || (excludeId && existing.id === excludeId)) {
+          return slug;
+        }
       }
-      slug = `${base}-${counter}`;
-      counter++;
+      slug = `${base}-${counter++}`;
     }
   }
 }

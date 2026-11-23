@@ -8,11 +8,24 @@ import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
+import { resolveJwtSecret } from '../auth/jwt-secret.util';
+
+const MAX_SOCKETS_PER_USER = 10;
 
 @WebSocketGateway({
   cors: {
-    origin: (origin: string, callback: (err: Error | null, allow?: boolean) => void) => {
-      callback(null, true);
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (process.env.NODE_ENV === 'development' || !origin) {
+        callback(null, true);
+        return;
+      }
+      const allowed = (process.env.APP_URL || 'http://localhost:3000')
+        .split(',')
+        .map((u) => u.trim())
+        .filter(Boolean);
+      callback(null, allowed.includes(origin));
     },
     credentials: true,
   },
@@ -22,15 +35,16 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
   server!: Server;
 
   private readonly logger = new Logger(NotificationGateway.name);
-
-  // Map userId → Set<socketId> (1 user can have multiple tabs open)
   private userSockets = new Map<string, Set<string>>();
-  // Map socketId → userId (for cleanup on disconnect)
+  private sessionSockets = new Map<string, Set<string>>();
   private socketUsers = new Map<string, string>();
+  private socketSessions = new Map<string, string>();
 
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -40,68 +54,146 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
         (client.handshake.headers?.authorization as string)?.replace('Bearer ', '');
 
       if (!token) {
-        this.logger.warn(`Socket ${client.id} connected without token, disconnecting`);
-        client.disconnect();
+        client.disconnect(true);
         return;
       }
 
-      const secret = this.configService.get<string>('JWT_SECRET');
-      const payload = this.jwtService.verify(token, { secret });
-      const userId = payload.sub as string;
+      const secret = resolveJwtSecret(
+        this.configService,
+        'JWT_SECRET',
+        'owoc-dev-jwt-secret-change-in-prod',
+      );
+      const payload = this.jwtService.verify<{
+        sub: string;
+        sid?: string;
+        tokenType?: 'access' | 'refresh';
+        iat?: number;
+      }>(token, { secret });
 
-      if (!userId) {
-        client.disconnect();
+      const userId = payload.sub;
+      const sid = payload.sid;
+      if (!userId || !sid || payload.tokenType === 'refresh') {
+        client.disconnect(true);
         return;
       }
 
-      // Register socket
-      if (!this.userSockets.has(userId)) {
+      const isBlacklisted = await this.redis.exists(`blacklist:session:${sid}`);
+      if (isBlacklisted) {
+        client.disconnect(true);
+        return;
+      }
+
+      const pwdChangedRaw = await this.redis.get<string>(`pwdChangedAt:${userId}`);
+      if (pwdChangedRaw && payload.iat && payload.iat * 1000 < Number(pwdChangedRaw)) {
+        client.disconnect(true);
+        return;
+      }
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, isBanned: true, bannedUntil: true, deletedAt: true },
+      });
+
+      if (!user || user.deletedAt) {
+        client.disconnect(true);
+        return;
+      }
+
+      if (user.isBanned) {
+        if (user.bannedUntil && user.bannedUntil <= new Date()) {
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: { isBanned: false, bannedReason: null, bannedUntil: null },
+          });
+        } else {
+          client.disconnect(true);
+          return;
+        }
+      }
+
+      const existing = this.userSockets.get(userId);
+      if (existing && existing.size >= MAX_SOCKETS_PER_USER) {
+        client.disconnect(true);
+        return;
+      }
+
+      if (!existing) {
         this.userSockets.set(userId, new Set());
       }
       this.userSockets.get(userId)!.add(client.id);
       this.socketUsers.set(client.id, userId);
 
-      this.logger.log(`User ${userId} connected (socket: ${client.id}, total: ${this.userSockets.get(userId)!.size})`);
-    } catch (error) {
-      this.logger.warn(`Socket ${client.id} auth failed: ${error}`);
-      client.disconnect();
+      if (!this.sessionSockets.has(sid)) {
+        this.sessionSockets.set(sid, new Set());
+      }
+      this.sessionSockets.get(sid)!.add(client.id);
+      this.socketSessions.set(client.id, sid);
+    } catch {
+      client.disconnect(true);
     }
   }
 
   handleDisconnect(client: Socket) {
-    const userId = this.socketUsers.get(client.id);
+    this.removeSocketTracking(client.id);
+  }
+
+  private removeSocketTracking(socketId: string) {
+    const userId = this.socketUsers.get(socketId);
     if (userId) {
       const sockets = this.userSockets.get(userId);
       if (sockets) {
-        sockets.delete(client.id);
-        if (sockets.size === 0) {
-          this.userSockets.delete(userId);
-        }
+        sockets.delete(socketId);
+        if (sockets.size === 0) this.userSockets.delete(userId);
       }
-      this.socketUsers.delete(client.id);
-      this.logger.log(`User ${userId} disconnected (socket: ${client.id})`);
+      this.socketUsers.delete(socketId);
+    }
+
+    const sid = this.socketSessions.get(socketId);
+    if (sid) {
+      const sSockets = this.sessionSockets.get(sid);
+      if (sSockets) {
+        sSockets.delete(socketId);
+        if (sSockets.size === 0) this.sessionSockets.delete(sid);
+      }
+      this.socketSessions.delete(socketId);
     }
   }
 
-  // ── Push to a single user ──
-  sendToUser(userId: string, event: string, data: any) {
+  disconnectUser(userId: string) {
     const sockets = this.userSockets.get(userId);
-    if (sockets) {
+    if (!sockets || !this.server) return;
+    for (const socketId of Array.from(sockets)) {
+      this.server.sockets.sockets.get(socketId)?.disconnect(true);
+      this.removeSocketTracking(socketId);
+    }
+  }
+
+  disconnectSession(sid: string) {
+    const sockets = this.sessionSockets.get(sid);
+    if (!sockets || !this.server) return;
+    for (const socketId of Array.from(sockets)) {
+      this.server.sockets.sockets.get(socketId)?.disconnect(true);
+      this.removeSocketTracking(socketId);
+    }
+  }
+
+  sendToUser(userId: string, event: string, data: unknown) {
+    const sockets = this.userSockets.get(userId);
+    if (sockets && this.server) {
       sockets.forEach((socketId) => {
         this.server.to(socketId).emit(event, data);
       });
     }
   }
 
-  // ── Push to multiple users ──
-  sendToUsers(userIds: string[], event: string, data: any) {
+  sendToUsers(userIds: string[], event: string, data: unknown) {
     for (const userId of userIds) {
       this.sendToUser(userId, event, data);
     }
   }
 
-  // ── Check if user is currently online ──
   isUserOnline(userId: string): boolean {
-    return this.userSockets.has(userId) && this.userSockets.get(userId)!.size > 0;
+    const sockets = this.userSockets.get(userId);
+    return !!sockets && sockets.size > 0;
   }
 }

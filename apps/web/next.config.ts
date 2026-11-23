@@ -1,8 +1,13 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
+
+const apiOrigin = (process.env.API_URL || 'http://127.0.0.1:4000').replace(/\/$/, '');
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['shared'],
+  images: {
+    unoptimized: true,
+  },
   allowedDevOrigins: [
-    '192.168.1.7',
     '192.168.1.*',
     '*.local',
     'localhost:3000',
@@ -11,11 +16,28 @@ const nextConfig: NextConfig = {
     '*.ngrok-free.app',
     '*.ngrok.io',
   ],
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
         source: '/v1/:path*',
-        destination: 'http://127.0.0.1:4000/v1/:path*',
+        destination: `${apiOrigin}/v1/:path*`,
+      },
+      {
+        source: '/uploads/:path*',
+        destination: `${apiOrigin}/uploads/:path*`,
       },
       {
         source: '/@:username',
@@ -23,20 +45,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // async redirects() {
-  //   return [
-  //     {
-  //       source: '/dashboard/:path*',
-  //       destination: '/studio/:path*',
-  //       permanent: true,
-  //     },
-  //     {
-  //       source: '/dashboard',
-  //       destination: '/studio',
-  //       permanent: true,
-  //     },
-  //   ];
-  // },
 };
 
 export default nextConfig;

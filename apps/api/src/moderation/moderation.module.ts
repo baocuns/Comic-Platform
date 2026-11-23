@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ModerationService } from './moderation.service';
+import { GenreModule } from '../genre/genre.module';
 import { ModerationController } from './moderation.controller';
-import { PrismaModule } from '../prisma/prisma.module';
-import { RedisModule } from '../redis/redis.module';
+import { ModerationService } from './moderation.service';
 
 @Module({
-  imports: [PrismaModule, RedisModule],
+  imports: [GenreModule],
   controllers: [ModerationController],
   providers: [ModerationService],
   exports: [ModerationService],

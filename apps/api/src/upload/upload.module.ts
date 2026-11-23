@@ -1,14 +1,10 @@
 import { Module } from '@nestjs/common';
-import { MulterModule } from '@nestjs/platform-express';
+import { GenreModule } from '../genre/genre.module';
 import { UploadController } from './upload.controller';
 import { UploadService } from './upload.service';
 
 @Module({
-  imports: [
-    MulterModule.register({
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-    }),
-  ],
+  imports: [GenreModule],
   controllers: [UploadController],
   providers: [UploadService],
   exports: [UploadService],

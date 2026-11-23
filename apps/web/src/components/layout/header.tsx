@@ -2,363 +2,305 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useAuthStore } from '@/stores/auth-store';
 import { usePathname, useRouter } from 'next/navigation';
-import { NotificationBell } from './notification-bell';
+import {
+  Menu,
+  Search,
+  Sun,
+  Moon,
+  ChevronDown,
+  User as UserIcon,
+  Bookmark,
+  History,
+  Receipt,
+  Sparkles,
+  PenTool,
+  LogOut,
+  ShieldCheck,
+  Coins,
+} from 'lucide-react';
+import { useAuthStore } from '@/stores/auth-store';
 import { useSearchStore } from '@/stores/search-store';
 import { useTheme } from '@/components/providers/theme-provider';
+import { Avatar } from '@/components/ui/avatar';
+import { RealmBadge } from '@/components/ui/realm-badge';
+import { NotificationBell } from './notification-bell';
 import { MobileDrawer } from './mobile-drawer';
 
+const NAV_LINKS = [
+  { href: '/', label: 'Trang chủ' },
+  { href: '/comics', label: 'Khám phá' },
+  { href: '/rankings', label: 'Xếp hạng' },
+  { href: '/cultivation', label: 'Tu Luyện' },
+  { href: '/news', label: 'Tin tức' },
+];
+
 export function Header() {
+  const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuthStore();
   const { theme, toggleTheme } = useTheme();
-  const router = useRouter();
-  const pathname = usePathname();
+  const openSearch = useSearchStore((s) => s.open);
 
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
-
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [showGuestDropdown, setShowGuestDropdown] = useState(false);
-  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const guestDropdownRef = useRef<HTMLDivElement>(null);
-  const openSearch = useSearchStore((state) => state.open);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      if (currentScrollY <= 50) {
-        setIsVisible(true);
-      } else if (currentScrollY > lastScrollY.current + 10) {
-        setIsVisible(false);
-      } else if (currentScrollY < lastScrollY.current - 10) {
-        setIsVisible(true);
-      }
-
-      lastScrollY.current = currentScrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (y <= 50) setIsVisible(true);
+      else if (y > lastScrollY.current + 12) setIsVisible(false);
+      else if (y < lastScrollY.current - 12) setIsVisible(true);
+      lastScrollY.current = y;
     };
-
-    handleScroll();
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   useEffect(() => {
-    setShowDropdown(false);
-    setShowGuestDropdown(false);
+    setMenuOpen(false);
+    setDrawerOpen(false);
   }, [pathname]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node;
-      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
-        setShowDropdown(false);
-      }
-      if (guestDropdownRef.current && !guestDropdownRef.current.contains(target)) {
-        setShowGuestDropdown(false);
+    const onOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
-    };
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
   }, []);
 
   if (pathname?.startsWith('/read/') || pathname?.startsWith('/studio')) {
     return null;
   }
 
-  const handleLogout = async () => {
-    await logout();
-    router.push('/');
-  };
-
   return (
-    <header
-      className={`sticky top-0 z-50 transition-all duration-300 border-b border-zinc-200 dark:border-white/10 bg-white/85 dark:bg-[#0a0a0a]/80 backdrop-blur-xl ${isVisible ? 'translate-y-0' : '-translate-y-full'
+    <>
+      <header
+        className={`sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/90 backdrop-blur-xl transition-transform duration-300 ${
+          isVisible ? 'translate-y-0' : '-translate-y-full'
         }`}
-    >
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        {/* Logo & Mobile Menu Toggle */}
-        <div className="flex items-center gap-2.5 sm:gap-3.5">
-          <button
-            type="button"
-            onClick={() => setIsMobileDrawerOpen(true)}
-            className="flex md:hidden p-1.5 sm:p-2 items-center justify-center text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 hover:dark:text-white active:scale-95 transition-colors cursor-pointer"
-            title="Mở menu"
-            aria-label="Mở menu điều hướng"
-          >
-            <i className="fa-light fa-bars text-[22px]" />
-          </button>
-
-          <Link href="/" className="flex items-center gap-2">
-            <img src="/img/owoc_banner_black.png" className="h-11 sm:h-14 w-auto dark:hidden object-contain" alt="Owoc Logo" />
-            <img src="/img/owoc_banner_white.png" className="h-11 sm:h-14 w-auto hidden dark:block object-contain" alt="Owoc Logo" />
-          </Link>
-        </div>
-
-        {/* Navigation Links */}
-        <div className="hidden items-center gap-6 md:flex">
-          <Link href="/" className="text-base font-medium text-black dark:text-white">
-            Trang chủ
-          </Link>
-          <Link href="/comics" className="text-base font-medium text-black dark:text-white">
-            Truyện tranh
-          </Link>
-          <Link href="/news" className="text-base font-medium text-black dark:text-white">
-            Tin tức
-          </Link>
-        </div>
-
-        {/* Auth Actions */}
-        <div className="flex items-center gap-2.5 sm:gap-4 md:gap-5">
-          {/* Search */}
-          <button
-            onClick={openSearch}
-            className="flex p-1.5 sm:p-2 items-center justify-center text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 hover:dark:text-white cursor-pointer"
-            title="Tìm kiếm"
-            aria-label="Tìm kiếm"
-          >
-            <i className="fal fa-search text-[21px]"></i>
-          </button>
-
-          {/* Theme Toggle (Guest) */}
-          {!user && (
+      >
+        <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
+          {/* Left: Mobile Trigger + Brand + Desktop Links */}
+          <div className="flex items-center gap-2 sm:gap-6">
             <button
-              onClick={toggleTheme}
-              className="flex p-1.5 sm:p-2 items-center justify-center text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 hover:dark:text-white cursor-pointer"
-              title={theme === 'dark' ? 'Chuyển sang giao diện Sáng' : 'Chuyển sang giao diện Tối'}
-              aria-label="Chuyển chế độ sáng/tối"
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] md:hidden cursor-pointer"
+              aria-label="Mở menu"
             >
-              <i className={`fa-light ${theme === 'dark' ? 'fa-sun-bright' : 'fa-moon'} text-[21px]`} />
+              <Menu className="h-5 w-5" />
             </button>
-          )}
 
-          {/* Notifications */}
-          {user && <NotificationBell />}
+            <Link href="/" className="flex items-center gap-2 shrink-0">
+              <img
+                src="/img/owoc_banner_black.png"
+                className="h-10 sm:h-11 w-auto dark:hidden object-contain"
+                alt="OWOC"
+              />
+              <img
+                src="/img/owoc_banner_white.png"
+                className="hidden h-10 sm:h-11 w-auto dark:block object-contain"
+                alt="OWOC"
+              />
+            </Link>
 
-          {/* User */}
-          {user ? (
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2 p-1 text-sm text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 hover:dark:text-white cursor-pointer"
-              >
-                <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-xs font-bold text-white shadow-sm">
-                  {user.avatarUrl ? (
-                    <img src={user.avatarUrl} alt={user.displayName} className="h-full w-full object-cover" />
-                  ) : (
-                    user.displayName.charAt(0).toUpperCase()
-                  )}
-                </div>
-                <span className="hidden sm:inline font-medium">{user.displayName}</span>
-                <i className={`fa-solid fa-chevron-down text-[10px] text-zinc-500 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`} />
-              </button>
-
-              {/* Dropdown Menu */}
-              {showDropdown && (
-                <div className="absolute right-0 mt-2 w-64 origin-top-right overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121212] p-1.5 shadow-2xl animate-slide-up z-50">
-                  {/* User Profile Header */}
-                  <div className="px-3.5 py-3 border-b border-zinc-100 dark:border-white/5">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-base font-bold text-white shadow-inner">
-                        {user.avatarUrl ? (
-                          <img src={user.avatarUrl} alt={user.displayName} className="h-full w-full object-cover" />
-                        ) : (
-                          user.displayName.charAt(0).toUpperCase()
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white leading-tight">{user.displayName}</p>
-                        <p className="truncate text-xs text-zinc-500 mt-0.5">@{user.username}</p>
-                      </div>
-                    </div>
-
-                    {/* Stats & Levels */}
-                    <div className="mt-3 flex items-center justify-between rounded-xl bg-zinc-50 dark:bg-white/5 px-3 py-2 text-xs">
-                      <span className="text-zinc-500 dark:text-zinc-400 font-medium">Cấp {user.level || 1}</span>
-                      <span className="text-zinc-300 dark:text-zinc-600">•</span>
-                      <span className="text-amber-500 dark:text-amber-400 font-semibold flex items-center gap-1">🪙 {user.coins || 0} xu</span>
-                    </div>
-                  </div>
-
-                  {/* Menu Items */}
-                  <div className="py-1">
-                    <Link
-                      href={`/@${user.username}`}
-                      onClick={() => setShowDropdown(false)}
-                      className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                    >
-                      <i className="fa-light fa-user w-4 text-center text-zinc-400 text-base" />
-                      <span>Trang cá nhân</span>
-                    </Link>
-                    {['AUTHOR', 'MODERATOR', 'ADMIN'].includes(user.role) && (
-                      <Link
-                        href="/studio"
-                        onClick={() => setShowDropdown(false)}
-                        className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                      >
-                        <i className="fa-light fa-pen-nib w-4 text-center text-zinc-400 text-base" />
-                        <span>Studio</span>
-                      </Link>
-                    )}
-                    <Link
-                      href="/bookmarks"
-                      onClick={() => setShowDropdown(false)}
-                      className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                    >
-                      <i className="fa-light fa-bookmark w-4 text-center text-zinc-400 text-base" />
-                      <span>Truyện đã lưu</span>
-                    </Link>
-                    <Link
-                      href="/history"
-                      onClick={() => setShowDropdown(false)}
-                      className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                    >
-                      <i className="fa-light fa-clock-rotate-left w-4 text-center text-zinc-400 text-base" />
-                      <span>Lịch sử đọc</span>
-                    </Link>
-                  </div>
-
-                  <div className="border-t border-zinc-100 dark:border-white/5 my-1" />
-
-                  <div className="py-1">
-                    {/* Theme Toggle */}
-                    <div
-                      onClick={toggleTheme}
-                      className="flex items-center justify-between px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer select-none"
-                    >
-                      <div className="flex items-center gap-3">
-                        <i className={`fa-light ${theme === 'dark' ? 'fa-moon' : 'fa-sun-bright'} w-4 text-center text-zinc-400 text-base`} />
-                        <span>Giao diện: {theme === 'dark' ? 'Tối' : 'Sáng'}</span>
-                      </div>
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-amber-500/50 shadow-sm" />
-                    </div>
-
-                    <Link
-                      href={`/@${user.username}`}
-                      onClick={() => setShowDropdown(false)}
-                      className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors"
-                    >
-                      <i className="fa-light fa-gear w-4 text-center text-zinc-400 text-base" />
-                      <span>Cài đặt tài khoản</span>
-                    </Link>
-                  </div>
-
-                  <div className="border-t border-white/5 my-1" />
-
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        setShowDropdown(false);
-                        handleLogout();
-                      }}
-                      className="flex w-full items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-xl transition-colors text-left"
-                    >
-                      <i className="fa-light fa-right-from-bracket w-4 text-center text-red-400/80 text-base" />
-                      <span className="font-medium">Đăng xuất</span>
-                    </button>
-                  </div>
-                </div>
-              )}
+            <div className="hidden md:flex items-center gap-1">
+              {NAV_LINKS.map((link) => {
+                const active =
+                  link.href === '/' ? pathname === '/' : pathname?.startsWith(link.href);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                      active
+                        ? 'bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] font-semibold'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
             </div>
-          ) : (
-            <>
-              {/* Mobile: Direct link to /login (no popup on mobile) */}
-              <Link
-                href="/login"
-                className="flex md:hidden p-1.5 sm:p-2 items-center justify-center text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 hover:dark:text-white cursor-pointer"
-                title="Đăng nhập"
-                aria-label="Đăng nhập"
-              >
-                <i className="fa-light fa-user text-[21px]" />
-              </Link>
+          </div>
 
-              {/* Desktop: Toggle guest menu */}
-              <div className="relative hidden md:block" ref={guestDropdownRef}>
+          {/* Right: Search + Theme + Notifications + User */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
+            <button
+              type="button"
+              onClick={openSearch}
+              className="flex h-9 items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 sm:px-3 text-xs text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] cursor-pointer"
+              aria-label="Tìm kiếm"
+            >
+              <Search className="h-4 w-4 text-[var(--accent-primary)]" />
+              <span className="hidden lg:inline">Tìm truyện, tác giả...</span>
+              <kbd className="hidden lg:inline rounded-md bg-[var(--bg-subtle)] px-1.5 py-0.5 text-[10px] font-semibold">
+                ⌘K
+              </kbd>
+            </button>
+
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] cursor-pointer"
+              title={theme === 'dark' ? 'Chuyển sang Giấy Ấm (Sáng)' : 'Chuyển sang Đêm Mực (Tối)'}
+              aria-label="Chuyển giao diện sáng tối"
+            >
+              {theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+            </button>
+
+            {user && <NotificationBell />}
+
+            {user ? (
+              <div className="relative" ref={menuRef}>
                 <button
                   type="button"
-                  onClick={() => setShowGuestDropdown(!showGuestDropdown)}
-                  className={`flex p-1.5 sm:p-2 items-center justify-center text-zinc-600 dark:text-zinc-300 transition-colors hover:text-zinc-900 hover:dark:text-white cursor-pointer rounded-full ${showGuestDropdown ? 'text-amber-500 dark:text-amber-400' : ''
-                    }`}
-                  title="Tài khoản & Lịch sử"
-                  aria-label="Tài khoản & Lịch sử"
-                  aria-expanded={showGuestDropdown}
+                  onClick={() => setMenuOpen((o) => !o)}
+                  className="flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-1 pr-2.5 transition-colors hover:border-[var(--border-strong)] cursor-pointer"
                 >
-                  <i className="fa-light fa-user text-[21px]" />
+                  <Avatar src={user.avatarUrl} name={user.displayName} size="sm" className="h-7 w-7" />
+                  <span className="hidden sm:inline max-w-28 truncate text-xs font-semibold text-[var(--text-primary)]">
+                    {user.displayName}
+                  </span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 text-[var(--text-muted)] transition-transform ${
+                      menuOpen ? 'rotate-180' : ''
+                    }`}
+                  />
                 </button>
 
-                {/* Guest Dropdown Menu */}
-                {showGuestDropdown && (
-                  <div className="absolute right-0 mt-2 w-64 origin-top-right overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#121212] p-1.5 shadow-2xl animate-slide-up z-50">
-                    {/* Guest Header with Login & Register action buttons */}
-                    <div className="px-3.5 py-3 border-b border-zinc-100 dark:border-white/5">
-                      <p className="text-sm font-bold text-zinc-900 dark:text-white">Bạn đọc OWOC</p>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">
-                        Đăng nhập để đồng bộ lịch sử và tủ sách của bạn.
-                      </p>
-                      <div className="mt-3 flex items-center gap-2">
-                        <Link
-                          href="/login"
-                          onClick={() => setShowGuestDropdown(false)}
-                          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-2 text-xs font-bold text-white shadow-sm hover:brightness-105 active:scale-95 transition-all"
-                        >
-                          <i className="fa-light fa-right-to-bracket text-xs" />
-                          <span>Đăng nhập</span>
-                        </Link>
+                {menuOpen && (
+                  <div className="absolute right-0 mt-2 w-72 origin-top-right overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-2 shadow-xl z-50 animate-slide-up">
+                    <div className="rounded-xl bg-[var(--bg-subtle)]/70 p-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar src={user.avatarUrl} name={user.displayName} size="md" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-[var(--text-primary)]">
+                            {user.displayName}
+                          </p>
+                          <p className="truncate text-xs text-[var(--text-muted)]">@{user.username}</p>
+                        </div>
+                      </div>
+                      <div className="mt-2.5 flex items-center justify-between gap-2">
+                        <RealmBadge level={user.level} experience={user.experience} />
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--bg-surface)] px-2.5 py-0.5 text-xs font-bold text-[var(--accent-warm)] border border-[var(--border-subtle)]">
+                          <Coins className="h-3 w-3" />
+                          {user.coins.toLocaleString('vi-VN')} Xu
+                        </span>
                       </div>
                     </div>
 
-                    {/* Guest Navigation Items */}
-                    <div className="py-1">
+                    <div className="mt-1.5 space-y-0.5">
+                      <Link
+                        href={`/@${user.username}`}
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
+                      >
+                        <UserIcon className="h-4 w-4 text-[var(--text-muted)]" />
+                        <span>Hồ sơ cá nhân</span>
+                      </Link>
+                      <Link
+                        href="/library"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
+                      >
+                        <Bookmark className="h-4 w-4 text-[var(--text-muted)]" />
+                        <span>Tủ sách của tôi</span>
+                      </Link>
                       <Link
                         href="/history"
-                        onClick={() => setShowGuestDropdown(false)}
-                        className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
                       >
-                        <i className="fa-light fa-clock-rotate-left w-4 text-center text-zinc-400 text-base" />
+                        <History className="h-4 w-4 text-[var(--text-muted)]" />
                         <span>Lịch sử đọc</span>
                       </Link>
                       <Link
-                        href="/bookmarks"
-                        onClick={() => setShowGuestDropdown(false)}
-                        className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                        href="/purchases"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
                       >
-                        <i className="fa-light fa-bookmark w-4 text-center text-zinc-400 text-base" />
-                        <span>Truyện đã lưu</span>
+                        <Receipt className="h-4 w-4 text-[var(--text-muted)]" />
+                        <span>Lịch sử mua hàng</span>
                       </Link>
+                      <Link
+                        href="/cultivation"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
+                      >
+                        <Sparkles className="h-4 w-4 text-[var(--accent-primary)]" />
+                        <span>Tàng Kinh Các · Tu Luyện</span>
+                      </Link>
+
+                      {['AUTHOR', 'MODERATOR', 'ADMIN'].includes(user.role) && (
+                        <Link
+                          href="/studio"
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-semibold text-[var(--accent-warm)] hover:bg-[var(--accent-warm-soft)]"
+                        >
+                          <PenTool className="h-4 w-4" />
+                          <span>Author Studio</span>
+                        </Link>
+                      )}
+
+                      {['MODERATOR', 'ADMIN'].includes(user.role) && (
+                        <Link
+                          href="/studio/moderation"
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-semibold text-[var(--accent-primary)] hover:bg-[var(--accent-primary-soft)]"
+                        >
+                          <ShieldCheck className="h-4 w-4" />
+                          <span>Trung tâm Kiểm duyệt</span>
+                        </Link>
+                      )}
                     </div>
 
-                    <div className="border-t border-zinc-100 dark:border-white/5 my-1" />
-
-                    <div className="py-1">
-                      {/* Theme Toggle */}
-                      <div
-                        onClick={toggleTheme}
-                        className="flex items-center justify-between px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer select-none"
+                    <div className="mt-1.5 border-t border-[var(--border-subtle)] pt-1.5">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setMenuOpen(false);
+                          await logout();
+                          router.push('/');
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-[var(--danger)] hover:bg-[var(--danger-soft)] cursor-pointer"
                       >
-                        <div className="flex items-center gap-3">
-                          <i className={`fa-light ${theme === 'dark' ? 'fa-moon' : 'fa-sun-bright'} w-4 text-center text-zinc-400 text-base`} />
-                          <span>Giao diện: {theme === 'dark' ? 'Tối' : 'Sáng'}</span>
-                        </div>
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-amber-500/50 shadow-sm" />
-                      </div>
+                        <LogOut className="h-4 w-4" />
+                        <span>Đăng xuất</span>
+                      </button>
                     </div>
                   </div>
                 )}
               </div>
-            </>
-          )}
-        </div>
-      </nav>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <Link
+                  href="/login"
+                  className="inline-flex h-9 items-center justify-center rounded-xl bg-[var(--accent-primary)] px-3.5 text-xs sm:text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-primary-hover)]"
+                >
+                  Đăng nhập
+                </Link>
+                <Link
+                  href="/register"
+                  className="hidden sm:inline-flex h-9 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-subtle)]"
+                >
+                  Đăng ký
+                </Link>
+              </div>
+            )}
+          </div>
+        </nav>
+      </header>
 
-      {/* Mobile Off-canvas Drawer */}
-      <MobileDrawer isOpen={isMobileDrawerOpen} onClose={() => setIsMobileDrawerOpen(false)} />
-    </header>
+      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+    </>
   );
 }

@@ -1,133 +1,110 @@
 import {
-  Controller, Post, Param, UseGuards, UseInterceptors,
-  UploadedFile, UploadedFiles,
+  Controller,
+  Post,
+  Param,
+  ParseUUIDPipe,
+  UseInterceptors,
+  UploadedFile,
+  UploadedFiles,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { UploadService } from './upload.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { UserRole } from '@prisma/client';
+import { UploadService, UploadedFilePayload } from './upload.service';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
-@Controller('upload')
-@UseGuards(JwtAuthGuard)
+const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+const SINGLE_IMAGE_LIMITS = { limits: { fileSize: MAX_IMAGE_BYTES, files: 1 } };
+const BULK_PAGE_LIMITS = { limits: { fileSize: MAX_IMAGE_BYTES, files: 50 } };
+
+@ApiTags('Uploads')
+@ApiBearerAuth()
+@Throttle({ default: { limit: 40, ttl: 60000 } })
+@Controller('uploads')
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
+  @Roles(UserRole.AUTHOR)
   @Post('comics/:comicId/cover')
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadCover(
-    @Param('comicId') comicId: string,
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', SINGLE_IMAGE_LIMITS))
+  uploadCover(
+    @Param('comicId', new ParseUUIDPipe()) comicId: string,
     @CurrentUser('sub') userId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser('role') role: UserRole,
+    @UploadedFile() file: UploadedFilePayload,
   ) {
-    const url = await this.uploadService.uploadCover(comicId, userId, {
-      buffer: file.buffer,
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-    });
-    return { success: true, data: { url } };
+    return this.uploadService.uploadCover(comicId, userId, role, file);
   }
 
+  @Roles(UserRole.AUTHOR)
   @Post('comics/:comicId/banner')
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadBanner(
-    @Param('comicId') comicId: string,
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', SINGLE_IMAGE_LIMITS))
+  uploadBanner(
+    @Param('comicId', new ParseUUIDPipe()) comicId: string,
     @CurrentUser('sub') userId: string,
-    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser('role') role: UserRole,
+    @UploadedFile() file: UploadedFilePayload,
   ) {
-    const url = await this.uploadService.uploadBanner(comicId, userId, {
-      buffer: file.buffer,
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-    });
-    return { success: true, data: { url } };
+    return this.uploadService.uploadBanner(comicId, userId, role, file);
   }
 
+  @Roles(UserRole.AUTHOR)
   @Post('chapters/:chapterId/pages')
-  @UseInterceptors(FilesInterceptor('files', 100))
-  async uploadPages(
-    @Param('chapterId') chapterId: string,
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FilesInterceptor('files', 50, BULK_PAGE_LIMITS))
+  uploadPages(
+    @Param('chapterId', new ParseUUIDPipe()) chapterId: string,
     @CurrentUser('sub') userId: string,
-    @UploadedFiles() files: Express.Multer.File[],
+    @CurrentUser('role') role: UserRole,
+    @UploadedFiles() files: UploadedFilePayload[],
   ) {
-    const uploadedFiles = files.map((f) => ({
-      buffer: f.buffer,
-      originalname: f.originalname,
-      mimetype: f.mimetype,
-    }));
-    const urls = await this.uploadService.uploadPages(chapterId, userId, uploadedFiles);
-    return { success: true, data: { urls, count: urls.length } };
+    return this.uploadService.uploadPages(chapterId, userId, role, files, false);
   }
 
+  @Roles(UserRole.AUTHOR)
   @Post('chapters/:chapterId/pages/append')
-  @UseInterceptors(FilesInterceptor('files', 100))
-  async appendPages(
-    @Param('chapterId') chapterId: string,
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FilesInterceptor('files', 50, BULK_PAGE_LIMITS))
+  appendPages(
+    @Param('chapterId', new ParseUUIDPipe()) chapterId: string,
     @CurrentUser('sub') userId: string,
-    @UploadedFiles() files: Express.Multer.File[],
+    @CurrentUser('role') role: UserRole,
+    @UploadedFiles() files: UploadedFilePayload[],
   ) {
-    const uploadedFiles = files.map((f) => ({
-      buffer: f.buffer,
-      originalname: f.originalname,
-      mimetype: f.mimetype,
-    }));
-    const urls = await this.uploadService.appendPages(chapterId, userId, uploadedFiles);
-    return { success: true, data: { urls, count: urls.length } };
+    return this.uploadService.uploadPages(chapterId, userId, role, files, true);
   }
 
-  @Post('users/avatar')
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadUserAvatar(
-    @CurrentUser('sub') userId: string,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
-    const url = await this.uploadService.uploadUserAvatar(userId, {
-      buffer: file.buffer,
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-    });
-    return { success: true, data: { url } };
+  @Post('users/me/avatar')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', SINGLE_IMAGE_LIMITS))
+  uploadAvatar(@CurrentUser('sub') userId: string, @UploadedFile() file: UploadedFilePayload) {
+    return this.uploadService.uploadUserAvatar(userId, file);
   }
 
-  @Post('users/banner')
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadUserBanner(
-    @CurrentUser('sub') userId: string,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
-    const url = await this.uploadService.uploadUserBanner(userId, {
-      buffer: file.buffer,
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-    });
-    return { success: true, data: { url } };
+  @Post('users/me/banner')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', SINGLE_IMAGE_LIMITS))
+  uploadUserBanner(@CurrentUser('sub') userId: string, @UploadedFile() file: UploadedFilePayload) {
+    return this.uploadService.uploadUserBanner(userId, file);
   }
 
+  @Roles(UserRole.AUTHOR)
   @Post('news/cover')
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadNewsCover(
-    @CurrentUser('sub') userId: string,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
-    const url = await this.uploadService.uploadNewsCover(userId, {
-      buffer: file.buffer,
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-    });
-    return { success: true, data: { url } };
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', SINGLE_IMAGE_LIMITS))
+  uploadNewsCover(@UploadedFile() file: UploadedFilePayload) {
+    return this.uploadService.uploadNewsCover(file);
   }
 
+  @Roles(UserRole.AUTHOR)
   @Post('news/content')
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadNewsContentImage(
-    @CurrentUser('sub') userId: string,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
-    const url = await this.uploadService.uploadNewsContentImage(userId, {
-      buffer: file.buffer,
-      originalname: file.originalname,
-      mimetype: file.mimetype,
-    });
-    return { success: true, data: { url } };
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', SINGLE_IMAGE_LIMITS))
+  uploadNewsContentImage(@UploadedFile() file: UploadedFilePayload) {
+    return this.uploadService.uploadNewsContentImage(file);
   }
 }
-

@@ -1,35 +1,64 @@
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class CreateChapterDto {
   @IsNumber()
-  @IsNotEmpty()
+  @Min(0)
+  @Max(99999999)
   number!: number;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   @MaxLength(255)
   title?: string;
 
-  @IsBoolean()
   @IsOptional()
+  @IsBoolean()
   isPremium?: boolean;
 
-  @IsNumber()
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100000)
   priceCoins?: number;
+
+  @IsOptional()
+  @IsDateString()
+  scheduledAt?: string;
 }
 
 export class UpdateChapterDto {
-  @IsString()
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(99999999)
+  number?: number;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(255)
   title?: string;
 
-  @IsBoolean()
   @IsOptional()
+  @IsBoolean()
   isPremium?: boolean;
 
-  @IsNumber()
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100000)
   priceCoins?: number;
+
+  @IsOptional()
+  @IsDateString()
+  scheduledAt?: string;
 }

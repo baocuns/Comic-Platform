@@ -2,77 +2,90 @@
 
 import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import type { NotificationItem } from 'shared';
 import { useAuthStore } from '@/stores/auth-store';
-import { useNotificationStore, NotificationItem } from '@/stores/notification-store';
+import { useNotificationStore } from '@/stores/notification-store';
+import { useToast } from './toast-provider';
 
-function getSocketUrl(): string {
-  if (typeof window !== 'undefined') {
-    const { protocol, hostname } = window.location;
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      return `${protocol}//${hostname}:4000`;
+function getSocketOrigin(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && envUrl.startsWith('http')) {
+    const stripped = envUrl.replace(/\/v1\/?$/, '');
+    if (
+      typeof window !== 'undefined' &&
+      stripped.includes('localhost') &&
+      window.location.hostname !== 'localhost'
+    ) {
+      return window.location.origin;
     }
+    return stripped;
   }
-  return process.env.NEXT_PUBLIC_API_URL?.replace('/v1', '') || 'http://localhost:4000';
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return 'http://127.0.0.1:4000';
 }
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
-  const { user, accessToken } = useAuthStore();
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const { toast } = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
   const socketRef = useRef<Socket | null>(null);
-  const { addRealTimeNotification, updateUnreadCount, fetchUnreadCount } = useNotificationStore();
 
   useEffect(() => {
-    // Only connect when user is logged in with a valid token
-    if (!user || !accessToken) {
-      // Disconnect if user logs out
+    const notificationStore = useNotificationStore.getState();
+
+    if (!accessToken) {
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
+      notificationStore.reset();
       return;
     }
 
-    // Avoid duplicate connections
-    if (socketRef.current?.connected) return;
+    notificationStore.fetchUnreadCount(accessToken);
 
-    const socket = io(getSocketUrl(), {
+    let refreshedOnAuthError = false;
+    const socket = io(getSocketOrigin(), {
       auth: { token: accessToken },
       transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 2000,
-      reconnectionDelayMax: 10000,
+      reconnectionAttempts: 5,
     });
 
-    socket.on('connect', () => {
-      console.log('[Socket] Connected');
-      // Fetch latest unread count on connect
-      fetchUnreadCount();
+    socket.on('notification:new', (payload: NotificationItem) => {
+      useNotificationStore.getState().pushRealtimeNotification(payload);
+      toastRef.current.info(payload.content || payload.title, payload.content ? payload.title : undefined);
     });
 
-    socket.on('disconnect', (reason) => {
-      console.log('[Socket] Disconnected:', reason);
+    socket.on('notification:unread-count', (payload: { count: number }) => {
+      if (typeof payload?.count === 'number') {
+        useNotificationStore.getState().setUnreadCount(payload.count);
+      }
     });
 
-    socket.on('notification:new', (notification: NotificationItem) => {
-      addRealTimeNotification(notification);
-    });
-
-    socket.on('notification:unread-count', (data: { count: number }) => {
-      updateUnreadCount(data.count);
-    });
-
-    socket.on('connect_error', (error) => {
-      console.warn('[Socket] Connection error:', error.message);
+    socket.on('connect_error', (err) => {
+      if (
+        !refreshedOnAuthError &&
+        /unauthorized|token|auth/i.test(err?.message || '')
+      ) {
+        refreshedOnAuthError = true;
+        socket.disconnect();
+        useAuthStore.getState().refreshToken().catch(() => {});
+      }
     });
 
     socketRef.current = socket;
 
     return () => {
+      socket.removeAllListeners();
       socket.disconnect();
-      socketRef.current = null;
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, accessToken]);
+  }, [accessToken]);
 
   return <>{children}</>;
 }

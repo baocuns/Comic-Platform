@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
+import { ModerationModule } from '../moderation/moderation.module';
+import { GenreModule } from '../genre/genre.module';
 import { ComicController } from './comic.controller';
 import { ComicService } from './comic.service';
-import { ModerationModule } from '../moderation/moderation.module';
 
 @Module({
-  imports: [ModerationModule],
+  imports: [ModerationModule, GenreModule],
   controllers: [ComicController],
   providers: [ComicService],
   exports: [ComicService],

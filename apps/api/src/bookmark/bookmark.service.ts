@@ -1,78 +1,213 @@
-import { Injectable, Logger, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { ApprovalStatus, ComicStatus, Prisma, ReadingListStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { GamificationService } from '../gamification/gamification.service';
+import { BookmarkQueryDto, UpsertBookmarkDto } from './dto/bookmark.dto';
 
 @Injectable()
 export class BookmarkService {
-  private readonly logger = new Logger(BookmarkService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly gamification: GamificationService,
   ) {}
 
-  async toggle(userId: string, comicId: string) {
-    const existing = await this.prisma.bookmark.findUnique({
-      where: { userId_comicId: { userId, comicId } },
+  private async getPublicComic(comicId: string) {
+    const comic = await this.prisma.comic.findFirst({
+      where: {
+        id: comicId,
+        deletedAt: null,
+        approvalStatus: ApprovalStatus.APPROVED,
+        status: { not: ComicStatus.DRAFT },
+      },
+      select: { id: true, slug: true, authorId: true },
+    });
+    if (!comic) throw new NotFoundException('Không tìm thấy truyện');
+    return comic;
+  }
+
+  async toggle(userId: string, comicId: string, status: ReadingListStatus = ReadingListStatus.READING) {
+    const comic = await this.getPublicComic(comicId);
+
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.bookmark.findUnique({
+        where: { userId_comicId: { userId, comicId } },
+      });
+
+      if (existing) {
+        await tx.bookmark.delete({ where: { id: existing.id } });
+        await this.syncBookmarkCount(tx, comicId);
+        return { bookmarked: false as const, status: null };
+      }
+
+      const created = await tx.bookmark.create({
+        data: { userId, comicId, status },
+      });
+      await this.syncBookmarkCount(tx, comicId);
+      return { bookmarked: true as const, status: created.status };
     });
 
-    if (existing) {
-      await this.prisma.bookmark.delete({ where: { id: existing.id } });
-      await this.prisma.comic.update({ where: { id: comicId }, data: { totalBookmarks: { decrement: 1 } } });
-      return { bookmarked: false };
+    await this.invalidateComicCaches(comic.slug);
+    if (outcome.bookmarked && comic.authorId !== userId) {
+      this.gamification.awardBookmark(userId, comicId).catch(() => {});
     }
 
-    await this.prisma.bookmark.create({ data: { userId, comicId } });
-    await this.prisma.comic.update({ where: { id: comicId }, data: { totalBookmarks: { increment: 1 } } });
-
-    // Award XP on add
-    this.gamification.awardBookmark(userId, comicId).catch(() => {});
-
-    return { bookmarked: true };
+    return outcome;
   }
 
-  async toggleFavorite(userId: string, comicId: string) {
-    const bookmark = await this.prisma.bookmark.findUnique({
-      where: { userId_comicId: { userId, comicId } },
-    });
-    if (!bookmark) throw new NotFoundException('Bookmark not found. Add bookmark first.');
+  async upsert(userId: string, comicId: string, dto: UpsertBookmarkDto) {
+    const comic = await this.getPublicComic(comicId);
 
-    const updated = await this.prisma.bookmark.update({
-      where: { id: bookmark.id },
-      data: { isFavorite: !bookmark.isFavorite },
+    const { bookmark, isNew } = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.bookmark.findUnique({
+        where: { userId_comicId: { userId, comicId } },
+      });
+
+      const saved = await tx.bookmark.upsert({
+        where: { userId_comicId: { userId, comicId } },
+        update: {
+          ...(dto.status !== undefined && { status: dto.status }),
+          ...(dto.isFavorite !== undefined && { isFavorite: dto.isFavorite }),
+          ...(dto.notifyUpdate !== undefined && { notifyUpdate: dto.notifyUpdate }),
+        },
+        create: {
+          userId,
+          comicId,
+          status: dto.status || ReadingListStatus.READING,
+          isFavorite: dto.isFavorite || false,
+          notifyUpdate: dto.notifyUpdate ?? true,
+        },
+      });
+
+      if (!existing) {
+        await this.syncBookmarkCount(tx, comicId);
+      }
+
+      return { bookmark: saved, isNew: !existing };
     });
-    return { isFavorite: updated.isFavorite };
+
+    if (isNew) {
+      await this.invalidateComicCaches(comic.slug);
+      if (comic.authorId !== userId) {
+        this.gamification.awardBookmark(userId, comicId).catch(() => {});
+      }
+    }
+
+    return bookmark;
   }
 
-  async getUserBookmarks(userId: string, page = 1, limit = 20) {
+  async remove(userId: string, comicId: string) {
+    const comic = await this.prisma.comic.findUnique({ where: { id: comicId }, select: { slug: true } });
+    const deletedCount = await this.prisma.$transaction(async (tx) => {
+      const deleted = await tx.bookmark.deleteMany({
+        where: { userId, comicId },
+      });
+      if (deleted.count > 0 && comic) {
+        await this.syncBookmarkCount(tx, comicId);
+      }
+      return deleted.count;
+    });
+    if (deletedCount > 0 && comic) {
+      await this.invalidateComicCaches(comic.slug);
+    }
+    return { bookmarked: false };
+  }
+
+  async getUserBookmarks(userId: string, query: BookmarkQueryDto) {
+    const page = Math.max(1, Math.floor(Number(query.page) || 1));
+    const limit = Math.min(Math.max(1, Math.floor(Number(query.limit) || 24)), 50);
     const skip = (page - 1) * limit;
+
+    const where: Prisma.BookmarkWhereInput = {
+      userId,
+      comic: {
+        deletedAt: null,
+        approvalStatus: ApprovalStatus.APPROVED,
+        status: { not: ComicStatus.DRAFT },
+      },
+    };
+    if (query.status) where.status = query.status;
+    if (query.favoriteOnly === 'true') where.isFavorite = true;
+
     const [bookmarks, total] = await Promise.all([
       this.prisma.bookmark.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
+        where,
+        orderBy: { updatedAt: 'desc' },
         skip,
         take: limit,
         include: {
           comic: {
             select: {
-              id: true, title: true, slug: true, coverUrl: true, status: true,
-              totalChapters: true, lastChapterAt: true,
-              author: { select: { displayName: true } },
+              id: true,
+              title: true,
+              slug: true,
+              coverUrl: true,
+              type: true,
+              status: true,
+              totalChapters: true,
+              avgRating: true,
+              lastChapterAt: true,
+              author: { select: { id: true, username: true, displayName: true } },
+              chapters: {
+                where: { deletedAt: null, approvalStatus: ApprovalStatus.APPROVED },
+                orderBy: { number: 'desc' },
+                take: 1,
+                select: { id: true, number: true },
+              },
             },
           },
         },
       }),
-      this.prisma.bookmark.count({ where: { userId } }),
+      this.prisma.bookmark.count({ where }),
     ]);
-    return { data: bookmarks, meta: { page, limit, total, hasNext: skip + limit < total } };
+
+    return {
+      data: bookmarks.map((b) => ({
+        ...b,
+        comic: {
+          ...b.comic,
+          avgRating: Number(b.comic.avgRating),
+          latestChapter: b.comic.chapters[0]
+            ? { id: b.comic.chapters[0].id, number: Number(b.comic.chapters[0].number) }
+            : null,
+        },
+      })),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: skip + limit < total,
+      },
+    };
   }
 
-  async isBookmarked(userId: string, comicId: string) {
+  async check(userId: string, comicId: string) {
     const bookmark = await this.prisma.bookmark.findUnique({
       where: { userId_comicId: { userId, comicId } },
     });
-    return { bookmarked: !!bookmark, isFavorite: bookmark?.isFavorite || false };
+    return {
+      bookmarked: !!bookmark,
+      status: bookmark?.status || null,
+      isFavorite: bookmark?.isFavorite || false,
+      notifyUpdate: bookmark?.notifyUpdate ?? true,
+    };
+  }
+
+  private async syncBookmarkCount(tx: Prisma.TransactionClient, comicId: string) {
+    const count = await tx.bookmark.count({ where: { comicId } });
+    await tx.comic.update({
+      where: { id: comicId },
+      data: { totalBookmarks: count },
+    });
+  }
+
+  private async invalidateComicCaches(slug: string) {
+    await Promise.all([
+      this.redis.del(`comic:${slug}`),
+      this.redis.deletePattern('homepage*'),
+      this.redis.deletePattern('rankings*'),
+    ]);
   }
 }

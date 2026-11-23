@@ -1,54 +1,46 @@
 'use client';
 
 import { create } from 'zustand';
-import { api, ApiError } from '@/lib/api-client';
+import type { UserProfile } from 'shared';
+import { api } from '@/lib/api-client';
+import { useReadingHistoryStore } from './reading-history-store';
+import { useNotificationStore } from './notification-store';
 
-interface BannerData {
-  url?: string;
-  position?: number;
-}
-
-interface User {
-  id: string;
-  email: string;
-  username: string;
-  displayName: string;
-  avatarUrl: string | null;
-  banner: BannerData | null;
-  role: string;
-  bio: string | null;
-  socialLinks: Record<string, string>;
-  coins: number;
-  experience: number;
-  level: number;
-  loginStreak: number;
-  isVerified?: boolean;
-  isTrusted?: boolean;
-  createdAt: string;
-}
+let authGeneration = 0;
+let inflightRefreshPromise: Promise<string | null> | null = null;
+let inflightHydratePromise: Promise<void> | null = null;
 
 interface AuthState {
-  user: User | null;
+  user: UserProfile | null;
   accessToken: string | null;
   isLoading: boolean;
   isHydrated: boolean;
 
-  // Actions
-  register: (data: { email: string; username: string; password: string; displayName: string }) => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  register: (data: {
+    email: string;
+    username: string;
+    password: string;
+    displayName: string;
+  }) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
   googleLogin: (token: string) => Promise<void>;
   logout: () => Promise<void>;
-  refreshToken: () => Promise<boolean>;
+  refreshToken: () => Promise<string | null>;
   fetchProfile: () => Promise<void>;
   hydrate: () => Promise<void>;
-  updateProfile: (data: { displayName?: string; bio?: string; socialLinks?: Record<string, string> }) => Promise<void>;
-  updateUser: (partial: Partial<User>) => void;
+  updateProfile: (data: {
+    displayName?: string;
+    bio?: string;
+    socialLinks?: Record<string, string>;
+    preferences?: Record<string, unknown>;
+  }) => Promise<void>;
+  updateUser: (partial: Partial<UserProfile>) => void;
 }
 
 interface AuthResponse {
   success: boolean;
   data: {
-    user: User;
+    user: UserProfile;
     accessToken: string;
     expiresIn: number;
   };
@@ -62,110 +54,195 @@ interface RefreshResponse {
   };
 }
 
-interface ProfileResponse {
-  success: boolean;
-  data: User;
+async function syncLocalHistoryToServer(token: string) {
+  try {
+    const store = useReadingHistoryStore.getState();
+    store.hydrate();
+    const items = store.getAllSorted();
+    if (items.length === 0) return;
+    await api.post(
+      '/history/sync',
+      {
+        items: items.slice(0, 20).map((i) => ({
+          comicId: i.comicId,
+          chapterId: i.chapterId,
+          lastPage: i.lastPage,
+          totalPages: i.totalPages,
+        })),
+      },
+      { token },
+    );
+  } catch {
+    // Non-fatal
+  }
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
-  user: null,
-  accessToken: null,
-  isLoading: false,
-  isHydrated: false,
+export const useAuthStore = create<AuthState>((set, get) => {
+  api.configureAuth(
+    () => get().accessToken,
+    () => get().refreshToken(),
+  );
 
-  register: async (data) => {
-    set({ isLoading: true });
-    try {
-      const res = await api.post<AuthResponse>('/auth/register', data);
-      set({ user: res.data.user, accessToken: res.data.accessToken, isLoading: false });
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
-  },
+  return {
+    user: null,
+    accessToken: null,
+    isLoading: false,
+    isHydrated: false,
 
-  login: async (email, password) => {
-    set({ isLoading: true });
-    try {
-      const res = await api.post<AuthResponse>('/auth/login', { email, password });
-      set({ user: res.data.user, accessToken: res.data.accessToken, isLoading: false });
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
-  },
+    register: async (data) => {
+      const prevUserId = get().user?.id;
+      const gen = ++authGeneration;
+      set({ isLoading: true });
+      try {
+        const res = await api.post<AuthResponse>('/auth/register', data);
+        if (authGeneration !== gen) {
+          set({ isLoading: false });
+          return;
+        }
+        if (prevUserId && prevUserId !== res.data.user.id) {
+          useReadingHistoryStore.getState().clearAll();
+        }
+        set({ user: res.data.user, accessToken: res.data.accessToken, isLoading: false, isHydrated: true });
+        syncLocalHistoryToServer(res.data.accessToken);
+      } catch (err) {
+        if (authGeneration === gen) set({ isLoading: false });
+        throw err;
+      }
+    },
 
-  googleLogin: async (token) => {
-    set({ isLoading: true });
-    try {
-      const res = await api.post<AuthResponse>('/auth/google', { token });
-      set({ user: res.data.user, accessToken: res.data.accessToken, isLoading: false });
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
-  },
+    login: async (identifier, password) => {
+      const prevUserId = get().user?.id;
+      const gen = ++authGeneration;
+      set({ isLoading: true });
+      try {
+        const res = await api.post<AuthResponse>('/auth/login', { identifier, password });
+        if (authGeneration !== gen) {
+          set({ isLoading: false });
+          return;
+        }
+        if (prevUserId && prevUserId !== res.data.user.id) {
+          useReadingHistoryStore.getState().clearAll();
+        }
+        set({ user: res.data.user, accessToken: res.data.accessToken, isLoading: false, isHydrated: true });
+        syncLocalHistoryToServer(res.data.accessToken);
+      } catch (err) {
+        if (authGeneration === gen) set({ isLoading: false });
+        throw err;
+      }
+    },
 
-  logout: async () => {
-    const { accessToken } = get();
-    try {
-      await api.post('/auth/logout', undefined, { token: accessToken || undefined });
-    } catch {
-      // Ignore errors on logout
-    }
-    set({ user: null, accessToken: null });
-  },
+    googleLogin: async (token) => {
+      const prevUserId = get().user?.id;
+      const gen = ++authGeneration;
+      set({ isLoading: true });
+      try {
+        const res = await api.post<AuthResponse>('/auth/google', { token });
+        if (authGeneration !== gen) {
+          set({ isLoading: false });
+          return;
+        }
+        if (prevUserId && prevUserId !== res.data.user.id) {
+          useReadingHistoryStore.getState().clearAll();
+        }
+        set({ user: res.data.user, accessToken: res.data.accessToken, isLoading: false, isHydrated: true });
+        syncLocalHistoryToServer(res.data.accessToken);
+      } catch (err) {
+        if (authGeneration === gen) set({ isLoading: false });
+        throw err;
+      }
+    },
 
-  refreshToken: async () => {
-    try {
-      const res = await api.post<RefreshResponse>('/auth/refresh');
-      set({ accessToken: res.data.accessToken });
-      return true;
-    } catch {
-      set({ user: null, accessToken: null });
-      return false;
-    }
-  },
+    logout: async () => {
+      authGeneration += 1;
+      inflightRefreshPromise = null;
+      inflightHydratePromise = null;
+      const token = get().accessToken;
+      set({ user: null, accessToken: null, isLoading: false, isHydrated: true });
+      useReadingHistoryStore.getState().clearAll();
+      useNotificationStore.getState().reset();
+      try {
+        await api.post('/auth/logout', undefined, { token, skipAuthRefresh: true });
+      } catch {
+        // Ignore
+      }
+    },
 
-  fetchProfile: async () => {
-    const { accessToken } = get();
-    if (!accessToken) return;
-    try {
-      const res = await api.get<ProfileResponse>('/auth/me', { token: accessToken });
-      set({ user: res.data });
-    } catch {
-      const refreshed = await get().refreshToken();
-      if (refreshed) {
-        const newToken = get().accessToken;
-        const res = await api.get<ProfileResponse>('/auth/me', { token: newToken || undefined });
+    refreshToken: async () => {
+      if (inflightRefreshPromise) return inflightRefreshPromise;
+      const gen = authGeneration;
+      inflightRefreshPromise = (async () => {
+        try {
+          const res = await api.post<RefreshResponse>('/auth/refresh', undefined, { skipAuthRefresh: true });
+          if (authGeneration !== gen) {
+            return null;
+          }
+          set({ accessToken: res.data.accessToken });
+          return res.data.accessToken;
+        } catch {
+          if (authGeneration === gen) {
+            set({ user: null, accessToken: null });
+          }
+          return null;
+        } finally {
+          inflightRefreshPromise = null;
+        }
+      })();
+      return inflightRefreshPromise;
+    },
+
+    fetchProfile: async () => {
+      const token = get().accessToken;
+      if (!token) return;
+      const gen = authGeneration;
+      try {
+        const res = await api.get<{ success: boolean; data: UserProfile }>('/auth/me', { token });
+        if (authGeneration === gen && get().accessToken) {
+          set({ user: res.data });
+        }
+      } catch {
+        // Handled by apiClient refresh
+      }
+    },
+
+    hydrate: async () => {
+      if (get().isHydrated) return;
+      if (inflightHydratePromise) return inflightHydratePromise;
+      const gen = authGeneration;
+      inflightHydratePromise = (async () => {
+        try {
+          const refreshRes = await api.post<RefreshResponse>('/auth/refresh', undefined, { skipAuthRefresh: true });
+          if (authGeneration !== gen) return;
+          const token = refreshRes.data.accessToken;
+          set({ accessToken: token });
+          const meRes = await api.get<{ success: boolean; data: UserProfile }>('/auth/me', { token });
+          if (authGeneration !== gen) return;
+          set({ user: meRes.data, isHydrated: true });
+        } catch {
+          if (authGeneration === gen) {
+            set({ user: null, accessToken: null, isHydrated: true });
+          }
+        } finally {
+          inflightHydratePromise = null;
+        }
+      })();
+      return inflightHydratePromise;
+    },
+
+    updateProfile: async (data) => {
+      const token = get().accessToken;
+      if (!token) return;
+      const gen = authGeneration;
+      const res = await api.put<{ success: boolean; data: UserProfile }>('/users/me', data, { token });
+      if (authGeneration === gen) {
         set({ user: res.data });
       }
-    }
-  },
+    },
 
-  hydrate: async () => {
-    if (get().isHydrated) return;
-    try {
-      const res = await api.post<RefreshResponse>('/auth/refresh');
-      set({ accessToken: res.data.accessToken });
-      const profile = await api.get<ProfileResponse>('/auth/me', { token: res.data.accessToken });
-      set({ user: profile.data, isHydrated: true });
-    } catch {
-      set({ isHydrated: true });
-    }
-  },
-
-  updateProfile: async (data) => {
-    const { accessToken } = get();
-    if (!accessToken) return;
-    const res = await api.put<{ success: boolean; data: User }>('/users/me', data, { token: accessToken });
-    set({ user: res.data });
-  },
-
-  updateUser: (partial) => {
-    const { user } = get();
-    if (user) {
-      set({ user: { ...user, ...partial } });
-    }
-  },
-}));
+    updateUser: (partial) => {
+      const current = get().user;
+      if (current) {
+        set({ user: { ...current, ...partial } });
+      }
+    },
+  };
+});

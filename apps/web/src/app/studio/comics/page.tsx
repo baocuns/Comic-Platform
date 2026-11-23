@@ -1,368 +1,302 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { Plus, BookOpen, Eye, Trash2, Edit3, Send } from 'lucide-react';
+import { ComicType, ContentRating, type ComicSummary, type GenreItem } from 'shared';
+import { api, ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
-import { api } from '@/lib/api-client';
-
-interface Comic {
-  id: string;
-  title: string;
-  slug: string;
-  status: string;
-  approvalStatus?: string;
-  rejectionReason?: string | null;
-  coverUrl: string | null;
-  stats: { totalViews: number; totalChapters: number };
-  genres: { id: string; name: string }[];
-}
-
-const statusLabel: Record<string, string> = {
-  DRAFT: 'Nháp',
-  ONGOING: 'Đang ra',
-  COMPLETED: 'Hoàn thành',
-  HIATUS: 'Tạm dừng',
-};
-
-const approvalBadge: Record<string, { label: string; class: string }> = {
-  DRAFT: { label: 'Bản nháp', class: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-300 dark:border-zinc-500/20' },
-  PENDING_APPROVAL: { label: '⏳ Chờ duyệt', class: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-500/20' },
-  APPROVED: { label: '✅ Đã duyệt', class: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/20' },
-  REJECTED: { label: '❌ Bị từ chối', class: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-300 dark:border-red-500/20' },
-};
-
-const statusColor: Record<string, string> = {
-  DRAFT: 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300 border-zinc-300 dark:border-zinc-500/20',
-  ONGOING: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/20',
-  COMPLETED: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-500/20',
-  HIATUS: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/20',
-};
-
-const filterOptions = [
-  { value: 'ALL', label: 'Tất cả' },
-  { value: 'PENDING_APPROVAL', label: 'Chờ duyệt' },
-  { value: 'APPROVED', label: 'Đã duyệt' },
-  { value: 'REJECTED', label: 'Bị từ chối' },
-  { value: 'DRAFT', label: 'Bản nháp' },
-];
+import { useToast } from '@/components/providers/toast-provider';
+import { APPROVAL_STATUS_LABEL, COMIC_TYPE_LABEL, CONTENT_RATING_LABEL, formatCompactNumber } from '@/lib/format';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Modal } from '@/components/ui/modal';
+import { Input, Textarea } from '@/components/ui/input';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 export default function StudioComicsPage() {
+  const router = useRouter();
   const { accessToken } = useAuthStore();
-  const searchParams = useSearchParams();
+  const { toast } = useToast();
 
-  const [comics, setComics] = useState<Comic[]>([]);
+  const [comics, setComics] = useState<ComicSummary[]>([]);
+  const [genres, setGenres] = useState<GenreItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('ALL');
-  const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  // Create modal
-  const [showCreate, setShowCreate] = useState(false);
-  const [newComic, setNewComic] = useState({ title: '', description: '' });
+  const [createOpen, setCreateOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [type, setType] = useState<ComicType>(ComicType.VIETNAM);
+  const [contentRating, setContentRating] = useState<ContentRating>(ContentRating.EVERYONE);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (searchParams.get('action') === 'create') setShowCreate(true);
-  }, [searchParams]);
-
-  useEffect(() => {
+  const loadComics = useCallback(async () => {
     if (!accessToken) return;
-    api
-      .get<{ data: Comic[] }>('/comics/author/my-comics', { token: accessToken })
-      .then((res) => setComics(res.data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    setLoading(true);
+    try {
+      const [cRes, gRes] = await Promise.all([
+        api.get<{ data: ComicSummary[] }>('/comics/mine', { token: accessToken }),
+        api.get<{ data: GenreItem[] }>('/genres'),
+      ]);
+      setComics(cRes.data || []);
+      setGenres(gRes.data || []);
+    } finally {
+      setLoading(false);
+    }
   }, [accessToken]);
 
-  const handleCreate = async () => {
-    if (!newComic.title.trim() || !accessToken) return;
+  useEffect(() => {
+    loadComics();
+  }, [loadComics]);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accessToken) return;
     setCreating(true);
     try {
-      const res = await api.post<{ data: Comic }>('/comics', newComic, { token: accessToken });
-      setComics((prev) => [res.data, ...prev]);
-      setShowCreate(false);
-      setNewComic({ title: '', description: '' });
-    } catch {}
-    setCreating(false);
-  };
-
-  const handleSubmitReview = async (e: React.MouseEvent, comicId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!accessToken) return;
-    try {
-      const res = await api.post<{ data: { autoApproved: boolean; status: string } }>(
-        `/comics/${comicId}/submit-review`,
-        {},
+      const res = await api.post<{ data: ComicSummary }>(
+        '/comics',
+        {
+          title,
+          description,
+          type,
+          contentRating,
+          genreIds: selectedGenres,
+        },
         { token: accessToken },
       );
-      setComics((prev) =>
-        prev.map((c) => (c.id === comicId ? { ...c, approvalStatus: res.data.status, rejectionReason: null } : c)),
-      );
-      alert(
-        res.data.autoApproved
-          ? 'Tác giả đã được xác minh. Truyện đã được tự động phê duyệt!'
-          : 'Đã gửi yêu cầu phê duyệt tới Ban Quản Trị.',
-      );
-    } catch (err: any) {
-      alert(err?.message || 'Gửi yêu cầu thất bại');
+      toast.success('Đã tạo bộ truyện mới!');
+      setCreateOpen(false);
+      setTitle('');
+      setDescription('');
+      setSelectedGenres([]);
+      router.push(`/studio/comics/${res.data.id}`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Không thể tạo truyện');
+    } finally {
+      setCreating(false);
     }
   };
 
-  const filtered = comics.filter((c) => {
-    if (filter !== 'ALL' && (c.approvalStatus || c.status) !== filter) return false;
-    if (search && !c.title.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const handlePublish = async (comicId: string) => {
+    if (!accessToken) return;
+    try {
+      const res = await api.post<{ data: { autoApproved: boolean } }>(
+        `/comics/${comicId}/publish`,
+        {},
+        { token: accessToken },
+      );
+      toast.success(
+        res.data.autoApproved ? 'Truyện đã được tự động xuất bản!' : 'Đã gửi truyện lên hàng đợi duyệt!',
+      );
+      loadComics();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Không thể gửi duyệt');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!accessToken || !deleteId) return;
+    try {
+      await api.delete(`/comics/${deleteId}`, { token: accessToken });
+      toast.info('Đã xóa bộ truyện');
+      setDeleteId(null);
+      loadComics();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Xóa thất bại');
+    }
+  };
 
   return (
-    <div className="mx-auto max-w-6xl px-3.5 py-4 sm:px-6 sm:py-8">
-      {/* Header */}
-      <div className="mb-4 sm:mb-6 flex items-center justify-between gap-3">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white">Truyện của tôi</h1>
-          <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">{comics.length} truyện</p>
-        </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-3.5 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110 shrink-0"
-        >
-          <span className="text-sm sm:text-base font-bold">+</span>
-          Tạo truyện mới
-        </button>
-      </div>
-
-      {/* Toolbar */}
-      <div className="mb-4 sm:mb-6 flex flex-col gap-2.5 sm:flex-row sm:items-center">
-        {/* Search */}
-        <div className="relative flex-1">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs sm:text-sm text-zinc-400 dark:text-zinc-600">🔍</span>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm kiếm truyện..."
-            className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] py-2 sm:py-2.5 pl-9 sm:pl-10 pr-3 sm:pr-4 text-xs sm:text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/10"
-          />
-        </div>
-
-        {/* Status filter pills & View mode */}
-        <div className="flex items-center justify-between sm:justify-start gap-2 overflow-x-auto no-scrollbar">
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 overflow-x-auto no-scrollbar py-0.5">
-            {filterOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setFilter(opt.value)}
-                className={`shrink-0 rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-medium transition-all ${
-                  filter === opt.value
-                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold shadow-sm'
-                    : 'bg-zinc-100 dark:bg-white/[0.03] text-zinc-600 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-white/[0.06] hover:text-zinc-900 dark:hover:text-zinc-300'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-
-          {/* View mode */}
-          <div className="flex shrink-0 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02]">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`rounded-l-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs transition-colors ${
-                viewMode === 'grid' ? 'bg-zinc-200 dark:bg-white/[0.08] text-zinc-900 dark:text-white font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
-              }`}
-              title="Grid"
-            >
-              ▦
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`rounded-r-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs transition-colors ${
-                viewMode === 'list' ? 'bg-zinc-200 dark:bg-white/[0.08] text-zinc-900 dark:text-white font-bold' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300'
-              }`}
-              title="List"
-            >
-              ☰
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Comics */}
-      {loading ? (
-        <div className="flex justify-center py-16 sm:py-20">
-          <div className="h-7 w-7 sm:h-8 sm:w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-300 dark:border-white/[0.08] bg-white dark:bg-transparent p-8 sm:p-16 text-center shadow-sm dark:shadow-none">
-          <div className="mb-2 sm:mb-3 text-3xl sm:text-4xl">📭</div>
-          <h3 className="text-sm sm:text-base font-semibold text-zinc-900 dark:text-white">
-            {search || filter !== 'ALL' ? 'Không tìm thấy truyện' : 'Chưa có truyện nào'}
-          </h3>
-          <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-            {search || filter !== 'ALL' ? 'Thử thay đổi bộ lọc hoặc từ khóa' : 'Hãy tạo truyện đầu tiên!'}
+          <h1 className="font-serif text-2xl font-bold text-[var(--text-primary)]">Quản lý Truyện tranh</h1>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Tạo mới, cập nhật ảnh bìa, thêm chương và gửi kiểm duyệt xuất bản.
           </p>
         </div>
-      ) : viewMode === 'grid' ? (
-        <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((comic) => (
-            <Link
-              key={comic.id}
-              href={`/studio/comics/${comic.id}`}
-              className="group relative overflow-hidden rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] shadow-sm dark:shadow-none transition-all duration-200 hover:border-amber-500/30 dark:hover:border-amber-500/20 hover:bg-zinc-50 dark:hover:bg-white/[0.04] hover:shadow-lg hover:shadow-amber-500/5"
-            >
-              {/* Cover banner */}
-              <div className="relative h-24 sm:h-32 w-full bg-gradient-to-br from-zinc-200 to-zinc-300 dark:from-zinc-800 dark:to-zinc-900">
-                {comic.coverUrl && (
-                  <img src={comic.coverUrl} alt="" className="h-full w-full object-cover opacity-60 dark:opacity-40 transition-opacity group-hover:opacity-80 dark:group-hover:opacity-50" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-[#0c0c0f] via-transparent to-transparent" />
-                <div className="absolute right-2.5 top-2.5 sm:right-3 sm:top-3 flex items-center gap-1.5">
-                  <span className={`rounded-full border px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold backdrop-blur-sm ${approvalBadge[comic.approvalStatus || 'DRAFT']?.class || approvalBadge.DRAFT.class}`}>
-                    {approvalBadge[comic.approvalStatus || 'DRAFT']?.label || comic.approvalStatus}
-                  </span>
-                </div>
-              </div>
+        <Button variant="warm" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4" />
+          Tạo truyện mới
+        </Button>
+      </div>
 
-              {/* Info */}
-              <div className="relative -mt-6 sm:-mt-8 px-3.5 pb-3.5 sm:px-5 sm:pb-5">
-                <div className="mb-2 sm:mb-3 flex items-end justify-between">
-                  <div className="h-14 w-10 sm:h-16 sm:w-12 shrink-0 overflow-hidden rounded-lg border-2 border-white dark:border-[#0c0c0f] bg-zinc-100 dark:bg-zinc-800 shadow-lg">
-                    {comic.coverUrl ? (
-                      <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-sm sm:text-base font-bold text-zinc-400 dark:text-zinc-600">{comic.title[0]}</div>
-                    )}
-                  </div>
-                  {(comic.approvalStatus === 'DRAFT' || comic.approvalStatus === 'REJECTED') && (
-                    <button
-                      onClick={(e) => handleSubmitReview(e, comic.id)}
-                      className="rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-2.5 py-1 text-[11px] sm:text-xs font-semibold transition-all"
-                    >
-                      {comic.approvalStatus === 'REJECTED' ? 'Sửa & Gửi lại' : 'Gửi duyệt'}
-                    </button>
-                  )}
-                </div>
-                <h3 className="truncate text-sm sm:text-base font-semibold text-zinc-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors">
-                  {comic.title}
-                </h3>
-                {comic.approvalStatus === 'REJECTED' && comic.rejectionReason && (
-                  <p className="mt-1 text-[11px] sm:text-xs text-red-600 dark:text-red-400 bg-red-500/10 p-1.5 sm:p-2 rounded border border-red-500/20">
-                    <strong>Lý do từ chối:</strong> {comic.rejectionReason}
-                  </p>
-                )}
-                <div className="mt-1.5 sm:mt-2 flex items-center gap-3 sm:gap-4 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">
-                  <span className="flex items-center gap-1">📖 {comic.stats?.totalChapters || 0} chương</span>
-                  <span className="flex items-center gap-1">👁️ {(comic.stats?.totalViews || 0).toLocaleString()} đọc</span>
-                </div>
-              </div>
-            </Link>
+      {loading ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {[1, 2].map((n) => (
+            <div key={n} className="h-36 animate-pulse rounded-2xl bg-[var(--bg-subtle)]" />
           ))}
         </div>
+      ) : comics.length === 0 ? (
+        <Card className="py-12 text-center space-y-3">
+          <BookOpen className="mx-auto h-8 w-8 text-[var(--text-muted)]" />
+          <p className="text-sm text-[var(--text-secondary)]">Bạn chưa sáng tác bộ truyện nào.</p>
+          <Button onClick={() => setCreateOpen(true)}>Tạo bộ truyện đầu tiên</Button>
+        </Card>
       ) : (
-        /* List view */
-        <div className="space-y-2">
-          {filtered.map((comic) => (
-            <Link
-              key={comic.id}
-              href={`/studio/comics/${comic.id}`}
-              className="group flex items-center gap-4 rounded-xl border border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] p-4 shadow-sm dark:shadow-none transition-all duration-200 hover:border-amber-500/30 dark:hover:border-amber-500/20 hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
-            >
-              <div className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100 dark:bg-zinc-800">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {comics.map((comic) => (
+            <Card key={comic.id} className="flex gap-4 p-4">
+              <div className="h-32 w-23 shrink-0 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
                 {comic.coverUrl ? (
                   <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-sm font-bold text-zinc-400 dark:text-zinc-600">{comic.title[0]}</div>
+                  <div className="flex h-full items-center justify-center font-bold text-[var(--text-muted)]">
+                    {comic.title[0]}
+                  </div>
                 )}
               </div>
-              <div className="flex-1 overflow-hidden">
-                <div className="flex items-center gap-2">
-                  <h3 className="truncate text-sm font-semibold text-zinc-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors">
+
+              <div className="min-w-0 flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge
+                      variant={
+                        comic.approvalStatus === 'APPROVED'
+                          ? 'success'
+                          : comic.approvalStatus === 'REJECTED'
+                            ? 'danger'
+                            : 'warning'
+                      }
+                    >
+                      {APPROVAL_STATUS_LABEL[comic.approvalStatus]}
+                    </Badge>
+                    <Badge variant="outline">{COMIC_TYPE_LABEL[comic.type]}</Badge>
+                  </div>
+                  <h3 className="mt-1.5 truncate text-base font-bold text-[var(--text-primary)]">
                     {comic.title}
                   </h3>
-                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${approvalBadge[comic.approvalStatus || 'DRAFT']?.class || approvalBadge.DRAFT.class}`}>
-                    {approvalBadge[comic.approvalStatus || 'DRAFT']?.label || comic.approvalStatus}
-                  </span>
-                </div>
-                {comic.approvalStatus === 'REJECTED' && comic.rejectionReason && (
-                  <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">
-                    Lý do: {comic.rejectionReason}
+                  <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                    {comic.stats.totalChapters} chương ·{' '}
+                    <Eye className="inline h-3 w-3" /> {formatCompactNumber(comic.stats.totalViews)}
                   </p>
-                )}
-                <div className="mt-1 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-                  <span>📖 {comic.stats?.totalChapters || 0} chương</span>
-                  <span>👁️ {(comic.stats?.totalViews || 0).toLocaleString()} đọc</span>
+                  {comic.rejectionReason && (
+                    <p className="mt-1 text-xs text-[var(--danger)]">Lý do từ chối: {comic.rejectionReason}</p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-3">
+                  <Link href={`/studio/comics/${comic.id}`}>
+                    <Button size="xs" variant="secondary">
+                      <Edit3 className="h-3.5 w-3.5" />
+                      Chi tiết & Chương
+                    </Button>
+                  </Link>
+                  {comic.approvalStatus !== 'APPROVED' && (
+                    <Button size="xs" variant="primary" onClick={() => handlePublish(comic.id)}>
+                      <Send className="h-3.5 w-3.5" />
+                      Gửi duyệt
+                    </Button>
+                  )}
+                  <Button size="xs" variant="ghost" onClick={() => setDeleteId(comic.id)}>
+                    <Trash2 className="h-3.5 w-3.5 text-[var(--danger)]" />
+                  </Button>
                 </div>
               </div>
-              {(comic.approvalStatus === 'DRAFT' || comic.approvalStatus === 'REJECTED') && (
-                <button
-                  onClick={(e) => handleSubmitReview(e, comic.id)}
-                  className="shrink-0 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-3 py-1 text-xs font-semibold transition-all"
-                >
-                  {comic.approvalStatus === 'REJECTED' ? 'Sửa & Gửi lại' : 'Gửi duyệt'}
-                </button>
-              )}
-            </Link>
+            </Card>
           ))}
         </div>
       )}
 
       {/* Create Modal */}
-      <div
-        className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-sm transition-all duration-300 ${
-          showCreate ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-        onClick={() => setShowCreate(false)}
-      >
-        <div
-          className={`w-full max-w-lg rounded-2xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[#111114] p-6 shadow-2xl transition-all duration-300 ${
-            showCreate ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
-          }`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <h2 className="mb-1 text-lg font-bold text-zinc-900 dark:text-white">Tạo truyện mới</h2>
-          <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400">Bắt đầu câu chuyện mới của bạn</p>
-
-          <div className="space-y-4">
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Tạo bộ truyện mới" maxWidthClass="max-w-xl">
+        <form onSubmit={handleCreate} className="space-y-4">
+          <Input
+            label="Tên truyện *"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Ví dụ: Vân Sơn Kiếm Lộ"
+            required
+          />
+          <Textarea
+            label="Tóm tắt nội dung"
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Giới thiệu bối cảnh và nhân vật chính..."
+          />
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Tên truyện *</label>
-              <input
-                value={newComic.title}
-                onChange={(e) => setNewComic((p) => ({ ...p, title: e.target.value }))}
-                placeholder="Nhập tên truyện"
-                autoFocus
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/10"
-              />
+              <label className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Định dạng</label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as ComicType)}
+                className="h-10 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 text-sm"
+              >
+                {Object.values(ComicType).map((t) => (
+                  <option key={t} value={t}>
+                    {COMIC_TYPE_LABEL[t]}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Mô tả</label>
-              <textarea
-                value={newComic.description}
-                onChange={(e) => setNewComic((p) => ({ ...p, description: e.target.value }))}
-                placeholder="Mô tả nội dung truyện..."
-                rows={4}
-                className="w-full resize-none rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-white/[0.03] px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/10"
-              />
+              <label className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Độ tuổi</label>
+              <select
+                value={contentRating}
+                onChange={(e) => setContentRating(e.target.value as ContentRating)}
+                className="h-10 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 text-sm"
+              >
+                {Object.values(ContentRating).map((r) => (
+                  <option key={r} value={r}>
+                    {CONTENT_RATING_LABEL[r]}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-3">
-            <button
-              onClick={() => setShowCreate(false)}
-              className="rounded-lg px-4 py-2.5 text-sm text-zinc-600 dark:text-zinc-400 transition-colors hover:text-zinc-900 dark:hover:text-white"
-            >
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-[var(--text-secondary)]">Thể loại</label>
+            <div className="flex flex-wrap gap-1.5">
+              {genres.map((g) => {
+                const active = selectedGenres.includes(g.id);
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedGenres((prev) =>
+                        active ? prev.filter((id) => id !== g.id) : [...prev, g.id],
+                      )
+                    }
+                    className={`rounded-full border px-3 py-1 text-xs font-medium cursor-pointer ${
+                      active
+                        ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white'
+                        : 'border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    {g.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}>
               Hủy
-            </button>
-            <button
-              onClick={handleCreate}
-              disabled={creating || !newComic.title.trim()}
-              className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 disabled:opacity-50"
-            >
-              {creating ? 'Đang tạo...' : 'Tạo truyện'}
-            </button>
+            </Button>
+            <Button type="submit" variant="warm" isLoading={creating}>
+              Tạo truyện
+            </Button>
           </div>
-        </div>
-      </div>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Xóa bộ truyện này?"
+        description="Truyện sẽ bị ẩn khỏi hệ thống."
+        confirmLabel="Xóa truyện"
+      />
     </div>
   );
 }

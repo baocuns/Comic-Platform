@@ -1,679 +1,506 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import {
+  Camera,
+  Edit3,
+  UserPlus,
+  UserCheck,
+  BookOpen,
+  Bookmark,
+  MessageSquare,
+  Star,
+  Flame,
+  Coins,
+  Check,
+  Globe,
+  Flag,
+} from 'lucide-react';
+import { ReportTargetType, type PublicUser } from 'shared';
+import { api, ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
-import { api } from '@/lib/api-client';
+import { useToast } from '@/components/providers/toast-provider';
+import { COMIC_STATUS_LABEL, formatDate, sanitizeSafeUrl } from '@/lib/format';
+import { Avatar } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { RealmBadge } from '@/components/ui/realm-badge';
+import { Modal } from '@/components/ui/modal';
+import { ReportModal } from '@/components/ui/report-modal';
 import BannerEditor from './banner-editor';
 import AvatarCropModal from './avatar-crop-modal';
 import EditProfileModal from './edit-profile-modal';
 
-interface BannerData {
-  url?: string;
-  position?: number;
-}
-
-interface PublicUser {
-  id: string;
-  username: string;
-  displayName: string;
-  avatarUrl: string | null;
-  banner: BannerData | null;
-  role: string;
-  bio: string | null;
-  socialLinks: Record<string, string>;
-  level: number;
-  createdAt: string;
-  // Only present for own profile
-  email?: string;
-  coins?: number;
-  experience?: number;
-}
-
-interface ProfileStats {
-  bookmarkCount: number;
-  commentCount: number;
-  ratingCount: number;
-  followerCount: number;
-  followingCount: number;
-}
-
-interface ProfileData {
-  user: PublicUser;
-  stats: ProfileStats;
+interface ProfileResponse {
+  user: PublicUser & {
+    loginStreak: number;
+    longestStreak: number;
+    chaptersReadCount: number;
+  };
+  stats: {
+    bookmarkCount: number;
+    commentCount: number;
+    ratingCount: number;
+    followerCount: number;
+    followingCount: number;
+  };
   isFollowing: boolean;
   isOwnProfile: boolean;
-  authorComics?: AuthorComic[];
-}
-
-interface AuthorComic {
-  id: string;
-  title: string;
-  slug: string;
-  coverUrl: string | null;
-  status: string;
-  totalChapters: number;
-  totalViews: number;
-  avgRating: number;
-  lastChapterAt: string | null;
-}
-
-interface FollowUser {
-  id: string;
-  username: string;
-  displayName: string;
-  avatarUrl: string | null;
-  role: string;
-  level: number;
-}
-
-interface BookmarkItem {
-  id: string;
-  isFavorite: boolean;
-  comic: {
-    id: string; title: string; slug: string; coverUrl: string | null;
-    totalChapters: number; author: { displayName: string };
-  };
-}
-
-interface HistoryItem {
-  id: string;
-  lastPage: number;
-  readAt: string;
-  chapter: {
-    id: string; number: number; title: string | null;
-    comic: { id: string; title: string; slug: string; coverUrl: string | null };
-  };
+  authorComics: Array<{
+    id: string;
+    title: string;
+    slug: string;
+    coverUrl: string | null;
+    status: string;
+    totalChapters: number;
+    totalViews: number;
+    avgRating: number;
+  }>;
+  recentBookmarks: Array<{
+    id: string;
+    status: string;
+    comic: {
+      id: string;
+      title: string;
+      slug: string;
+      coverUrl: string | null;
+      totalChapters: number;
+      avgRating: number;
+    };
+  }>;
 }
 
 export default function UserProfilePage() {
   const params = useParams();
-  const router = useRouter();
-  const username = params.username as string;
-  const { user: currentUser, accessToken, isHydrated, logout, updateUser } = useAuthStore();
+  const username = decodeURIComponent((params?.username as string) || '').replace(/^@/, '');
+  const { user: currentUser, accessToken, fetchProfile, updateUser } = useAuthStore();
+  const { toast } = useToast();
 
-  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [data, setData] = useState<ProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showCropModal, setShowCropModal] = useState(false);
-  const [cropImageSrc, setCropImageSrc] = useState('');
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [followLoading, setFollowLoading] = useState(false);
-
-  const [activeTab, setActiveTab] = useState<'bookmarks' | 'history'>('bookmarks');
-  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [loadingTab, setLoadingTab] = useState(false);
-
-  // Follow list modal
-  const [followModal, setFollowModal] = useState<{ type: 'followers' | 'following'; open: boolean }>({ type: 'followers', open: false });
-  const [followList, setFollowList] = useState<FollowUser[]>([]);
-  const [followListLoading, setFollowListLoading] = useState(false);
-  const [followListTotal, setFollowListTotal] = useState(0);
-  const [followListPage, setFollowListPage] = useState(1);
-  const [followListTotalPages, setFollowListTotalPages] = useState(1);
-
+  const [showEdit, setShowEdit] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [followListModal, setFollowListModal] = useState<'followers' | 'following' | null>(null);
+  const [followUsers, setFollowUsers] = useState<PublicUser[]>([]);
+  const [showReportUser, setShowReportUser] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch profile data
-  useEffect(() => {
-    if (!isHydrated) return;
+  const loadProfile = useCallback(async (signal?: AbortSignal) => {
+    if (!username) return;
     setLoading(true);
-    setNotFound(false);
-
-    const opts = accessToken ? { token: accessToken } : {};
-    api.get<{ data: ProfileData }>(`/users/${username}/profile`, opts)
-      .then((r) => setProfile(r.data))
-      .catch(() => setNotFound(true))
-      .finally(() => setLoading(false));
-  }, [username, isHydrated, accessToken]);
-
-  // Fetch tab data (only for own profile)
-  useEffect(() => {
-    if (!profile?.isOwnProfile || !accessToken) return;
-    setLoadingTab(true);
-    if (activeTab === 'bookmarks') {
-      api.get<{ data: BookmarkItem[] }>('/bookmarks', { token: accessToken })
-        .then((r) => setBookmarks(r.data))
-        .catch(() => { })
-        .finally(() => setLoadingTab(false));
-    } else {
-      api.get<{ data: HistoryItem[] }>('/history', { token: accessToken })
-        .then((r) => setHistory(r.data))
-        .catch(() => { })
-        .finally(() => setLoadingTab(false));
+    try {
+      const res = await api.get<{ data: ProfileResponse }>(`/users/${encodeURIComponent(username)}`, {
+        token: accessToken,
+        signal,
+      });
+      if (!signal?.aborted) setData(res.data);
+    } catch {
+      if (!signal?.aborted) setData(null);
+    } finally {
+      if (!signal?.aborted) setLoading(false);
     }
-  }, [accessToken, activeTab, profile?.isOwnProfile]);
+  }, [username, accessToken]);
 
-  // Loading state
-  if (!isHydrated || loading) {
+  useEffect(() => {
+    const controller = new AbortController();
+    loadProfile(controller.signal);
+    return () => controller.abort();
+  }, [loadProfile]);
+
+  const handleToggleFollow = async () => {
+    if (!data || !accessToken) {
+      toast.error('Đăng nhập để theo dõi thành viên');
+      return;
+    }
+    try {
+      if (data.isFollowing) {
+        await api.delete(`/users/${data.user.id}/follow`, { token: accessToken });
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                isFollowing: false,
+                stats: { ...prev.stats, followerCount: Math.max(0, prev.stats.followerCount - 1) },
+              }
+            : prev,
+        );
+      } else {
+        await api.post(`/users/${data.user.id}/follow`, {}, { token: accessToken });
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                isFollowing: true,
+                stats: { ...prev.stats, followerCount: prev.stats.followerCount + 1 },
+              }
+            : prev,
+        );
+      }
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Thao tác thất bại');
+    }
+  };
+
+  const handleAvatarSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setCropSrc(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropDone = async (blob: Blob) => {
+    setCropSrc(null);
+    if (!accessToken) return;
+    try {
+      const fd = new FormData();
+      fd.append('file', blob, 'avatar.jpg');
+      const res = await api.upload<{ data: { url: string } }>('/uploads/users/me/avatar', fd, {
+        token: accessToken,
+      });
+      updateUser({ avatarUrl: res.data.url });
+      setData((prev) => (prev ? { ...prev, user: { ...prev.user, avatarUrl: res.data.url } } : prev));
+      toast.success('Đã cập nhật ảnh đại diện!');
+    } catch {
+      toast.error('Không thể tải ảnh đại diện');
+    }
+  };
+
+  const openFollowModal = async (kind: 'followers' | 'following') => {
+    if (!data) return;
+    setFollowListModal(kind);
+    try {
+      const res = await api.get<{ data: PublicUser[] }>(`/users/${data.user.id}/${kind}`);
+      setFollowUsers(res.data || []);
+    } catch {
+      setFollowUsers([]);
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+        <div className="h-64 animate-pulse rounded-3xl bg-[var(--bg-subtle)]" />
       </div>
     );
   }
 
-  if (notFound || !profile) {
+  if (!data) {
     return (
-      <div className="flex min-h-[calc(100vh-64px)] flex-col items-center justify-center gap-4">
-        <div className="text-6xl">😵</div>
-        <h1 className="text-2xl font-bold text-white">Không tìm thấy người dùng</h1>
-        <p className="text-sm text-zinc-500">@{username} không tồn tại</p>
-        <Link href="/" className="mt-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25">
-          Về trang chủ
+      <div className="mx-auto max-w-2xl px-4 py-24 text-center space-y-3">
+        <h1 className="font-serif text-2xl font-bold">Không tìm thấy hồ sơ @{username}</h1>
+        <Link href="/">
+          <Button>Về trang chủ</Button>
         </Link>
       </div>
     );
   }
 
-  const { user: profileUser, stats, isFollowing, isOwnProfile } = profile;
-
-  // Avatar file pick → open crop modal
-  const handleAvatarPick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setCropImageSrc(reader.result as string);
-      setShowCropModal(true);
-    };
-    reader.readAsDataURL(file);
-    if (avatarInputRef.current) avatarInputRef.current.value = '';
-  };
-
-  // Upload cropped avatar
-  const handleCroppedAvatar = async (blob: Blob) => {
-    if (!accessToken) return;
-    setShowCropModal(false);
-    setUploadingAvatar(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', blob, 'avatar.jpg');
-      const res = await api.upload<{ data: { url: string } }>('/upload/users/avatar', formData, { token: accessToken });
-      updateUser({ avatarUrl: res.data.url });
-      setProfile((p) => p ? { ...p, user: { ...p.user, avatarUrl: res.data.url } } : p);
-    } catch { }
-    setUploadingAvatar(false);
-  };
-
-  // Follow / Unfollow
-  const handleFollowToggle = async () => {
-    if (!accessToken) {
-      router.push(`/login?redirect=/@${username}`);
-      return;
-    }
-    setFollowLoading(true);
-    try {
-      if (isFollowing) {
-        await api.delete(`/users/${profileUser.id}/follow`, { token: accessToken });
-        setProfile((p) => p ? { ...p, isFollowing: false, stats: { ...p.stats, followerCount: p.stats.followerCount - 1 } } : p);
-      } else {
-        await api.post(`/users/${profileUser.id}/follow`, undefined, { token: accessToken });
-        setProfile((p) => p ? { ...p, isFollowing: true, stats: { ...p.stats, followerCount: p.stats.followerCount + 1 } } : p);
-      }
-    } catch { }
-    setFollowLoading(false);
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    router.push('/');
-  };
-
-  // Open follow list modal
-  const openFollowModal = async (type: 'followers' | 'following') => {
-    setFollowModal({ type, open: true });
-    setFollowList([]);
-    setFollowListPage(1);
-    setFollowListLoading(true);
-    try {
-      const res = await api.get<{ data: { items: FollowUser[]; total: number; totalPages: number } }>(
-        `/users/${profileUser.id}/${type}?page=1&limit=20`,
-      );
-      setFollowList(res.data.items);
-      setFollowListTotal(res.data.total);
-      setFollowListTotalPages(res.data.totalPages);
-    } catch { }
-    setFollowListLoading(false);
-  };
-
-  const loadMoreFollows = async () => {
-    const nextPage = followListPage + 1;
-    setFollowListLoading(true);
-    try {
-      const res = await api.get<{ data: { items: FollowUser[]; total: number; totalPages: number } }>(
-        `/users/${profileUser.id}/${followModal.type}?page=${nextPage}&limit=20`,
-      );
-      setFollowList((prev) => [...prev, ...res.data.items]);
-      setFollowListPage(nextPage);
-      setFollowListTotalPages(res.data.totalPages);
-    } catch { }
-    setFollowListLoading(false);
-  };
-
-  const roleBadge: Record<string, { color: string; label: string }> = {
-    READER: { color: 'bg-zinc-500/10 text-zinc-700 border border-zinc-500/20 dark:bg-zinc-500/20 dark:text-zinc-300 dark:border-zinc-500/30', label: 'Độc giả' },
-    AUTHOR: { color: 'bg-violet-500/10 text-violet-700 border border-violet-500/20 dark:bg-violet-500/20 dark:text-violet-300 dark:border-violet-500/30', label: 'Tác giả' },
-    MODERATOR: { color: 'bg-amber-500/10 text-amber-700 border border-amber-500/20 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30', label: 'Quản trị viên' },
-    ADMIN: { color: 'bg-red-500/10 text-red-700 border border-red-500/20 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30', label: 'Admin' },
-  };
-
-  const xpForNextLevel = Math.floor(100 * Math.pow(1.5, (currentUser?.level ?? 1) - 1));
-  const xpProgress = isOwnProfile && currentUser ? Math.min((currentUser.experience / xpForNextLevel) * 100, 100) : 0;
+  const profile = data.user;
 
   return (
-    <>
-      {/* ──── Banner ──── */}
+    <div className="pb-16">
       <BannerEditor
-        banner={profileUser.banner}
-        isOwnProfile={isOwnProfile}
-        onBannerChange={(b) => setProfile((p) => p ? { ...p, user: { ...p.user, banner: b } } : p)}
+        bannerUrl={profile.bannerUrl || null}
+        bannerPosition={profile.bannerPosition ?? 50}
+        isOwnProfile={data.isOwnProfile}
+        onUpdated={(url, pos) =>
+          setData((prev) =>
+            prev ? { ...prev, user: { ...prev.user, bannerUrl: url, bannerPosition: pos } } : prev,
+          )
+        }
       />
-      <div className="mx-auto max-w-4xl px-4 pb-12 pt-8">
-        {/* ──── Avatar + Info ──── */}
-        <div className="relative -mt-24 px-4 sm:px-6">
-          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end">
-            {/* Avatar */}
-            <div className="group relative">
-              <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded bg-gradient-to-br from-amber-500 to-orange-500 text-4xl font-bold text-white shadow-xl sm:h-32 sm:w-32">
-                {profileUser.avatarUrl ? (
-                  <img src={profileUser.avatarUrl} alt={profileUser.displayName} className="h-full w-full object-cover" />
-                ) : (
-                  profileUser.displayName.charAt(0).toUpperCase()
+
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 -mt-14 relative z-10 space-y-8">
+        <Card className="p-5 sm:p-7">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="relative w-fit">
+                <Avatar src={profile.avatarUrl} name={profile.displayName} size="xl" className="ring-4 ring-[var(--bg-surface)]" />
+                {data.isOwnProfile && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-primary)] text-white shadow-md hover:bg-[var(--accent-primary-hover)] cursor-pointer"
+                      title="Đổi ảnh đại diện"
+                    >
+                      <Camera className="h-4 w-4" />
+                    </button>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarSelected}
+                    />
+                  </>
                 )}
               </div>
-              {isOwnProfile && (
-                <button
-                  onClick={() => avatarInputRef.current?.click()}
-                  disabled={uploadingAvatar}
-                  className="absolute inset-0 flex items-center justify-center rounded bg-black/60 opacity-0 transition-opacity group-hover:opacity-100 cursor-pointer"
-                >
-                  {uploadingAvatar ? (
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-                    </svg>
+
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--text-primary)]">
+                    {profile.displayName}
+                  </h1>
+                  <RealmBadge level={profile.level} experience={profile.experience} showSubStage size="md" />
+                  {profile.isTrusted && (
+                    <Badge variant="success">
+                      <Check className="h-3 w-3" />
+                      Tác giả Uy tín
+                    </Badge>
                   )}
-                </button>
-              )}
-              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarPick} />
-            </div>
-
-            {/* Name & Role */}
-            <div className="flex-1 pb-1">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-zinc-900 dark:text-white sm:text-3xl">{profileUser.displayName}</h1>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${roleBadge[profileUser.role]?.color || roleBadge.READER.color}`}>
-                  {roleBadge[profileUser.role]?.label || profileUser.role}
-                </span>
+                </div>
+                <p className="text-xs text-[var(--text-muted)]">
+                  @{profile.username} · Tham gia {formatDate(profile.createdAt)} · Cấp {profile.level}
+                </p>
+                {profile.bio && (
+                  <p className="max-w-2xl text-sm text-[var(--text-secondary)]">{profile.bio}</p>
+                )}
+                {profile.socialLinks && Object.values(profile.socialLinks).some((v) => sanitizeSafeUrl(v, false)) && (
+                  <div className="flex flex-wrap gap-3 pt-1 text-xs">
+                    {Object.entries(profile.socialLinks).map(([k, v]) => {
+                      const safeHref = sanitizeSafeUrl(v, false);
+                      return safeHref ? (
+                        <a
+                          key={k}
+                          href={safeHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[var(--accent-primary)] hover:underline"
+                        >
+                          <Globe className="h-3.5 w-3.5" />
+                          {k}
+                        </a>
+                      ) : null;
+                    })}
+                  </div>
+                )}
               </div>
-              <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">@{profileUser.username}</p>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-2 pb-1">
-              {isOwnProfile ? (
+            <div className="flex flex-wrap gap-2 shrink-0">
+              {data.isOwnProfile ? (
                 <>
-                  <button
-                    onClick={() => setShowEditModal(true)}
-                    className="rounded bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110 cursor-pointer"
-                  >
-                    Chỉnh sửa
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-4 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-400 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
-                  >
-                    Đăng xuất
-                  </button>
+                  <Button variant="outline" size="sm" onClick={() => setShowEdit(true)}>
+                    <Edit3 className="h-4 w-4" />
+                    Chỉnh sửa hồ sơ
+                  </Button>
+                  {['AUTHOR', 'MODERATOR', 'ADMIN'].includes(profile.role) && (
+                    <Link href="/studio">
+                      <Button variant="warm" size="sm">
+                        Vào Studio
+                      </Button>
+                    </Link>
+                  )}
                 </>
               ) : (
-                <button
-                  onClick={handleFollowToggle}
-                  disabled={followLoading}
-                  className={`rounded px-6 py-2.5 text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer ${isFollowing
-                    ? 'border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 text-zinc-700 dark:text-zinc-300 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400'
-                    : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:brightness-110'
-                    }`}
-                >
-                  {followLoading ? '...' : isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ──── Follow stats ──── */}
-        <div className="mt-4 flex items-center gap-5 px-4 sm:px-6">
-          <button
-            onClick={() => openFollowModal('followers')}
-            className="text-sm text-zinc-500 dark:text-zinc-400 transition-colors hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer"
-          >
-            <span className="font-bold text-zinc-900 dark:text-white">{stats.followerCount}</span> người theo dõi
-          </button>
-          <button
-            onClick={() => openFollowModal('following')}
-            className="text-sm text-zinc-500 dark:text-zinc-400 transition-colors hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer"
-          >
-            <span className="font-bold text-zinc-900 dark:text-white">{stats.followingCount}</span> đang theo dõi
-          </button>
-        </div>
-
-        {/* ──── Level & XP (own profile only) ──── */}
-        {isOwnProfile && currentUser && (
-          <div className="mt-4 rounded border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-5 backdrop-blur-xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded bg-gradient-to-br from-amber-500 to-orange-600 text-lg font-bold text-white shadow-lg">
-                  {currentUser.level}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-white">Cấp {currentUser.level}</p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">{currentUser.experience} / {xpForNextLevel} XP</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                {currentUser.loginStreak > 0 && (
-                  <div className="flex items-center gap-1.5 rounded-full bg-orange-500/10 px-3 py-1.5">
-                    <span className="text-sm">🔥</span>
-                    <span className="text-sm font-semibold text-orange-600 dark:text-orange-400">{currentUser.loginStreak} ngày</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1.5">
-                  <span className="text-sm">🪙</span>
-                  <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">{currentUser.coins} xu</span>
-                </div>
-              </div>
-            </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-white/10">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${xpProgress}%`,
-                  background: 'linear-gradient(to right, #f59e0b, #f97316)',
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* ──── Bio ──── */}
-        <div className="mt-4 rounded border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.03] p-5 backdrop-blur-xl">
-          <h3 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-400">Giới thiệu</h3>
-          <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-            {profileUser.bio || (isOwnProfile ? 'Chưa có giới thiệu. Nhấn "Chỉnh sửa" để thêm!' : 'Chưa có giới thiệu.')}
-          </p>
-
-          {profileUser.socialLinks && Object.keys(profileUser.socialLinks).length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-3">
-              {profileUser.socialLinks.website && (
-                <a href={profileUser.socialLinks.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white">
-                  🌐 Website
-                </a>
-              )}
-              {profileUser.socialLinks.twitter && (
-                <a href={profileUser.socialLinks.twitter.startsWith('http') ? profileUser.socialLinks.twitter : `https://twitter.com/${profileUser.socialLinks.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white">
-                  𝕏 Twitter
-                </a>
-              )}
-              {profileUser.socialLinks.facebook && (
-                <a href={profileUser.socialLinks.facebook.startsWith('http') ? profileUser.socialLinks.facebook : `https://facebook.com/${profileUser.socialLinks.facebook}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-zinc-200 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white">
-                  ⓕ Facebook
-                </a>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ──── Stats Grid ──── */}
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard icon="🔖" label="Đã lưu" value={stats.bookmarkCount} />
-          <StatCard icon="💬" label="Bình luận" value={stats.commentCount} />
-          <StatCard icon="⭐" label="Đánh giá" value={stats.ratingCount} />
-          <StatCard
-            icon="📅"
-            label="Tham gia"
-            value={new Date(profileUser.createdAt).toLocaleDateString('vi-VN', { day: 'numeric', month: 'short', year: 'numeric' })}
-          />
-        </div>
-
-        {/* ──── Author Comics (visible on author profiles) ──── */}
-        {profile.authorComics && profile.authorComics.length > 0 && (
-          <div className="mt-8">
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-zinc-900 dark:text-white">
-              <span>✍️</span> Truyện của {profileUser.displayName}
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {profile.authorComics.map((comic) => (
-                <Link
-                  key={comic.id}
-                  href={`/comics/${comic.slug}`}
-                  className="flex items-center gap-3 rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-3 transition-all hover:border-amber-500/30 hover:bg-amber-500/5"
-                >
-                  <div className="h-20 w-14 flex-shrink-0 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
-                    {comic.coverUrl ? (
-                      <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover" />
+                <>
+                  <Button
+                    variant={data.isFollowing ? 'secondary' : 'primary'}
+                    size="sm"
+                    onClick={handleToggleFollow}
+                  >
+                    {data.isFollowing ? (
+                      <>
+                        <UserCheck className="h-4 w-4 text-[var(--success)]" />
+                        Đang theo dõi
+                      </>
                     ) : (
-                      <div className="flex h-full items-center justify-center text-lg font-bold text-zinc-400 dark:text-zinc-600">
-                        {comic.title[0]}
-                      </div>
+                      <>
+                        <UserPlus className="h-4 w-4" />
+                        Theo dõi
+                      </>
+                    )}
+                  </Button>
+                  {currentUser && (
+                    <Button variant="ghost" size="sm" onClick={() => setShowReportUser(true)}>
+                      <Flag className="h-4 w-4" />
+                      Báo cáo
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-[var(--border-subtle)] pt-5 sm:grid-cols-6">
+            <button
+              type="button"
+              onClick={() => openFollowModal('followers')}
+              className="rounded-xl bg-[var(--bg-canvas)] p-3 text-center hover:bg-[var(--bg-subtle)] cursor-pointer transition-colors"
+            >
+              <p className="text-lg font-bold text-[var(--text-primary)]">{data.stats.followerCount}</p>
+              <p className="text-xs text-[var(--text-muted)]">Người theo dõi</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => openFollowModal('following')}
+              className="rounded-xl bg-[var(--bg-canvas)] p-3 text-center hover:bg-[var(--bg-subtle)] cursor-pointer transition-colors"
+            >
+              <p className="text-lg font-bold text-[var(--text-primary)]">{data.stats.followingCount}</p>
+              <p className="text-xs text-[var(--text-muted)]">Đang theo dõi</p>
+            </button>
+            <div className="rounded-xl bg-[var(--bg-canvas)] p-3 text-center">
+              <p className="inline-flex items-center gap-1 text-lg font-bold text-[var(--text-primary)]">
+                <BookOpen className="h-4 w-4 text-[var(--accent-primary)]" />
+                {profile.chaptersReadCount}
+              </p>
+              <p className="text-xs text-[var(--text-muted)]">Chương đã đọc</p>
+            </div>
+            <div className="rounded-xl bg-[var(--bg-canvas)] p-3 text-center">
+              <p className="inline-flex items-center gap-1 text-lg font-bold text-[var(--text-primary)]">
+                <Bookmark className="h-4 w-4 text-[var(--accent-primary)]" />
+                {data.stats.bookmarkCount}
+              </p>
+              <p className="text-xs text-[var(--text-muted)]">Truyện đã lưu</p>
+            </div>
+            <div className="rounded-xl bg-[var(--bg-canvas)] p-3 text-center">
+              <p className="inline-flex items-center gap-1 text-lg font-bold text-[var(--text-primary)]">
+                <MessageSquare className="h-4 w-4 text-[var(--accent-warm)]" />
+                {data.stats.commentCount}
+              </p>
+              <p className="text-xs text-[var(--text-muted)]">Bình luận</p>
+            </div>
+            <div className="rounded-xl bg-[var(--bg-canvas)] p-3 text-center">
+              <p className="inline-flex items-center gap-1 text-lg font-bold text-[var(--accent-warm)]">
+                {data.isOwnProfile && currentUser ? (
+                  <>
+                    <Coins className="h-4 w-4" />
+                    {currentUser.coins}
+                  </>
+                ) : (
+                  <>
+                    <Flame className="h-4 w-4" />
+                    {profile.loginStreak}d
+                  </>
+                )}
+              </p>
+              <p className="text-xs text-[var(--text-muted)]">
+                {data.isOwnProfile ? 'Xu Linh Thạch' : 'Chuỗi điểm danh'}
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Authored Comics */}
+        {data.authorComics.length > 0 && (
+          <section className="space-y-4">
+            <h2 className="font-serif text-xl font-bold text-[var(--text-primary)]">
+              Tác phẩm đã xuất bản ({data.authorComics.length})
+            </h2>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
+              {data.authorComics.map((c) => (
+                <Link key={c.id} href={`/comics/${c.slug}`} className="group space-y-2">
+                  <div className="aspect-[3/4] overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+                    {c.coverUrl && (
+                      <img
+                        src={c.coverUrl}
+                        alt={c.title}
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
                     )}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{comic.title}</h4>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                      <span>{comic.totalChapters} chương</span>
-                      <span>·</span>
-                      <span>{comic.totalViews.toLocaleString('vi-VN')} lượt xem</span>
-                      {Number(comic.avgRating) > 0 && (
-                        <>
-                          <span>·</span>
-                          <span className="text-amber-500">⭐ {Number(comic.avgRating).toFixed(1)}</span>
-                        </>
-                      )}
-                    </div>
-                    <span className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                      comic.status === 'COMPLETED'
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                        : comic.status === 'ONGOING'
-                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                          : 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400'
-                    }`}>
-                      {comic.status === 'COMPLETED' ? 'Hoàn thành' : comic.status === 'ONGOING' ? 'Đang tiến hành' : comic.status}
-                    </span>
+                  <div>
+                    <p className="truncate text-sm font-bold text-[var(--text-primary)] group-hover:text-[var(--accent-primary)]">
+                      {c.title}
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      {COMIC_STATUS_LABEL[c.status]} · {c.totalChapters} ch.
+                    </p>
                   </div>
                 </Link>
               ))}
             </div>
-          </div>
+          </section>
         )}
-        {isOwnProfile && (
-          <div className="mt-8">
-            <div className="flex gap-1 rounded border border-zinc-200 dark:border-white/10 bg-zinc-100/80 dark:bg-white/[0.02] p-1">
-              <TabButton label="🔖 Truyện đã lưu" active={activeTab === 'bookmarks'} onClick={() => setActiveTab('bookmarks')} />
-              <TabButton label="📖 Lịch sử đọc" active={activeTab === 'history'} onClick={() => setActiveTab('history')} />
-            </div>
 
-            <div className="mt-4">
-              {loadingTab ? (
-                <div className="flex justify-center py-16">
-                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
-                </div>
-              ) : activeTab === 'bookmarks' ? (
-                bookmarks.length === 0 ? (
-                  <EmptyState icon="🔖" title="Chưa lưu truyện nào" desc="Khám phá và lưu truyện yêu thích!" link="/comics" linkText="Khám phá truyện →" />
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {bookmarks.map((bm) => (
-                      <Link key={bm.id} href={`/comics/${bm.comic.slug}`}
-                        className="flex items-center gap-3 rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-3 transition-all hover:border-amber-500/30 hover:bg-amber-500/5">
-                        <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
-                          {bm.comic.coverUrl ? <img src={bm.comic.coverUrl} alt={bm.comic.title} className="h-full w-full object-cover" /> :
-                            <div className="flex h-full items-center justify-center text-lg font-bold text-zinc-400 dark:text-zinc-600">{bm.comic.title[0]}</div>}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <h4 className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{bm.comic.title}</h4>
-                            {bm.isFavorite && <span className="text-xs">❤️</span>}
-                          </div>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">{bm.comic.author.displayName}</p>
-                          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{bm.comic.totalChapters} chương</p>
-                        </div>
-                      </Link>
-                    ))}
+        {/* Public Recent Bookmarks */}
+        {data.recentBookmarks.length > 0 && (
+          <section className="space-y-4">
+            <h2 className="font-serif text-xl font-bold text-[var(--text-primary)]">
+              Tủ sách yêu thích gần đây
+            </h2>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 md:grid-cols-6">
+              {data.recentBookmarks.map((b) => (
+                <Link key={b.id} href={`/comics/${b.comic.slug}`} className="group space-y-1.5">
+                  <div className="aspect-[3/4] overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+                    {b.comic.coverUrl && (
+                      <img
+                        src={b.comic.coverUrl}
+                        alt={b.comic.title}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    )}
                   </div>
-                )
-              ) : (() => {
-                const groupedUserHistory = history.reduce<HistoryItem[]>((acc, item) => {
-                  const comicId = item.chapter.comic.id;
-                  if (!acc.some((existing) => existing.chapter.comic.id === comicId)) {
-                    acc.push(item);
-                  }
-                  return acc;
-                }, []);
-
-                if (groupedUserHistory.length === 0) {
-                  return <EmptyState icon="📖" title="Chưa có lịch sử đọc" desc="Bắt đầu đọc truyện ngay!" link="/comics" linkText="Khám phá truyện →" />;
-                }
-
-                return (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {groupedUserHistory.map((h) => (
-                      <Link key={h.id} href={`/read/${h.chapter.id}`}
-                        className="flex items-center gap-3 rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-3 transition-all hover:border-amber-500/30 hover:bg-amber-500/5">
-                        <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
-                          {h.chapter.comic.coverUrl ? <img src={h.chapter.comic.coverUrl} alt={h.chapter.comic.title} className="h-full w-full object-cover" /> :
-                            <div className="flex h-full items-center justify-center text-lg font-bold text-zinc-400 dark:text-zinc-600">{h.chapter.comic.title[0]}</div>}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{h.chapter.comic.title}</h4>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">Đã đọc: Chương {String(h.chapter.number)}{h.chapter.title ? ` — ${h.chapter.title}` : ''}</p>
-                          <p className="mt-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">{new Date(h.readAt).toLocaleDateString('vi-VN')}</p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                );
-              })()}
+                  <p className="truncate text-xs font-semibold text-[var(--text-primary)]">
+                    {b.comic.title}
+                  </p>
+                </Link>
+              ))}
             </div>
-          </div>
+          </section>
         )}
       </div>
 
-      {showEditModal && <EditProfileModal onClose={() => { setShowEditModal(false); /* Refresh after edit */ location.reload(); }} />}
-      {showCropModal && <AvatarCropModal imageSrc={cropImageSrc} onCropComplete={handleCroppedAvatar} onClose={() => setShowCropModal(false)} />}
-
-      {/* ──── Follow List Modal ──── */}
-      {followModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setFollowModal({ ...followModal, open: false })}>
-          <div
-            className="relative mx-4 w-full max-w-md rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 px-5 py-4">
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white">
-                {followModal.type === 'followers' ? `Người theo dõi (${followListTotal})` : `Đang theo dõi (${followListTotal})`}
-              </h3>
-              <button
-                onClick={() => setFollowModal({ ...followModal, open: false })}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* List */}
-            <div className="max-h-[60vh] overflow-y-auto p-3">
-              {followListLoading && followList.length === 0 ? (
-                <div className="flex justify-center py-12">
-                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
-                </div>
-              ) : followList.length === 0 ? (
-                <div className="py-12 text-center">
-                  <div className="mb-2 text-3xl">😶</div>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {followModal.type === 'followers' ? 'Chưa có người theo dõi nào' : 'Chưa theo dõi ai'}
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-1">
-                    {followList.map((u) => (
-                      <Link
-                        key={u.id}
-                        href={`/user/${u.username}`}
-                        onClick={() => setFollowModal({ ...followModal, open: false })}
-                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all hover:bg-zinc-100 dark:hover:bg-white/5"
-                      >
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-sm font-bold text-white">
-                          {u.avatarUrl ? (
-                            <img src={u.avatarUrl} alt={u.displayName} className="h-full w-full object-cover" />
-                          ) : (
-                            u.displayName.charAt(0).toUpperCase()
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{u.displayName}</p>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">@{u.username} · Lv.{u.level}</p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                  {followListPage < followListTotalPages && (
-                    <button
-                      onClick={loadMoreFollows}
-                      disabled={followListLoading}
-                      className="mt-3 w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 py-2.5 text-sm font-medium text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white disabled:opacity-50 cursor-pointer"
-                    >
-                      {followListLoading ? 'Đang tải...' : 'Xem thêm'}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+      {cropSrc && (
+        <AvatarCropModal imageSrc={cropSrc} onCropComplete={handleCropDone} onClose={() => setCropSrc(null)} />
       )}
-    </>
-  );
-}
 
-/* ── Sub-components ── */
+      {showEdit && currentUser && (
+        <EditProfileModal
+          user={currentUser}
+          onClose={() => setShowEdit(false)}
+          onUpdated={async () => {
+            await fetchProfile();
+            await loadProfile();
+          }}
+        />
+      )}
 
-function StatCard({ icon, label, value }: { icon: string; label: string; value: string | number }) {
-  return (
-    <div className="rounded border border-zinc-200 dark:border-white/5 bg-zinc-50/50 dark:bg-white/[0.02] p-4 text-center">
-      <div className="mb-1 text-lg">{icon}</div>
-      <p className="text-lg font-bold text-zinc-900 dark:text-white">{value}</p>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
-    </div>
-  );
-}
-
-function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button onClick={onClick}
-      className={`flex-1 rounded px-4 py-2.5 text-sm font-medium transition-all cursor-pointer ${active ? 'bg-white dark:bg-white/10 text-amber-600 dark:text-amber-400 font-semibold shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'}`}>
-      {label}
-    </button>
-  );
-}
-
-function EmptyState({ icon, title, desc, link, linkText }: { icon: string; title: string; desc: string; link: string; linkText: string }) {
-  return (
-    <div className="rounded border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] p-12 text-center">
-      <div className="mb-3 text-4xl">{icon}</div>
-      <h3 className="text-base font-semibold text-zinc-900 dark:text-white">{title}</h3>
-      <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">{desc}</p>
-      <Link href={link} className="mt-4 inline-block rounded bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25">
-        {linkText}
-      </Link>
+      {followListModal && (
+        <Modal
+          open
+          onClose={() => setFollowListModal(null)}
+          title={followListModal === 'followers' ? 'Người theo dõi' : 'Đang theo dõi'}
+        >
+          <div className="space-y-2">
+            {followUsers.length === 0 ? (
+              <p className="py-6 text-center text-sm text-[var(--text-muted)]">Danh sách trống.</p>
+            ) : (
+              followUsers.map((u) => (
+                <Link
+                  key={u.id}
+                  href={`/@${u.username}`}
+                  onClick={() => setFollowListModal(null)}
+                  className="flex items-center gap-3 rounded-xl p-2 hover:bg-[var(--bg-subtle)]"
+                >
+                  <Avatar src={u.avatarUrl} name={u.displayName} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{u.displayName}</p>
+                    <p className="text-xs text-[var(--text-muted)]">@{u.username}</p>
+                  </div>
+                  <RealmBadge level={u.level} />
+                </Link>
+              ))
+            )}
+          </div>
+        </Modal>
+      )}
+      {showReportUser && (
+        <ReportModal
+          open={showReportUser}
+          onClose={() => setShowReportUser(false)}
+          targetType={ReportTargetType.USER}
+          targetId={profile.id}
+          targetLabel={profile.displayName}
+        />
+      )}
     </div>
   );
 }

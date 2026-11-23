@@ -1,203 +1,110 @@
 'use client';
 
 import { create } from 'zustand';
+import type { NotificationItem } from 'shared';
 import { api } from '@/lib/api-client';
-import { useAuthStore } from './auth-store';
-
-// ── Types ──
-
-export type NotificationType =
-  | 'NEW_CHAPTER'
-  | 'COMMENT_REPLY'
-  | 'RATING_RECEIVED'
-  | 'FOLLOW_NEW'
-  | 'SYSTEM'
-  | 'ACHIEVEMENT'
-  | 'CONTENT_APPROVED'
-  | 'CONTENT_REJECTED'
-  | 'NEWS_LIKE'
-  | 'NEWS_COMMENT';
-
-export interface NotificationItem {
-  id: string;
-  type: NotificationType;
-  title: string;
-  content: string | null;
-  data: Record<string, any>;
-  isRead: boolean;
-  createdAt: string;
-  source: 'personal' | 'broadcast';
-}
-
-interface NotificationsResponse {
-  success: boolean;
-  data: NotificationItem[];
-  meta: { page: number; limit: number; total: number; hasNext: boolean };
-}
-
-interface UnreadCountResponse {
-  success: boolean;
-  data: { count: number };
-}
-
-// ── Store ──
 
 interface NotificationState {
-  notifications: NotificationItem[];
+  items: NotificationItem[];
   unreadCount: number;
   isLoading: boolean;
-  hasNext: boolean;
-  page: number;
-  activeFilter: NotificationType | 'ALL';
-
-  fetchNotifications: (reset?: boolean) => Promise<void>;
-  fetchUnreadCount: () => Promise<void>;
-  markAsRead: (id: string) => Promise<void>;
-  markAllAsRead: () => Promise<void>;
-  deleteNotification: (id: string) => Promise<void>;
-  setFilter: (type: NotificationType | 'ALL') => void;
-  addRealTimeNotification: (notification: NotificationItem) => void;
-  updateUnreadCount: (count: number) => void;
+  fetchNotifications: (token: string, page?: number) => Promise<void>;
+  fetchUnreadCount: (token: string) => Promise<void>;
+  pushRealtimeNotification: (item: NotificationItem) => void;
+  setUnreadCount: (count: number) => void;
+  markAsRead: (token: string, id: string) => Promise<void>;
+  markAllAsRead: (token: string) => Promise<void>;
+  deleteItem: (token: string, id: string) => Promise<void>;
   reset: () => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
-  notifications: [],
+  items: [],
   unreadCount: 0,
   isLoading: false,
-  hasNext: false,
-  page: 1,
-  activeFilter: 'ALL',
 
-  fetchNotifications: async (reset = false) => {
-    const token = useAuthStore.getState().accessToken;
-    if (!token) return;
-
-    const { activeFilter, page } = get();
-    const targetPage = reset ? 1 : page;
-
+  fetchNotifications: async (token, page = 1) => {
     set({ isLoading: true });
-
     try {
-      const params = new URLSearchParams({
-        page: String(targetPage),
-        limit: '20',
-      });
-      if (activeFilter !== 'ALL') {
-        params.set('type', activeFilter);
-      }
-
-      const res = await api.get<NotificationsResponse>(
-        `/notifications?${params.toString()}`,
+      const res = await api.get<{ success: boolean; data: NotificationItem[] }>(
+        `/notifications?page=${page}&limit=20`,
         { token },
       );
-
-      set((state) => ({
-        notifications: reset
-          ? res.data
-          : [...state.notifications, ...res.data],
-        hasNext: res.meta.hasNext,
-        page: targetPage + 1,
-        isLoading: false,
-      }));
+      set({ items: res.data, isLoading: false });
     } catch {
       set({ isLoading: false });
     }
   },
 
-  fetchUnreadCount: async () => {
-    const token = useAuthStore.getState().accessToken;
-    if (!token) return;
-
+  fetchUnreadCount: async (token) => {
     try {
-      const res = await api.get<UnreadCountResponse>(
+      const res = await api.get<{ success: boolean; data: { count: number } }>(
         '/notifications/unread-count',
         { token },
       );
       set({ unreadCount: res.data.count });
     } catch {
-      // Silently fail
+      // Ignore
     }
   },
 
-  markAsRead: async (id: string) => {
-    const token = useAuthStore.getState().accessToken;
-    if (!token) return;
-
-    try {
-      await api.patch(`/notifications/${id}/read`, undefined, { token });
-
-      set((state) => ({
-        notifications: state.notifications.map((n) =>
-          n.id === id ? { ...n, isRead: true } : n,
-        ),
-        unreadCount: Math.max(0, state.unreadCount - 1),
-      }));
-    } catch {
-      // Silently fail
-    }
-  },
-
-  markAllAsRead: async () => {
-    const token = useAuthStore.getState().accessToken;
-    if (!token) return;
-
-    try {
-      await api.patch('/notifications/read-all', undefined, { token });
-
-      set((state) => ({
-        notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
-        unreadCount: 0,
-      }));
-    } catch {
-      // Silently fail
-    }
-  },
-
-  deleteNotification: async (id: string) => {
-    const token = useAuthStore.getState().accessToken;
-    if (!token) return;
-
-    try {
-      await api.delete(`/notifications/${id}`, { token });
-
-      set((state) => {
-        const notification = state.notifications.find((n) => n.id === id);
-        return {
-          notifications: state.notifications.filter((n) => n.id !== id),
-          unreadCount: notification && !notification.isRead
-            ? Math.max(0, state.unreadCount - 1)
-            : state.unreadCount,
-        };
-      });
-    } catch {
-      // Silently fail
-    }
-  },
-
-  setFilter: (type: NotificationType | 'ALL') => {
-    set({ activeFilter: type, notifications: [], page: 1, hasNext: false });
-    get().fetchNotifications(true);
-  },
-
-  addRealTimeNotification: (notification: NotificationItem) => {
-    set((state) => ({
-      notifications: [notification, ...state.notifications],
-    }));
-  },
-
-  updateUnreadCount: (count: number) => {
-    set({ unreadCount: count });
-  },
-
-  reset: () => {
-    set({
-      notifications: [],
-      unreadCount: 0,
-      isLoading: false,
-      hasNext: false,
-      page: 1,
-      activeFilter: 'ALL',
+  pushRealtimeNotification: (item) => {
+    set((state) => {
+      const alreadyExists = state.items.some((i) => i.id === item.id);
+      return {
+        items: [item, ...state.items.filter((i) => i.id !== item.id)].slice(0, 30),
+        unreadCount: alreadyExists ? state.unreadCount : state.unreadCount + 1,
+      };
     });
   },
+
+  setUnreadCount: (count) => set({ unreadCount: Math.max(0, Math.floor(count || 0)) }),
+
+  markAsRead: async (token, id) => {
+    const prevItems = get().items;
+    const prevUnread = get().unreadCount;
+    const existing = prevItems.find((n) => n.id === id);
+    if (existing?.isRead) return;
+    set((state) => ({
+      items: state.items.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+      unreadCount: Math.max(0, state.unreadCount - 1),
+    }));
+    try {
+      const res = await api.patch<{ data: { count: number } }>(`/notifications/${id}/read`, {}, { token });
+      set({ unreadCount: Math.max(0, res.data.count) });
+    } catch {
+      set({ items: prevItems, unreadCount: prevUnread });
+    }
+  },
+
+  markAllAsRead: async (token) => {
+    const prevItems = get().items;
+    const prevUnread = get().unreadCount;
+    set((state) => ({
+      items: state.items.map((n) => ({ ...n, isRead: true })),
+      unreadCount: 0,
+    }));
+    try {
+      await api.post('/notifications/read-all', {}, { token });
+    } catch {
+      set({ items: prevItems, unreadCount: prevUnread });
+    }
+  },
+
+  deleteItem: async (token, id) => {
+    const prevItems = get().items;
+    const prevUnread = get().unreadCount;
+    const target = prevItems.find((n) => n.id === id);
+    set((state) => ({
+      items: state.items.filter((n) => n.id !== id),
+      unreadCount: target && !target.isRead ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
+    }));
+    try {
+      await api.delete(`/notifications/${id}`, { token });
+    } catch {
+      set({ items: prevItems, unreadCount: prevUnread });
+    }
+  },
+
+  reset: () => set({ items: [], unreadCount: 0, isLoading: false }),
 }));

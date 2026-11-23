@@ -2,334 +2,258 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Search, X, Clock, ArrowRight, Star, BookOpen, Trash2 } from 'lucide-react';
+import type { ComicSummary } from 'shared';
 import { api } from '@/lib/api-client';
-
-interface Comic {
-  id: string;
-  title: string;
-  slug: string;
-  coverUrl: string | null;
-  status: string;
-  author: { displayName: string };
-  genres: { id: string; name: string; slug: string; icon: string | null }[];
-  stats: {
-    totalViews: number;
-    avgRating: number;
-    totalRatings: number;
-    totalBookmarks: number;
-    totalChapters: number;
-    totalComments: number;
-  };
-}
-
 import { useSearchStore } from '@/stores/search-store';
 import { useAuthStore } from '@/stores/auth-store';
-import { trackSearch, trackComicView, getRecentSearches, clearRecentSearches } from '@/lib/recommendation-tracker';
+import { COMIC_TYPE_LABEL, formatCompactNumber } from '@/lib/format';
 
 export function SearchModal() {
-  const { isOpen, close: onClose } = useSearchStore();
+  const router = useRouter();
+  const { isOpen, close, recentQueries, addRecent, clearRecent } = useSearchStore();
   const { accessToken } = useAuthStore();
   const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [results, setResults] = useState<Comic[]>([]);
+  const [results, setResults] = useState<ComicSummary[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
-
   const inputRef = useRef<HTMLInputElement>(null);
-  const modalRef = useRef<HTMLDivElement>(null);
 
-  // Focus input and load recent searches when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setRecentSearches(getRecentSearches());
-      const timer = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
-
-  // Lock body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
-
-  // Close modal on ESC key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        useSearchStore.getState().toggle();
+      } else if (e.key === 'Escape' && isOpen) {
+        close();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, close]);
 
-  // Debounce input value
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedQuery(query);
-    }, 300);
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 40);
+    } else {
+      setQuery('');
+      setResults([]);
+    }
+  }, [isOpen]);
 
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  // Fetch search results when debounced query changes
   useEffect(() => {
-    let active = true;
-
-    if (!debouncedQuery.trim() || debouncedQuery.trim().length < 2) {
+    if (!isOpen) return;
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
       setResults([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    setError(null);
-
-    api.get<{ data: Comic[] }>(`/comics/search?q=${encodeURIComponent(debouncedQuery)}`)
-      .then((res) => {
-        if (active) {
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get<{ data: ComicSummary[] }>(
+          `/comics/search?q=${encodeURIComponent(trimmed)}`,
+          { signal: controller.signal },
+        );
+        if (!controller.signal.aborted) {
           setResults(res.data || []);
         }
-      })
-      .catch((err) => {
-        if (active) {
-          console.error('Search error:', err);
-          setError('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
+      } catch {
+        if (!controller.signal.aborted) {
+          setResults([]);
         }
-      })
-      .finally(() => {
-        if (active) {
+      } finally {
+        if (!controller.signal.aborted) {
           setLoading(false);
         }
-      });
+      }
+    }, 220);
 
     return () => {
-      active = false;
+      clearTimeout(timer);
+      controller.abort();
     };
-  }, [debouncedQuery]);
+  }, [query, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-      onClose();
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    addRecent(trimmed);
+    if (accessToken) {
+      api.post('/comics/search/record', { query: trimmed }, { token: accessToken }).catch(() => {});
     }
+    close();
+    router.push(`/comics?search=${encodeURIComponent(trimmed)}`);
   };
 
-  const handleClear = () => {
-    setQuery('');
-    setDebouncedQuery('');
-    setResults([]);
-    inputRef.current?.focus();
+  const handleQuickQuery = (q: string) => {
+    setQuery(q);
   };
 
   return (
     <div
-      onClick={handleBackdropClick}
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-[#0a0a0a]/85 backdrop-blur-md px-4 pt-[12vh] pb-4 overflow-y-auto animate-fade-in"
+      className="fixed inset-0 z-[130] flex items-start justify-center bg-black/55 px-4 pt-16 sm:pt-24 backdrop-blur-sm animate-fade-in"
+      onClick={close}
     >
       <div
-        ref={modalRef}
-        className="w-full max-w-2xl bg-[#121212] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-slide-up"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-2xl animate-slide-up"
       >
-        {/* Search Input Bar */}
-        <div className="relative flex items-center border-b border-white/10 px-4 py-3.5">
-          <i className="fa-light fa-magnifying-glass text-zinc-400 text-lg mr-3 flex-shrink-0" />
-
+        <form
+          onSubmit={handleSubmit}
+          className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-4 py-3.5"
+        >
+          <Search className="h-5 w-5 shrink-0 text-[var(--accent-primary)]" />
           <input
             ref={inputRef}
-            type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tìm kiếm truyện tranh, tác giả, thể loại..."
-            className="flex-1 bg-transparent text-white placeholder-zinc-500 outline-none text-base pr-12"
+            placeholder="Tìm truyện, tác giả, từ khóa (hỗ trợ không dấu)..."
+            className="w-full bg-transparent text-sm sm:text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
           />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="rounded-lg p-1 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+          <kbd className="hidden sm:inline-block rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)]">
+            ESC
+          </kbd>
+        </form>
 
-          <div className="absolute right-4 flex items-center gap-2">
-            {/* Loading Indicator */}
-            {loading && (
-              <svg className="animate-spin h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            )}
-
-            {/* Clear Button */}
-            {!loading && query && (
-              <button
-                onClick={handleClear}
-                className="p-1 rounded-full text-zinc-500 hover:text-white hover:bg-white/10 transition-colors"
-                title="Xóa tìm kiếm"
-              >
-                <i className="fa-light fa-xmark text-sm" />
-              </button>
-            )}
-
-            {/* Close ESC Badge */}
-            <span className="hidden sm:inline-block rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 select-none">
-              ESC
-            </span>
-          </div>
-        </div>
-
-        {/* Recent searches section (when query is empty) */}
-        {!query.trim() && recentSearches.length > 0 && (
-          <div className="p-4 border-b border-white/5">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
-                <i className="fa-light fa-clock-rotate-left text-xs" />
-                Tìm kiếm gần đây
-              </span>
-              <button
-                onClick={() => {
-                  clearRecentSearches();
-                  setRecentSearches([]);
-                }}
-                className="text-[11px] text-zinc-500 hover:text-red-400 transition-colors"
-              >
-                Xóa lịch sử
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {recentSearches.map((term, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setQuery(term)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/5 text-xs text-zinc-300 hover:bg-white/10 hover:text-white transition-colors"
-                >
-                  <i className="fa-light fa-magnifying-glass text-[10px] text-zinc-500" />
-                  {term}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Results / Empty / Error Section */}
-        {query.trim().length > 0 && (
-          <div className="max-h-[50vh] overflow-y-auto divide-y divide-white/5">
-            {loading && results.length === 0 ? (
-              <div className="p-8 text-center text-sm text-zinc-500">
-                Đang tìm kiếm...
-              </div>
-            ) : error ? (
-              <div className="p-8 text-center text-sm text-red-400">
-                <i className="fa-light fa-circle-exclamation mr-2" />
-                {error}
-              </div>
-            ) : results.length > 0 ? (
-              <div className="p-2">
-                <div className="px-3 py-1.5 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                  Kết quả tìm kiếm ({results.length})
+        <div className="max-h-[62vh] overflow-y-auto p-4">
+          {query.trim().length < 2 ? (
+            <div className="space-y-5">
+              {recentQueries.length > 0 && (
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                      Tìm kiếm gần đây
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearRecent}
+                      className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--danger)] cursor-pointer"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Xóa
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {recentQueries.map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => handleQuickQuery(q)}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)] cursor-pointer transition-colors"
+                      >
+                        <Clock className="h-3 w-3" />
+                        {q}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+              )}
 
-                {results.map((comic) => (
-                  <Link
-                    key={comic.id}
-                    href={`/comics/${comic.slug}`}
-                    onClick={() => {
-                      trackSearch(query, accessToken || undefined);
-                      trackComicView(comic);
-                      onClose();
-                    }}
-                    className="flex items-center gap-3.5 p-3 rounded-xl hover:bg-white/5 transition-all duration-200 group"
-                  >
-                    {/* Cover image */}
-                    <div className="w-12 aspect-[3/4] overflow-hidden rounded-lg bg-zinc-800 border border-white/10 flex-shrink-0">
-                      {comic.coverUrl ? (
-                        <img
-                          src={comic.coverUrl}
-                          alt={comic.title}
-                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center font-bold text-zinc-600 text-sm">
-                          {comic.title[0]}
-                        </div>
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  Lối tắt khám phá
+                </p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {[
+                    { label: 'Thịnh hành tuần', href: '/rankings?period=week' },
+                    { label: 'Truyện Tu Tiên', href: '/comics?genre=tu-tien' },
+                    { label: 'Truyện Việt gốc', href: '/comics?type=VIETNAM' },
+                    { label: 'Đánh giá cao nhất', href: '/comics?sort=rating' },
+                    { label: 'Đã hoàn thành', href: '/comics?status=COMPLETED' },
+                    { label: 'Cổng Tu Luyện', href: '/cultivation' },
+                  ].map((shortcut) => (
+                    <Link
+                      key={shortcut.href}
+                      href={shortcut.href}
+                      onClick={close}
+                      className="flex items-center justify-between rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2.5 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
+                    >
+                      <span>{shortcut.label}</span>
+                      <ArrowRight className="h-3.5 w-3.5 opacity-60" />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : loading ? (
+            <div className="py-10 text-center text-sm text-[var(--text-muted)]">Đang tìm kiếm...</div>
+          ) : results.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                Không tìm thấy kết quả cho &ldquo;{query}&rdquo;
+              </p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Thử từ khóa ngắn hơn hoặc tìm theo thể loại trong trang Khám phá.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {results.slice(0, 8).map((comic) => (
+                <Link
+                  key={comic.id}
+                  href={`/comics/${comic.slug}`}
+                  onClick={() => {
+                    addRecent(query.trim());
+                    close();
+                  }}
+                  className="flex items-center gap-3.5 rounded-xl p-2 transition-colors hover:bg-[var(--bg-subtle)]"
+                >
+                  <div className="h-16 w-12 shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+                    {comic.coverUrl ? (
+                      <img src={comic.coverUrl} alt={comic.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-xs font-bold text-[var(--text-muted)]">
+                        {comic.title[0]}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{comic.title}</p>
+                    <p className="mt-0.5 text-xs text-[var(--text-secondary)] truncate">
+                      {comic.author?.displayName} · {COMIC_TYPE_LABEL[comic.type] || comic.type}
+                    </p>
+                    <div className="mt-1 flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
+                      <span className="inline-flex items-center gap-1">
+                        <BookOpen className="h-3 w-3" />
+                        {comic.stats.totalChapters} chương
+                      </span>
+                      {comic.stats.avgRating > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[var(--warning)] font-medium">
+                          <Star className="h-3 w-3 fill-current" />
+                          {comic.stats.avgRating.toFixed(1)}
+                        </span>
                       )}
+                      <span>{formatCompactNumber(comic.stats.totalViews)} lượt xem</span>
                     </div>
-
-                    {/* Comic details */}
-                    <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-sm text-zinc-200 group-hover:text-amber-400 transition-colors line-clamp-1">
-                        {comic.title}
-                      </div>
-
-                      <div className="text-xs text-zinc-400 mt-0.5 flex items-center gap-1.5">
-                        <span>Tác giả: {comic.author?.displayName || 'Ẩn danh'}</span>
-                        {comic.status === 'COMPLETED' && (
-                          <>
-                            <span className="text-zinc-600">•</span>
-                            <span className="text-emerald-400 font-medium">Hoàn thành</span>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Stats & Genres */}
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-1.5">
-                        <div className="flex items-center gap-2.5 text-[11px] text-zinc-500">
-                          <span className="flex items-center gap-1">
-                            <i className="fa-light fa-book-open text-[10px]" />
-                            {comic.stats?.totalChapters || 0} chương
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <i className="fa-light fa-eye text-[10px]" />
-                            {comic.stats?.totalViews?.toLocaleString('vi-VN') || 0}
-                          </span>
-                          {comic.stats?.avgRating > 0 && (
-                            <span className="flex items-center gap-1 text-amber-500 font-medium">
-                              ★ {comic.stats.avgRating.toFixed(1)}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Genres */}
-                        {comic.genres && comic.genres.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {comic.genres.slice(0, 3).map((g) => (
-                              <span
-                                key={g.id}
-                                className="px-1.5 py-0.5 rounded-full text-[9px] bg-white/5 border border-white/5 text-zinc-400"
-                              >
-                                {g.icon} {g.name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Arrow action */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity pr-2 flex-shrink-0 text-zinc-500 group-hover:text-amber-400">
-                      <i className="fa-light fa-chevron-right text-sm" />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              // Query is non-empty but 0 results
-              <div className="p-10 text-center text-sm text-zinc-500">
-                <i className="fa-light fa-magnifying-glass-minus text-2xl mb-2.5 block text-zinc-600" />
-                Không tìm thấy truyện nào phù hợp với từ khóa &ldquo;<span className="text-zinc-300 font-medium">{debouncedQuery}</span>&rdquo;
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Help footer */}
-        <div className="px-4 py-2 bg-white/[0.02] border-t border-white/5 flex justify-between items-center text-[10px] text-zinc-600 select-none">
-          <span>Tìm kiếm bất cứ truyện nào bạn muốn</span>
-          <span className="hidden sm:inline">Nhấn <kbd className="text-zinc-500 font-mono">Esc</kbd> để đóng</span>
+                  </div>
+                </Link>
+              ))}
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--accent-primary-soft)] py-2.5 text-xs font-semibold text-[var(--accent-primary)] hover:bg-[var(--accent-primary)] hover:text-white transition-colors cursor-pointer"
+              >
+                <span>Xem toàn bộ kết quả cho &ldquo;{query.trim()}&rdquo;</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

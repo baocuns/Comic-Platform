@@ -1,229 +1,151 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Eye, EyeOff, UserPlus, Coins } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
+import { useToast } from '@/components/providers/toast-provider';
 import { ApiError } from '@/lib/api-client';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function RegisterPage() {
   const router = useRouter();
   const { register, isLoading } = useAuthStore();
+  const { toast } = useToast();
 
-  const [form, setForm] = useState({
-    email: '',
-    username: '',
-    password: '',
-    confirmPassword: '',
-    displayName: '',
-  });
+  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-
-  const updateField = (field: string, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting || isLoading) return;
     setError('');
-
-    if (form.password !== form.confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp');
-      return;
-    }
-
+    setSubmitting(true);
     try {
       await register({
-        email: form.email,
-        username: form.username,
-        password: form.password,
-        displayName: form.displayName,
+        email: email.trim(),
+        username: username.trim(),
+        displayName: displayName.trim(),
+        password,
       });
+      toast.success('Đăng ký thành công! Bạn đã nhận +30 Xu tân thủ.');
       router.push('/');
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError('Đã xảy ra lỗi. Vui lòng thử lại.');
-      }
+      setError(err instanceof ApiError ? err.message : 'Đăng ký thất bại');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // Password strength
-  const getPasswordStrength = () => {
-    const p = form.password;
-    if (!p) return { score: 0, label: '', color: '' };
-    let score = 0;
-    if (p.length >= 8) score++;
-    if (/[A-Z]/.test(p)) score++;
-    if (/[a-z]/.test(p)) score++;
-    if (/\d/.test(p)) score++;
-    if (/[^A-Za-z0-9]/.test(p)) score++;
-
-    if (score <= 2) return { score, label: 'Yếu', color: 'bg-red-500' };
-    if (score <= 3) return { score, label: 'Trung bình', color: 'bg-yellow-500' };
-    return { score, label: 'Mạnh', color: 'bg-emerald-500' };
-  };
-
-  const strength = getPasswordStrength();
-
   return (
-    <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4 py-8">
-      {/* Background effects */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -left-40 top-20 h-80 w-80 rounded-full bg-amber-500/20 blur-[120px]" />
-        <div className="absolute -right-40 bottom-20 h-80 w-80 rounded-full bg-orange-500/20 blur-[120px]" />
-      </div>
+    <div className="mx-auto flex min-h-[calc(100vh-140px)] max-w-5xl items-center justify-center px-4 py-10 sm:px-6">
+      <div className="grid w-full grid-cols-1 overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xl md:grid-cols-2">
+        <div className="hidden flex-col justify-between bg-gradient-to-br from-[#2B223C] via-[#6D4C64] to-[#D96B52] p-8 text-white md:flex">
+          <div className="space-y-3">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+              <Coins className="h-3.5 w-3.5 text-amber-300" />
+              Tặng ngay 30 Xu Linh Thạch
+            </span>
+            <h2 className="font-serif text-3xl font-bold leading-snug">
+              Khởi tạo hành trình Đạo Lộ
+            </h2>
+            <p className="text-sm text-white/85 leading-relaxed">
+              Lưu tủ sách, tham gia bình luận cùng cộng đồng, điểm danh nhận Xu và gửi hồ sơ xét duyệt trở thành Tác giả bất cứ lúc nào.
+            </p>
+          </div>
+          <p className="text-xs text-white/75">
+            Mật khẩu cần tối thiểu 8 ký tự gồm chữ hoa, chữ thường và chữ số.
+          </p>
+        </div>
 
-      <div className="relative w-full max-w-md">
-        <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-white/[0.03] p-8 shadow-2xl backdrop-blur-xl">
-          {/* Header */}
-          <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-2xl font-bold text-white shadow-lg shadow-amber-500/30">
-              C
-            </div>
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Tạo tài khoản</h1>
-            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-              Tham gia cộng đồng đọc truyện tranh
+        <div className="p-6 sm:p-10">
+          <div className="mb-5">
+            <h1 className="font-serif text-2xl font-bold text-[var(--text-primary)]">Tạo tài khoản mới</h1>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Chỉ mất 30 giây để gia nhập OWOC.
             </p>
           </div>
 
-          {/* Error */}
           {error && (
-            <div className="mb-6 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <div className="mb-4 rounded-xl border border-[var(--danger)]/30 bg-[var(--danger-soft)] px-3.5 py-2.5 text-xs font-semibold text-[var(--danger)]">
               {error}
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="displayName" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Tên hiển thị
-              </label>
-              <input
-                id="displayName"
-                type="text"
-                value={form.displayName}
-                onChange={(e) => updateField('displayName', e.target.value)}
-                required
-                placeholder="Tên bạn muốn hiển thị"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="username" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Username
-              </label>
-              <input
-                id="username"
-                type="text"
-                value={form.username}
-                onChange={(e) => updateField('username', e.target.value)}
-                required
-                placeholder="username_cua_ban"
-                pattern="^[a-zA-Z0-9_]+$"
-                minLength={3}
-                maxLength={50}
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
-              />
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-650">Chỉ chữ, số và dấu gạch dưới</p>
-            </div>
-
-            <div>
-              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={form.email}
-                onChange={(e) => updateField('email', e.target.value)}
-                required
-                placeholder="your@email.com"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Mật khẩu
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={form.password}
-                  onChange={(e) => updateField('password', e.target.value)}
-                  required
-                  minLength={8}
-                  placeholder="Tối thiểu 8 ký tự"
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 pr-12 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
-                />
+          <form onSubmit={handleSubmit} className="space-y-3.5">
+            <Input
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ban@example.com"
+              required
+            />
+            <Input
+              label="Tên đăng nhập (username)"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="dao_huu_moi"
+              hint="Chỉ gồm chữ cái, số và dấu _"
+              required
+            />
+            <Input
+              label="Tên hiển thị"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Thanh Vân"
+              required
+            />
+            <Input
+              label="Mật khẩu"
+              type={showPass ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Tối thiểu 8 ký tự (Hoa, thường, số)"
+              required
+              rightSlot={
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  onClick={() => setShowPass((v) => !v)}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
                 >
-                  {showPassword ? '🙈' : '👁️'}
+                  {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
-              </div>
-              {/* Password strength */}
-              {form.password && (
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="flex flex-1 gap-1">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div
-                        key={i}
-                        className={`h-1 flex-1 rounded-full transition-all ${
-                          i <= strength.score ? strength.color : 'bg-zinc-200 dark:bg-white/10'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">{strength.label}</span>
-                </div>
-              )}
-            </div>
+              }
+            />
 
-            <div>
-              <label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Xác nhận mật khẩu
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                value={form.confirmPassword}
-                onChange={(e) => updateField('confirmPassword', e.target.value)}
-                required
-                placeholder="Nhập lại mật khẩu"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  Đang tạo tài khoản...
-                </span>
-              ) : (
-                'Đăng ký'
-              )}
-            </button>
+            <Button type="submit" variant="warm" size="lg" className="w-full" isLoading={isLoading || submitting}>
+              <UserPlus className="h-4 w-4" />
+              <span>Đăng ký tài khoản</span>
+            </Button>
           </form>
 
-          {/* Footer */}
-          <p className="mt-6 text-center text-sm text-zinc-500">
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-[var(--border-subtle)]" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+              Hoặc đăng ký nhanh với
+            </span>
+            <div className="h-px flex-1 bg-[var(--border-subtle)]" />
+          </div>
+
+          <GoogleSignInButton
+            mode="register"
+            onSuccess={() => router.push('/')}
+            onError={setError}
+          />
+
+          <p className="mt-5 text-center text-xs text-[var(--text-secondary)]">
             Đã có tài khoản?{' '}
-            <Link href="/login" className="font-medium text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300">
-              Đăng nhập
+            <Link href="/login" className="font-bold text-[var(--accent-primary)] hover:underline">
+              Đăng nhập ngay
             </Link>
           </p>
         </div>

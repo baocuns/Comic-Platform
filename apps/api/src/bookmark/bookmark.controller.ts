@@ -1,34 +1,50 @@
-import { Controller, Post, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, Query, ParseUUIDPipe } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { BookmarkService } from './bookmark.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { BookmarkQueryDto, UpsertBookmarkDto } from './dto/bookmark.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
+@ApiTags('Bookmarks')
+@ApiBearerAuth()
 @Controller('bookmarks')
-@UseGuards(JwtAuthGuard)
 export class BookmarkController {
   constructor(private readonly bookmarkService: BookmarkService) {}
 
-  @Post('toggle/:comicId')
-  async toggle(@CurrentUser('sub') userId: string, @Param('comicId') comicId: string) {
-    const result = await this.bookmarkService.toggle(userId, comicId);
-    return { success: true, data: result };
-  }
-
-  @Post('favorite/:comicId')
-  async toggleFavorite(@CurrentUser('sub') userId: string, @Param('comicId') comicId: string) {
-    const result = await this.bookmarkService.toggleFavorite(userId, comicId);
-    return { success: true, data: result };
-  }
-
   @Get()
-  async myBookmarks(@CurrentUser('sub') userId: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-    const result = await this.bookmarkService.getUserBookmarks(userId, Number(page) || 1, Number(limit) || 20);
-    return { success: true, ...result };
+  getMyBookmarks(@CurrentUser('sub') userId: string, @Query() query: BookmarkQueryDto) {
+    return this.bookmarkService.getUserBookmarks(userId, query);
   }
 
   @Get('check/:comicId')
-  async isBookmarked(@CurrentUser('sub') userId: string, @Param('comicId') comicId: string) {
-    const result = await this.bookmarkService.isBookmarked(userId, comicId);
-    return { success: true, data: result };
+  check(
+    @CurrentUser('sub') userId: string,
+    @Param('comicId', new ParseUUIDPipe()) comicId: string,
+  ) {
+    return this.bookmarkService.check(userId, comicId);
+  }
+
+  @Post('toggle/:comicId')
+  toggle(
+    @CurrentUser('sub') userId: string,
+    @Param('comicId', new ParseUUIDPipe()) comicId: string,
+  ) {
+    return this.bookmarkService.toggle(userId, comicId);
+  }
+
+  @Put(':comicId')
+  upsert(
+    @CurrentUser('sub') userId: string,
+    @Param('comicId', new ParseUUIDPipe()) comicId: string,
+    @Body() dto: UpsertBookmarkDto,
+  ) {
+    return this.bookmarkService.upsert(userId, comicId, dto);
+  }
+
+  @Delete(':comicId')
+  remove(
+    @CurrentUser('sub') userId: string,
+    @Param('comicId', new ParseUUIDPipe()) comicId: string,
+  ) {
+    return this.bookmarkService.remove(userId, comicId);
   }
 }

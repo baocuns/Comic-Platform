@@ -1,16 +1,52 @@
 'use client';
 
 import React from 'react';
+import { isAllowedStickerUrl, MAX_STICKERS_PER_COMMENT } from './stickerData';
+
+export interface StickerAttachment {
+  url: string;
+  name?: string;
+}
+
+const STICKER_PATTERN = '!\\[([^\\]]*)\\]\\((https?:\\/\\/[^\\s)]+)\\)';
+
+export function parseCommentContent(raw: string): {
+  text: string;
+  stickers: StickerAttachment[];
+} {
+  const regex = new RegExp(STICKER_PATTERN, 'g');
+  const stickers: StickerAttachment[] = [];
+  const text = (raw || '')
+    .replace(regex, (fullMatch, alt: string, url: string) => {
+      const allowed = isAllowedStickerUrl(url);
+      if (!allowed) return fullMatch;
+      stickers.push({ url: allowed, name: alt || 'Sticker' });
+      return '';
+    })
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return { text, stickers: stickers.slice(0, MAX_STICKERS_PER_COMMENT) };
+}
+
+export function serializeCommentContent(text: string, stickers: StickerAttachment[]): string {
+  const trimmedText = (text || '').trim();
+  const stickerMarkdown = stickers
+    .map((s) => ({ ...s, url: isAllowedStickerUrl(s.url) }))
+    .filter((s): s is { url: string; name?: string } => Boolean(s.url))
+    .slice(0, MAX_STICKERS_PER_COMMENT)
+    .map((s) => `![${(s.name || 'Sticker').replace(/[\[\]]/g, '')}](${s.url})`)
+    .join(' ');
+  return [trimmedText, stickerMarkdown].filter(Boolean).join('\n');
+}
 
 interface CommentContentProps {
   content: string;
   className?: string;
-  isReaderBgDark?: boolean;
 }
 
-export function CommentContent({ content, className = '', isReaderBgDark = false }: CommentContentProps) {
-  // Regex to extract ![alt](url) markdown images
-  const mdImgRegex = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
+export function CommentContent({ content, className = '' }: CommentContentProps) {
+  const regex = new RegExp(STICKER_PATTERN, 'g');
 
   type Segment =
     | { type: 'text'; text: string }
@@ -19,76 +55,72 @@ export function CommentContent({ content, className = '', isReaderBgDark = false
   const segments: Segment[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
-
-  let pendingText = '';
   let pendingStickers: Array<{ url: string; alt: string }> = [];
 
-  const flushPendingText = () => {
-    if (pendingText) {
-      segments.push({ type: 'text', text: pendingText });
-      pendingText = '';
-    }
-  };
-
-  const flushPendingStickers = () => {
+  const flushStickers = () => {
     if (pendingStickers.length > 0) {
       segments.push({ type: 'stickers', items: pendingStickers });
       pendingStickers = [];
     }
   };
 
-  while ((match = mdImgRegex.exec(content)) !== null) {
-    const textBefore = content.slice(lastIndex, match.index);
-
-    if (textBefore.trim().length > 0) {
-      flushPendingStickers();
-      pendingText += textBefore;
-      flushPendingText();
+  while ((match = regex.exec(content || '')) !== null) {
+    const allowedUrl = isAllowedStickerUrl(match[2]);
+    if (!allowedUrl) {
+      continue;
     }
-
-    pendingStickers.push({ alt: match[1] || 'Sticker', url: match[2] });
+    const textBefore = (content || '').slice(lastIndex, match.index).trim();
+    if (textBefore.length > 0) {
+      flushStickers();
+      segments.push({ type: 'text', text: textBefore });
+    }
+    pendingStickers.push({ alt: match[1] || 'Sticker', url: allowedUrl });
     lastIndex = match.index + match[0].length;
   }
 
-  flushPendingStickers();
+  flushStickers();
 
-  if (lastIndex < content.length) {
-    pendingText += content.slice(lastIndex);
-    flushPendingText();
+  if (lastIndex < (content || '').length) {
+    const tail = (content || '').slice(lastIndex).trim();
+    if (tail.length > 0) {
+      segments.push({ type: 'text', text: tail });
+    }
+  }
+
+  if (segments.length === 0) {
+    return (
+      <p className={`whitespace-pre-wrap break-words text-sm leading-relaxed text-[var(--text-primary)] ${className}`}>
+        {content}
+      </p>
+    );
   }
 
   return (
-    <div className={`text-sm leading-relaxed ${className}`}>
-      {segments.map((segment, i) => {
-        if (segment.type === 'stickers') {
-          return (
-            <div key={i} className="my-2 flex flex-wrap gap-2 items-end">
-              {segment.items.map((s, idx) => (
-                <div key={idx} className="inline-flex shrink-0">
-                  <img
-                    src={s.url}
-                    alt={s.alt}
-                    loading="lazy"
-                    className={`max-h-20 sm:max-h-24 w-auto rounded object-contain border p-1 transition-all hover:scale-105 ${isReaderBgDark
-                        ? 'border-white/10 bg-white/[0.04] shadow-md shadow-black/50 hover:border-amber-500/50'
-                        : 'border-zinc-200 bg-zinc-50 shadow-sm shadow-zinc-200/80 hover:border-amber-500/50'
-                      }`}
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          );
-        }
-
-        return (
-          <div key={i} className="whitespace-pre-wrap">
-            {segment.text}
+    <div className={`space-y-1.5 text-sm leading-relaxed text-[var(--text-primary)] ${className}`}>
+      {segments.map((segment, idx) =>
+        segment.type === 'stickers' ? (
+          <div key={idx} className="my-1.5 flex flex-wrap items-end gap-2">
+            {segment.items.map((sticker, sIdx) => (
+              <div key={`${sticker.url}-${sIdx}`} className="inline-flex shrink-0">
+                <img
+                  src={sticker.url}
+                  alt={sticker.alt}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  className="max-h-20 sm:max-h-24 w-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] object-contain p-1 shadow-xs transition-transform hover:scale-105"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+            ))}
           </div>
-        );
-      })}
+        ) : (
+          <p key={idx} className="whitespace-pre-wrap break-words">
+            {segment.text}
+          </p>
+        ),
+      )}
     </div>
   );
 }

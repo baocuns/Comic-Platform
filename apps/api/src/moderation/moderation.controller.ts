@@ -1,58 +1,69 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  ParseUUIDPipe,
+  ParseEnumPipe,
+  Query,
+  Body,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ModerationTargetType, UserRole } from '@prisma/client';
 import { ModerationService } from './moderation.service';
-import { PendingQueryDto, RejectDto, ModerationLogsQueryDto, SetTrustDto } from './dto/moderation.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { ModerationLogsQueryDto, PendingQueryDto, RejectDto, SetTrustDto } from './dto/moderation.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { UserRole, ModerationTargetType } from '@prisma/client';
+import { Roles } from '../auth/decorators/roles.decorator';
 
-@Controller('admin/moderation')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.MODERATOR)
+@ApiTags('Moderation')
+@ApiBearerAuth()
+@Roles(UserRole.MODERATOR)
+@Controller('moderation')
 export class ModerationController {
   constructor(private readonly moderationService: ModerationService) {}
 
   @Get('pending')
-  async getPendingQueue(@Query() query: PendingQueryDto) {
-    const result = await this.moderationService.getPendingQueue(query);
-    return { success: true, ...result };
+  getPendingQueue(@Query() query: PendingQueryDto) {
+    return this.moderationService.getPendingQueue(query);
+  }
+
+  @Patch(':targetType/:id/approve')
+  approveItem(
+    @CurrentUser('sub') moderatorId: string,
+    @Param('targetType', new ParseEnumPipe(ModerationTargetType)) targetType: ModerationTargetType,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.moderationService.approveItem(moderatorId, targetType, id);
+  }
+
+  @Patch(':targetType/:id/reject')
+  rejectItem(
+    @CurrentUser('sub') moderatorId: string,
+    @Param('targetType', new ParseEnumPipe(ModerationTargetType)) targetType: ModerationTargetType,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: RejectDto,
+  ) {
+    return this.moderationService.rejectItem(moderatorId, targetType, id, dto.reason);
   }
 
   @Get('logs')
-  async getModerationLogs(@Query() query: ModerationLogsQueryDto) {
-    const result = await this.moderationService.getModerationLogs(query);
-    return { success: true, ...result };
-  }
-
-  @Post(':targetType/:targetId/approve')
-  async approveItem(
-    @CurrentUser('sub') moderatorId: string,
-    @Param('targetType') targetType: ModerationTargetType,
-    @Param('targetId') targetId: string,
-  ) {
-    const data = await this.moderationService.approveItem(moderatorId, targetType, targetId);
-    return { success: true, data };
-  }
-
-  @Post(':targetType/:targetId/reject')
-  async rejectItem(
-    @CurrentUser('sub') moderatorId: string,
-    @Param('targetType') targetType: ModerationTargetType,
-    @Param('targetId') targetId: string,
-    @Body() dto: RejectDto,
-  ) {
-    const data = await this.moderationService.rejectItem(moderatorId, targetType, targetId, dto.reason);
-    return { success: true, data };
+  getLogs(@Query() query: ModerationLogsQueryDto) {
+    return this.moderationService.getModerationLogs(query);
   }
 
   @Patch('users/:userId/trust')
-  async setUserTrust(
+  setUserTrust(
     @CurrentUser('sub') moderatorId: string,
-    @Param('userId') targetUserId: string,
+    @CurrentUser('role') moderatorRole: UserRole,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
     @Body() dto: SetTrustDto,
   ) {
-    const data = await this.moderationService.setUserTrust(moderatorId, targetUserId, dto.isTrusted, dto.reason);
-    return { success: true, data };
+    return this.moderationService.setUserTrust(
+      moderatorId,
+      moderatorRole,
+      userId,
+      dto.isTrusted,
+      dto.reason,
+    );
   }
 }

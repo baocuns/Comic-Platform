@@ -1,0 +1,127 @@
+export enum UserRole {
+  READER = 'READER',
+  AUTHOR = 'AUTHOR',
+  MODERATOR = 'MODERATOR',
+  ADMIN = 'ADMIN',
+}
+
+export enum ComicType {
+  VIETNAM = 'VIETNAM',
+  MANGA = 'MANGA',
+  MANHWA = 'MANHWA',
+  MANHUA = 'MANHUA',
+  WEBTOON = 'WEBTOON',
+}
+
+export enum ComicStatus {
+  DRAFT = 'DRAFT',
+  ONGOING = 'ONGOING',
+  COMPLETED = 'COMPLETED',
+  HIATUS = 'HIATUS',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum ContentRating {
+  EVERYONE = 'EVERYONE',
+  TEEN = 'TEEN',
+  MATURE = 'MATURE',
+}
+
+export enum ApprovalStatus {
+  DRAFT = 'DRAFT',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
+export enum ReadingListStatus {
+  READING = 'READING',
+  PLAN_TO_READ = 'PLAN_TO_READ',
+  COMPLETED = 'COMPLETED',
+  ON_HOLD = 'ON_HOLD',
+  DROPPED = 'DROPPED',
+}
+
+export enum NotificationType {
+  NEW_CHAPTER = 'NEW_CHAPTER',
+  COMMENT_REPLY = 'COMMENT_REPLY',
+  COMMENT_LIKE = 'COMMENT_LIKE',
+  RATING_RECEIVED = 'RATING_RECEIVED',
+  FOLLOW_NEW = 'FOLLOW_NEW',
+  SYSTEM = 'SYSTEM',
+  ACHIEVEMENT = 'ACHIEVEMENT',
+  CONTENT_APPROVED = 'CONTENT_APPROVED',
+  CONTENT_REJECTED = 'CONTENT_REJECTED',
+  NEWS_LIKE = 'NEWS_LIKE',
+  NEWS_COMMENT = 'NEWS_COMMENT',
+  CHAPTER_UNLOCKED = 'CHAPTER_UNLOCKED',
+}
+
+export enum ReportReason {
+  COPYRIGHT = 'COPYRIGHT',
+  INAPPROPRIATE = 'INAPPROPRIATE',
+  SPAM = 'SPAM',
+  HARASSMENT = 'HARASSMENT',
+  OTHER = 'OTHER',
+}
+
+export enum ReportTargetType {
+  COMIC = 'COMIC',
+  CHAPTER = 'CHAPTER',
+  COMMENT = 'COMMENT',
+  NEWS_COMMENT = 'NEWS_COMMENT',
+  USER = 'USER',
+}
+
+export enum ReportStatus {
+  PENDING = 'PENDING',
+  RESOLVED = 'RESOLVED',
+  DISMISSED = 'DISMISSED',
+}
+
+export enum ReportResolutionAction {
+  NONE = 'NONE',
+  WARN_USER = 'WARN_USER',
+  HIDE_CONTENT = 'HIDE_CONTENT',
+  DELETE_CONTENT = 'DELETE_CONTENT',
+  MARK_MATURE = 'MARK_MATURE',
+  MARK_SPOILER = 'MARK_SPOILER',
+  REVOKE_TRUST = 'REVOKE_TRUST',
+  BAN_USER = 'BAN_USER',
+}
+
+export enum NewsCategory {
+  ANNOUNCEMENT = 'ANNOUNCEMENT',
+  EVENT = 'EVENT',
+  UPDATE = 'UPDATE',
+  COMMUNITY = 'COMMUNITY',
+  FEATURED = 'FEATURED',
+}
+
+export enum QuestType {
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY',
+  MILESTONE = 'MILESTONE',
+}
+
+export enum QuestAction {
+  DAILY_CHECK_IN = 'DAILY_CHECK_IN',
+  READ_CHAPTERS = 'READ_CHAPTERS',
+  POST_COMMENT = 'POST_COMMENT',
+  RATE_COMIC = 'RATE_COMIC',
+  ADD_BOOKMARK = 'ADD_BOOKMARK',
+  FOLLOW_AUTHOR = 'FOLLOW_AUTHOR',
+  REACH_LEVEL = 'REACH_LEVEL',
+}
+
+export enum ModerationTargetType {
+  COMIC = 'COMIC',
+  CHAPTER = 'CHAPTER',
+  NEWS = 'NEWS',
+}
+
+export enum AuthorApplicationStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}

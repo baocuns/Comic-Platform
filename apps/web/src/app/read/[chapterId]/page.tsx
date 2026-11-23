@@ -3,874 +3,1420 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { api } from '@/lib/api-client';
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Settings,
+  Lock,
+  Unlock,
+  Coins,
+  Play,
+  Pause,
+  MessageSquare,
+  Sun,
+  X,
+  BookOpen,
+  Layers,
+  Columns2,
+  ScrollText,
+  Flag,
+} from 'lucide-react';
+import { ReportTargetType, type ChapterDetail, type ChapterSummary, type CommentItem } from 'shared';
+import { api, ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useReadingHistoryStore } from '@/stores/reading-history-store';
+import {
+  useReaderSettingsStore,
+  type ReaderMode,
+  type ReaderTheme,
+  type ReaderWidth,
+} from '@/stores/reader-settings-store';
+import { useToast } from '@/components/providers/toast-provider';
 import { CommentSection } from '@/components/comments';
+import { Button } from '@/components/ui/button';
+import { ReportModal } from '@/components/ui/report-modal';
 
-interface ChapterListItem {
-  id: string;
-  number: string;
-  title: string | null;
-  publishedAt: string | null;
-}
-
-interface Page {
-  id: string;
-  pageNumber: number;
-  imageUrl: string;
-  width: number | null;
-  height: number | null;
-}
-
-interface Chapter {
-  id: string;
-  number: string;
-  title: string | null;
-  totalPages: number;
-  comic: { id: string; title: string; slug: string };
-  pages: Page[];
-}
-
-interface Navigation {
-  prev: { id: string; number: string; title: string | null } | null;
-  next: { id: string; number: string; title: string | null } | null;
-}
-
-interface CommentUser {
-  id: string;
-  displayName: string;
-  avatarUrl: string | null;
-}
-
-interface Comment {
-  id: string;
-  content: string;
-  createdAt: string;
-  user: CommentUser;
-  parentId: string | null;
-  replies?: Comment[];
-  _count?: { replies: number };
-}
-
-interface ChapterItemData {
-  chapter: Chapter;
-  nav: Navigation;
-  comments: Comment[];
+interface LoadedChapterBlock {
+  detail: ChapterDetail;
+  comments: CommentItem[];
   commentTotal: number;
   commentPage: number;
   commentHasNext: boolean;
-  loadingMoreComments?: boolean;
 }
+
+const THEME_STYLES: Record<ReaderTheme, { bg: string; text: string; bar: string; border: string; label: string }> = {
+  ink: {
+    bg: 'bg-[#111318]',
+    text: 'text-[#F2EFE9]',
+    bar: 'bg-[#181B22]/92 text-[#F2EFE9]',
+    border: 'border-[#272B36]',
+    label: 'Đêm mực',
+  },
+  oled: {
+    bg: 'bg-black',
+    text: 'text-zinc-100',
+    bar: 'bg-black/92 text-zinc-100',
+    border: 'border-white/10',
+    label: 'OLED Đen',
+  },
+  paper: {
+    bg: 'bg-[#FAF8F5]',
+    text: 'text-[#1F1D1A]',
+    bar: 'bg-white/95 text-[#1F1D1A]',
+    border: 'border-[#E8E3DC]',
+    label: 'Giấy ấm',
+  },
+  sepia: {
+    bg: 'bg-[#F3E9D2]',
+    text: 'text-[#3D2E1E]',
+    bar: 'bg-[#EFE3C8]/95 text-[#3D2E1E]',
+    border: 'border-[#DFD0B2]',
+    label: 'Sepia cổ điển',
+  },
+};
+
+const WIDTH_CLASS: Record<ReaderWidth, string> = {
+  narrow: 'max-w-xl',
+  medium: 'max-w-3xl',
+  wide: 'max-w-5xl',
+  full: 'max-w-full',
+};
 
 export default function ReaderPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, accessToken } = useAuthStore();
+  const chapterIdParam = params?.chapterId as string;
 
-  // Loaded chapters list for infinite scroll
-  const [loadedChapters, setLoadedChapters] = useState<ChapterItemData[]>([]);
-  const [activeChapterId, setActiveChapterId] = useState<string>('');
+  const { user, accessToken, isHydrated, fetchProfile } = useAuthStore();
+  const { toast } = useToast();
+  const settings = useReaderSettingsStore();
+
+  const [blocks, setBlocks] = useState<LoadedChapterBlock[]>([]);
+  const [activeId, setActiveId] = useState('');
   const [loading, setLoading] = useState(true);
-  const [loadingNextChapter, setLoadingNextChapter] = useState(false);
+  const [loadingNext, setLoadingNext] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
 
-  // Settings state
-  const [readMode, setReadMode] = useState<'scroll' | 'page'>('scroll');
-  const [autoLoadNext, setAutoLoadNext] = useState(true);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [showBars, setShowBars] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
-  const [readerWidth, setReaderWidth] = useState<'max-w-xl' | 'max-w-2xl' | 'max-w-3xl' | 'max-w-4xl' | 'max-w-full'>('max-w-3xl');
-  const [pageGap, setPageGap] = useState<string>('gap-0');
-  const [bgColor, setBgColor] = useState<string>('bg-black');
-  const [currentPage, setCurrentPage] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const isReaderBgDark = !['bg-white', 'bg-zinc-100', 'bg-[#f4ebd0]'].includes(bgColor);
-
-  useEffect(() => {
-    // Sync reader bg color with global theme on mount
-    const isDark = document.documentElement.classList.contains('dark');
-    setBgColor(isDark ? 'bg-black' : 'bg-white');
-  }, []);
-
-  // Comment input state
-  const [newComment, setNewComment] = useState('');
+  const [showChapterDrawer, setShowChapterDrawer] = useState(false);
+  const [showCommentsModal, setShowCommentsModal] = useState(false);
+  const [reportChapterTarget, setReportChapterTarget] = useState<{ id: string; label: string } | null>(null);
+  const [allChapters, setAllChapters] = useState<ChapterSummary[]>([]);
+  const [chapterFilter, setChapterFilter] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [replyContent, setReplyContent] = useState('');
+  const [loadingMoreComments, setLoadingMoreComments] = useState(false);
 
-  // Chapter list modal
-  const [showChapterList, setShowChapterList] = useState(false);
-  const [allChapters, setAllChapters] = useState<ChapterListItem[]>([]);
-  const [chapterSearch, setChapterSearch] = useState('');
-  const chapterGridRef = useRef<HTMLDivElement>(null);
-
-  // Active chapter object
-  const activeItem = loadedChapters.find((item) => item.chapter.id === activeChapterId) || loadedChapters[0];
-  const activeChapter = activeItem?.chapter || null;
-
-  const handleOpenChapterList = useCallback(async () => {
-    setShowChapterList(true);
-    if (allChapters.length === 0 && activeChapter) {
-      try {
-        const r = await api.get<{ data: ChapterListItem[] }>(`/comics/${activeChapter.comic.id}/chapters`);
-        setAllChapters(r.data);
-      } catch { }
-    }
-  }, [allChapters.length, activeChapter]);
-
-  // Scroll direction detection for header hide/show
-  const [showHeader, setShowHeader] = useState(true);
   const lastScrollY = useRef(0);
+  const lastSavedRef = useRef('');
+  const loadingNextRef = useRef(false);
+  const lastTrackTimeRef = useRef(0);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const bottomSentinelRef = useRef<HTMLDivElement>(null);
+  const canAutoLoadNextRef = useRef(false);
+  const autoScrollSpeedRef = useRef(0);
+
+  const isNavTargetLocked = (
+    nav?: { isPremium: boolean; priceCoins?: number; isUnlocked?: boolean } | null,
+  ) => Boolean(nav && nav.isPremium && (nav.priceCoins ?? 0) > 0 && !nav.isUnlocked);
 
   useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY <= 50) {
-        setShowHeader(true);
-      } else if (currentScrollY > lastScrollY.current + 10) {
-        setShowHeader(false);
-      } else if (currentScrollY < lastScrollY.current - 10) {
-        setShowHeader(true);
-      }
-      lastScrollY.current = currentScrollY;
+    settings.hydrate();
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      useReaderSettingsStore.getState().update({ autoScrollSpeed: 0 });
     };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Initial chapter load
+  const activeBlock = blocks.find((b) => b.detail.id === activeId) || blocks[0];
+  const activeChapter = activeBlock?.detail || null;
+  const lastBlock = blocks[blocks.length - 1];
+  const anyOverlayOpen = Boolean(
+    showSettings || showChapterDrawer || showCommentsModal || reportChapterTarget,
+  );
+  autoScrollSpeedRef.current = settings.autoScrollSpeed;
+  canAutoLoadNextRef.current = Boolean(
+    settings.autoLoadNext &&
+    lastBlock &&
+    !lastBlock.detail.isLocked &&
+    lastBlock.detail.navigation.next &&
+    !isNavTargetLocked(lastBlock.detail.navigation.next),
+  );
+
   useEffect(() => {
-    if (!params.chapterId) return;
-    const chId = params.chapterId as string;
-    setLoading(true);
-    Promise.all([
-      api.get<{ data: Chapter }>(`/chapters/${chId}`),
-      api.get<{ data: Navigation }>(`/chapters/${chId}/navigation`),
-      api.get<{ data: Comment[]; meta: { total: number; hasNext: boolean } }>(`/comments/chapter/${chId}?page=1`).catch(() => ({ data: [], meta: { total: 0, hasNext: false } })),
-    ])
-      .then(([chRes, navRes, comRes]) => {
-        const item: ChapterItemData = {
-          chapter: chRes.data,
-          nav: navRes.data,
-          comments: comRes.data || [],
-          commentTotal: comRes.meta?.total || 0,
+    if ((activeChapter?.isLocked || anyOverlayOpen) && settings.autoScrollSpeed > 0) {
+      useReaderSettingsStore.getState().update({ autoScrollSpeed: 0 });
+    }
+  }, [activeChapter?.isLocked, anyOverlayOpen, settings.autoScrollSpeed]);
+
+  useEffect(() => {
+    setAllChapters([]);
+  }, [activeChapter?.comic.id, accessToken]);
+
+  const fetchChapterBlock = useCallback(
+    async (id: string, signal?: AbortSignal): Promise<LoadedChapterBlock> => {
+      const chRes = await api.get<{ data: ChapterDetail }>(`/chapters/${id}`, {
+        token: accessToken,
+        signal,
+      });
+
+      if (chRes.data.isLocked) {
+        return {
+          detail: chRes.data,
+          comments: [],
+          commentTotal: 0,
           commentPage: 1,
-          commentHasNext: comRes.meta?.hasNext || false,
+          commentHasNext: false,
         };
-        setLoadedChapters([item]);
-        setActiveChapterId(chRes.data.id);
-        setCurrentPage(0);
-      })
-      .catch(() => { })
-      .finally(() => setLoading(false));
-  }, [params.chapterId]);
+      }
 
-  // Infinite scroll: auto load next chapter
-  const loadNextChapter = useCallback(async () => {
-    if (loadingNextChapter || !autoLoadNext || loadedChapters.length === 0) return;
-    const lastItem = loadedChapters[loadedChapters.length - 1];
-    if (!lastItem?.nav?.next) return;
+      const comRes = await api
+        .get<{ data: CommentItem[]; meta: { total: number; hasNext: boolean } }>(
+          `/comments/chapter/${id}?page=1`,
+          { token: accessToken, signal },
+        )
+        .catch(() => ({ data: [], meta: { total: 0, hasNext: false } }));
 
-    const nextId = lastItem.nav.next.id;
-    if (loadedChapters.some((item) => item.chapter.id === nextId)) return;
-
-    setLoadingNextChapter(true);
-    try {
-      const [chRes, navRes, comRes] = await Promise.all([
-        api.get<{ data: Chapter }>(`/chapters/${nextId}`),
-        api.get<{ data: Navigation }>(`/chapters/${nextId}/navigation`),
-        api.get<{ data: Comment[]; meta: { total: number; hasNext: boolean } }>(`/comments/chapter/${nextId}?page=1`).catch(() => ({ data: [], meta: { total: 0, hasNext: false } })),
-      ]);
-
-      const newItem: ChapterItemData = {
-        chapter: chRes.data,
-        nav: navRes.data,
+      return {
+        detail: chRes.data,
         comments: comRes.data || [],
         commentTotal: comRes.meta?.total || 0,
         commentPage: 1,
         commentHasNext: comRes.meta?.hasNext || false,
       };
+    },
+    [accessToken],
+  );
 
-      setLoadedChapters((prev) => [...prev, newItem]);
-    } catch { }
-    setLoadingNextChapter(false);
-  }, [loadingNextChapter, autoLoadNext, loadedChapters]);
-
-  // Trigger auto load next chapter when scrolling near bottom
   useEffect(() => {
-    if (readMode !== 'scroll' || !autoLoadNext || loadingNextChapter) return;
+    if (!chapterIdParam || !isHydrated) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setBlocks([]);
+    lastSavedRef.current = '';
+    loadingNextRef.current = false;
+    setLoadingNext(false);
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
 
-    const handleScrollForNext = () => {
-      const scrollPosition = window.scrollY + window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
-      if (documentHeight - scrollPosition < 800) {
-        loadNextChapter();
-      }
-    };
-
-    window.addEventListener('scroll', handleScrollForNext, { passive: true });
-    return () => window.removeEventListener('scroll', handleScrollForNext);
-  }, [readMode, autoLoadNext, loadingNextChapter, loadNextChapter]);
-
-  // Track active chapter block and update URL seamlessly
-  useEffect(() => {
-    if (readMode !== 'scroll' || loadedChapters.length <= 1) return;
-
-    const handleScrollActive = () => {
-      const blocks = document.querySelectorAll('[data-chapter-block-id]');
-      let currentId = activeChapterId;
-
-      blocks.forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        if (rect.top <= window.innerHeight * 0.4 && rect.bottom >= 100) {
-          const id = el.getAttribute('data-chapter-block-id');
-          if (id) currentId = id;
+    fetchChapterBlock(chapterIdParam, controller.signal)
+      .then((block) => {
+        if (controller.signal.aborted) return;
+        setBlocks([block]);
+        setActiveId(block.detail.id);
+        setCurrentPageIndex(0);
+        if (progressBarRef.current) {
+          progressBarRef.current.style.width = '0%';
         }
+        window.scrollTo(0, 0);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setBlocks([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
       });
 
-      if (currentId && currentId !== activeChapterId) {
-        setActiveChapterId(currentId);
-        window.history.replaceState(null, '', `/read/${currentId}`);
-      }
-    };
+    return () => controller.abort();
+  }, [chapterIdParam, isHydrated, user?.id, fetchChapterBlock]);
 
-    window.addEventListener('scroll', handleScrollActive, { passive: true });
-    return () => window.removeEventListener('scroll', handleScrollActive);
-  }, [readMode, loadedChapters, activeChapterId]);
+  // Save reading history
+  const saveProgress = useCallback(
+    (ch: ChapterDetail, pageNum: number) => {
+      if (!ch || ch.isLocked) return;
+      const saveKey = `${ch.id}:${pageNum}`;
+      if (saveKey === lastSavedRef.current) return;
+      lastSavedRef.current = saveKey;
 
-  // History tracking
-  const lastSavedPage = useRef(0);
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const saveHistory = useCallback((chapterObj: Chapter, pageNum: number) => {
-    if (!chapterObj || pageNum === lastSavedPage.current) return;
-    lastSavedPage.current = pageNum;
-
-    // 1. Luôn lưu vào local storage (nhanh tức thì, hoạt động cho cả khách vãng lai và user)
-    useReadingHistoryStore.getState().recordRead({
-      comicId: chapterObj.comic.id,
-      comicSlug: chapterObj.comic.slug,
-      comicTitle: chapterObj.comic.title,
-      coverUrl: (chapterObj.comic as any).coverUrl || null,
-      chapterId: chapterObj.id,
-      chapterNumber: chapterObj.number,
-      chapterTitle: chapterObj.title,
-      totalPages: chapterObj.totalPages,
-      lastPage: pageNum,
-    });
-
-    // 2. Nếu đã đăng nhập, debounce lưu lên server
-    if (accessToken) {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(() => {
-        api.post('/history', {
-          comicId: chapterObj.comic.id,
-          chapterId: chapterObj.id,
-          lastPage: pageNum,
-        }, { token: accessToken }).catch(() => { });
-      }, 2000);
-    }
-  }, [accessToken]);
-
-  // Track page numbers for history in scroll mode
-  useEffect(() => {
-    if (readMode !== 'scroll' || !activeChapter || !activeChapter.pages.length) return;
-
-    const handleScrollPage = () => {
-      const pages = document.querySelectorAll(`[data-chapter-id="${activeChapter.id}"][data-page-number]`);
-      let visiblePage = 1;
-      pages.forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        if (rect.top < window.innerHeight / 2) {
-          visiblePage = Number(el.getAttribute('data-page-number') || 1);
-        }
+      useReadingHistoryStore.getState().recordRead({
+        comicId: ch.comic.id,
+        comicSlug: ch.comic.slug,
+        comicTitle: ch.comic.title,
+        coverUrl: ch.comic.coverUrl,
+        chapterId: ch.id,
+        chapterNumber: ch.number,
+        chapterTitle: ch.title,
+        totalPages: ch.totalPages || ch.pages.length,
+        lastPage: pageNum,
       });
-      saveHistory(activeChapter, visiblePage);
-    };
 
-    window.addEventListener('scroll', handleScrollPage, { passive: true });
-    saveHistory(activeChapter, 1);
-    return () => window.removeEventListener('scroll', handleScrollPage);
-  }, [readMode, activeChapter, saveHistory]);
-
-  // Track page changes in page mode
-  useEffect(() => {
-    if (readMode === 'page' && activeChapter) {
-      saveHistory(activeChapter, currentPage + 1);
-    }
-  }, [currentPage, readMode, activeChapter, saveHistory]);
-
-  // Keyboard navigation for page mode
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (readMode !== 'page' || !activeChapter) return;
-    if (e.key === 'ArrowRight' || e.key === ' ') {
-      e.preventDefault();
-      setCurrentPage((p) => Math.min(p + 1, activeChapter.pages.length - 1));
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      setCurrentPage((p) => Math.max(p - 1, 0));
-    }
-  }, [readMode, activeChapter]);
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
-
-  // Comment actions
-  const postComment = async (targetChapterId: string, content: string, parentId?: string | null) => {
-    if (!accessToken || !content.trim()) return;
-
-    setSubmittingComment(true);
-    try {
-      const res = await api.post<{ data: Comment }>(
-        `/comments/chapter/${targetChapterId}`,
-        { content: content.trim(), parentId },
-        { token: accessToken },
-      );
-
-      setLoadedChapters((prev) =>
-        prev.map((item) => {
-          if (item.chapter.id !== targetChapterId) return item;
-          if (parentId) {
-            return {
-              ...item,
-              comments: item.comments.map((c) =>
-                c.id === parentId
-                  ? { ...c, replies: [...(c.replies || []), res.data], _count: { replies: (c._count?.replies || 0) + 1 } }
-                  : c
-              ),
-            };
-          } else {
-            return {
-              ...item,
-              comments: [{ ...res.data, replies: [], _count: { replies: 0 } }, ...item.comments],
-              commentTotal: item.commentTotal + 1,
-            };
-          }
-        })
-      );
-
-      if (parentId) {
-        setReplyingTo(null);
-        setReplyContent('');
-      } else {
-        setNewComment('');
+      if (accessToken) {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(() => {
+          api
+            .post(
+              '/history',
+              {
+                comicId: ch.comic.id,
+                chapterId: ch.id,
+                lastPage: pageNum,
+                totalPages: ch.totalPages || ch.pages.length,
+              },
+              { token: accessToken },
+            )
+            .catch(() => {});
+        }, 1800);
       }
-    } catch { }
-    setSubmittingComment(false);
-  };
+    },
+    [accessToken],
+  );
 
-  const deleteComment = async (commentId: string, targetChapterId: string, parentId?: string | null) => {
-    if (!accessToken || !confirm('Xóa bình luận này?')) return;
+  // Load next chapter in scroll mode (allows unlocked VIP chapters too)
+  const loadNextInScroll = useCallback(async () => {
+    if (loadingNextRef.current || !settings.autoLoadNext || blocks.length === 0) return;
+    const tail = blocks[blocks.length - 1];
+    if (tail.detail.isLocked) return;
+    const nextNav = tail.detail.navigation?.next;
+    if (!nextNav || blocks.some((b) => b.detail.id === nextNav.id)) return;
+    if (isNavTargetLocked(nextNav)) return;
+
+    loadingNextRef.current = true;
+    setLoadingNext(true);
     try {
-      await api.delete(`/comments/${commentId}`, { token: accessToken });
-      setLoadedChapters((prev) =>
-        prev.map((item) => {
-          if (item.chapter.id !== targetChapterId) return item;
-          if (parentId) {
-            return {
-              ...item,
-              comments: item.comments.map((c) =>
-                c.id === parentId
-                  ? { ...c, replies: (c.replies || []).filter((r) => r.id !== commentId) }
-                  : c
-              ),
-            };
-          } else {
-            return {
-              ...item,
-              comments: item.comments.filter((c) => c.id !== commentId),
-              commentTotal: Math.max(0, item.commentTotal - 1),
-            };
-          }
-        })
-      );
-    } catch { }
-  };
+      const nextBlock = await fetchChapterBlock(nextNav.id);
+      if (!nextBlock.detail.isLocked) {
+        setBlocks((prev) =>
+          prev.some((b) => b.detail.id === nextBlock.detail.id) ? prev : [...prev, nextBlock],
+        );
+      }
+    } catch {
+      // Ignore
+    } finally {
+      loadingNextRef.current = false;
+      setLoadingNext(false);
+    }
+  }, [settings.autoLoadNext, blocks, fetchChapterBlock]);
 
-  const loadMoreComments = async (targetChapterId: string) => {
-    const item = loadedChapters.find((i) => i.chapter.id === targetChapterId);
-    if (!item || item.loadingMoreComments || !item.commentHasNext) return;
+  // IntersectionObserver fallback so bottom infinite-load fires reliably on short chapters & rapid swipes
+  useEffect(() => {
+    if (settings.mode !== 'scroll' || !settings.autoLoadNext) return;
+    const el = bottomSentinelRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
 
-    setLoadedChapters((prev) =>
-      prev.map((i) => (i.chapter.id === targetChapterId ? { ...i, loadingMoreComments: true } : i))
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          loadNextInScroll();
+        }
+      },
+      { rootMargin: '950px 0px' },
     );
 
-    try {
-      const nextPage = item.commentPage + 1;
-      const r = await api.get<{ data: Comment[]; meta: { total: number; hasNext: boolean } }>(
-        `/comments/chapter/${targetChapterId}?page=${nextPage}`
-      );
-      setLoadedChapters((prev) =>
-        prev.map((i) =>
-          i.chapter.id === targetChapterId
-            ? {
-              ...i,
-              comments: [...i.comments, ...r.data],
-              commentHasNext: r.meta.hasNext,
-              commentPage: nextPage,
-              loadingMoreComments: false,
-            }
-            : i
-        )
-      );
-    } catch {
-      setLoadedChapters((prev) =>
-        prev.map((i) => (i.chapter.id === targetChapterId ? { ...i, loadingMoreComments: false } : i))
-      );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [settings.mode, settings.autoLoadNext, loadNextInScroll]);
+
+  // Scroll listener (direct DOM progress bar, bottom infinite-load check & throttled chapter/page tracking)
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (progressBarRef.current && settings.mode === 'scroll') {
+        const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const pct = docHeight > 0 ? Math.min(100, Math.round((y / docHeight) * 100)) : 0;
+        progressBarRef.current.style.width = `${pct}%`;
+      }
+
+      if (autoScrollSpeedRef.current <= 0) {
+        if (y <= 60) setShowBars(true);
+        else if (y > lastScrollY.current + 14) setShowBars(false);
+        else if (y < lastScrollY.current - 14) setShowBars(true);
+      }
+      lastScrollY.current = y;
+
+      if (
+        settings.mode === 'scroll' &&
+        document.documentElement.scrollHeight - (y + window.innerHeight) < 950
+      ) {
+        loadNextInScroll();
+      }
+
+      const now = performance.now();
+      if (now - lastTrackTimeRef.current < 250) return;
+      lastTrackTimeRef.current = now;
+
+      if (settings.mode === 'scroll' && activeChapter) {
+        // Track visible chapter block
+        const blockEls = document.querySelectorAll('[data-chapter-block]');
+        let currentVisibleId = activeId;
+        blockEls.forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= window.innerHeight * 0.45 && rect.bottom >= 80) {
+            const id = el.getAttribute('data-chapter-block');
+            if (id) currentVisibleId = id;
+          }
+        });
+        if (currentVisibleId && currentVisibleId !== activeId) {
+          setActiveId(currentVisibleId);
+          window.history.replaceState(null, '', `/read/${currentVisibleId}`);
+        }
+
+        // Track visible page
+        const pageEls = document.querySelectorAll(`[data-ch-page="${currentVisibleId}"]`);
+        let pageNum = 1;
+        pageEls.forEach((el) => {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= window.innerHeight * 0.55) {
+            pageNum = Number(el.getAttribute('data-page-num') || 1);
+          }
+        });
+        const targetBlock = blocks.find((b) => b.detail.id === currentVisibleId);
+        if (targetBlock) saveProgress(targetBlock.detail, pageNum);
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    if (activeChapter && !activeChapter.isLocked) {
+      saveProgress(activeChapter, 1);
+    }
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [settings.mode, activeChapter, activeId, blocks, loadNextInScroll, saveProgress]);
+
+  // Page/double mode progress tracking & progress bar sync
+  useEffect(() => {
+    if (settings.mode !== 'scroll' && activeChapter) {
+      if (!activeChapter.isLocked) {
+        saveProgress(activeChapter, currentPageIndex + 1);
+      }
+      if (progressBarRef.current) {
+        const pct = Math.round(((currentPageIndex + 1) / Math.max(1, activeChapter.pages.length)) * 100);
+        progressBarRef.current.style.width = `${pct}%`;
+      }
+    }
+  }, [settings.mode, currentPageIndex, activeChapter, saveProgress]);
+
+  // Strictly monotonic auto-scroll loop using virtualY + scrollingElement.scrollTop
+  useEffect(() => {
+    if (settings.autoScrollSpeed <= 0 || settings.mode !== 'scroll') return;
+
+    const speedsPxPerSec = [0, 40, 80, 130, 190];
+    const speedPx = speedsPxPerSec[settings.autoScrollSpeed] ?? 80;
+
+    const scrollEl = document.scrollingElement || document.documentElement;
+    const htmlEl = document.documentElement;
+    const prevScrollBehavior = htmlEl.style.scrollBehavior;
+    htmlEl.style.scrollBehavior = 'auto';
+
+    let virtualY = scrollEl.scrollTop;
+    let lastAppliedY = Math.floor(virtualY);
+    let pausedByUser = false;
+    let resumeTimer: ReturnType<typeof setTimeout> | null = null;
+    let rafId = 0;
+    let lastTime = performance.now();
+
+    const clearResumeTimer = () => {
+      if (resumeTimer) {
+        clearTimeout(resumeTimer);
+        resumeTimer = null;
+      }
+    };
+
+    const scheduleResume = (delayMs: number) => {
+      clearResumeTimer();
+      resumeTimer = setTimeout(() => {
+        virtualY = scrollEl.scrollTop;
+        lastAppliedY = Math.floor(virtualY);
+        lastTime = performance.now();
+        pausedByUser = false;
+      }, delayMs);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.target instanceof Element && e.target.closest('[data-autoscroll-control]')) return;
+      pausedByUser = true;
+      clearResumeTimer();
+    };
+
+    const onTouchEnd = () => {
+      if (pausedByUser) {
+        scheduleResume(450);
+      }
+    };
+
+    const onWheel = () => {
+      pausedByUser = true;
+      scheduleResume(350);
+    };
+
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    window.addEventListener('wheel', onWheel, { passive: true });
+
+    const stepFrame = (now: number) => {
+      const dt = Math.min(Math.max(0, now - lastTime), 64);
+      lastTime = now;
+
+      if (!pausedByUser) {
+        const viewportH = window.innerHeight || htmlEl.clientHeight;
+        const maxY = Math.max(0, scrollEl.scrollHeight - viewportH);
+
+        if (maxY > 4 && virtualY >= maxY - 2) {
+          if (!canAutoLoadNextRef.current) {
+            useReaderSettingsStore.getState().update({ autoScrollSpeed: 0 });
+            return;
+          }
+        } else {
+          virtualY = Math.min(maxY, virtualY + (speedPx * dt) / 1000);
+          const nextIntY = Math.floor(virtualY);
+          if (nextIntY > lastAppliedY) {
+            lastAppliedY = nextIntY;
+            scrollEl.scrollTop = nextIntY;
+          }
+        }
+      }
+
+      rafId = window.requestAnimationFrame(stepFrame);
+    };
+
+    rafId = window.requestAnimationFrame(stepFrame);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      clearResumeTimer();
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
+      window.removeEventListener('wheel', onWheel);
+      htmlEl.style.scrollBehavior = prevScrollBehavior;
+    };
+  }, [settings.autoScrollSpeed, settings.mode]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (reportChapterTarget) setReportChapterTarget(null);
+        else if (showCommentsModal) setShowCommentsModal(false);
+        else if (showChapterDrawer) setShowChapterDrawer(false);
+        else if (showSettings) setShowSettings(false);
+        return;
+      }
+
+      if (anyOverlayOpen) return;
+
+      const target = e.target as HTMLElement | null;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable ||
+        target?.closest('[role="dialog"]')
+      ) {
+        return;
+      }
+
+      if (e.key === 'c' || e.key === 'C') {
+        setShowChapterDrawer((v) => !v);
+      } else if (e.key === 's' || e.key === 'S') {
+        setShowSettings((v) => !v);
+      } else if (settings.mode === 'scroll' && e.code === 'Space' && activeChapter && !activeChapter.isLocked) {
+        e.preventDefault();
+        settings.update({ autoScrollSpeed: settings.autoScrollSpeed > 0 ? 0 : 2 });
+      } else if (settings.mode !== 'scroll' && activeChapter && !activeChapter.isLocked) {
+        const step = settings.mode === 'double' ? 2 : 1;
+        const maxIdx = Math.max(0, activeChapter.pages.length - 1);
+        if (e.key === 'ArrowRight' || e.code === 'Space') {
+          e.preventDefault();
+          setCurrentPageIndex((p) => Math.min(p + step, maxIdx));
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          setCurrentPageIndex((p) => Math.max(p - step, 0));
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [
+    settings,
+    activeChapter,
+    anyOverlayOpen,
+    showCommentsModal,
+    showChapterDrawer,
+    showSettings,
+    reportChapterTarget,
+  ]);
+
+  const openChapterList = async () => {
+    setShowChapterDrawer(true);
+    if (allChapters.length === 0 && activeChapter) {
+      try {
+        const res = await api.get<{ data: ChapterSummary[] }>(
+          `/comics/${activeChapter.comic.id}/chapters`,
+          { token: accessToken },
+        );
+        setAllChapters(res.data || []);
+      } catch {
+        // Ignore
+      }
     }
   };
+
+  const handleUnlockChapter = async () => {
+    if (!activeChapter) return;
+    if (!accessToken) {
+      router.push(`/login?redirect=/read/${activeChapter.id}`);
+      return;
+    }
+    setUnlocking(true);
+    try {
+      await api.post(`/chapters/${activeChapter.id}/unlock`, {}, { token: accessToken });
+      toast.success(`Đã mở khóa Chương ${activeChapter.number}!`);
+      await fetchProfile();
+      setAllChapters([]);
+      const unlockedBlock = await fetchChapterBlock(activeChapter.id);
+      setBlocks([unlockedBlock]);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Không đủ Xu để mở khóa chương này');
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
+  const handleChapterCommentSubmit = async (
+    targetChapterId: string,
+    content: string,
+    isSpoiler: boolean,
+    parentId?: string,
+  ) => {
+    if (!accessToken) return;
+    setSubmittingComment(true);
+    try {
+      const res = await api.post<{ data: CommentItem }>(
+        `/comments/chapter/${targetChapterId}`,
+        { content, isSpoiler, parentId },
+        { token: accessToken },
+      );
+      setBlocks((prev) =>
+        prev.map((b) => {
+          if (b.detail.id !== targetChapterId) return b;
+          if (parentId) {
+            return {
+              ...b,
+              comments: b.comments.map((c) =>
+                c.id === parentId ? { ...c, replies: [...(c.replies || []), res.data] } : c,
+              ),
+            };
+          }
+          return {
+            ...b,
+            comments: [res.data, ...b.comments],
+            commentTotal: b.commentTotal + 1,
+          };
+        }),
+      );
+      toast.success('Đã gửi bình luận (+5 XP)');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Không thể gửi bình luận');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handleChapterCommentLike = async (targetChapterId: string, commentId: string) => {
+    if (!accessToken) {
+      toast.error('Đăng nhập để thích bình luận');
+      return;
+    }
+    try {
+      const res = await api.post<{ data: { liked: boolean; likesCount: number } }>(
+        `/comments/${commentId}/like`,
+        {},
+        { token: accessToken },
+      );
+      setBlocks((prev) =>
+        prev.map((b) => {
+          if (b.detail.id !== targetChapterId) return b;
+          return {
+            ...b,
+            comments: b.comments.map((c) => {
+              if (c.id === commentId) {
+                return { ...c, isLiked: res.data.liked, likesCount: res.data.likesCount };
+              }
+              if (c.replies) {
+                return {
+                  ...c,
+                  replies: c.replies.map((r) =>
+                    r.id === commentId ? { ...r, isLiked: res.data.liked, likesCount: res.data.likesCount } : r,
+                  ),
+                };
+              }
+              return c;
+            }),
+          };
+        }),
+      );
+    } catch {
+      // Ignore
+    }
+  };
+
+  const handleChapterCommentEdit = async (
+    targetChapterId: string,
+    commentId: string,
+    content: string,
+  ) => {
+    if (!accessToken) return;
+    try {
+      await api.patch(`/comments/${commentId}`, { content }, { token: accessToken });
+      setBlocks((prev) =>
+        prev.map((b) =>
+          b.detail.id !== targetChapterId
+            ? b
+            : {
+              ...b,
+              comments: b.comments.map((c) =>
+                c.id === commentId
+                  ? { ...c, content }
+                  : { ...c, replies: c.replies?.map((r) => (r.id === commentId ? { ...r, content } : r)) },
+              ),
+            },
+        ),
+      );
+      toast.success('Đã cập nhật bình luận');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Không thể cập nhật bình luận');
+    }
+  };
+
+  const handleChapterCommentDelete = async (
+    targetChapterId: string,
+    commentId: string,
+    parentId?: string | null,
+  ) => {
+    if (!accessToken) return;
+    try {
+      await api.delete(`/comments/${commentId}`, { token: accessToken });
+      setBlocks((prev) =>
+        prev.map((b) => {
+          if (b.detail.id !== targetChapterId) return b;
+          if (parentId) {
+            return {
+              ...b,
+              comments: b.comments.map((c) =>
+                c.id === parentId ? { ...c, replies: c.replies?.filter((r) => r.id !== commentId) } : c,
+              ),
+            };
+          }
+          return {
+            ...b,
+            comments: b.comments.filter((c) => c.id !== commentId),
+            commentTotal: Math.max(0, b.commentTotal - 1),
+          };
+        }),
+      );
+      toast.info('Đã xóa bình luận');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Không thể xóa bình luận');
+    }
+  };
+
+  const handleChapterCommentPin = async (
+    targetChapterId: string,
+    commentId: string,
+    isPinned: boolean,
+  ) => {
+    if (!accessToken) return;
+    try {
+      await api.patch(`/comments/${commentId}`, { isPinned }, { token: accessToken });
+      const comRes = await api.get<{ data: CommentItem[]; meta: { total: number; hasNext: boolean } }>(
+        `/comments/chapter/${targetChapterId}?page=1`,
+        { token: accessToken },
+      );
+      setBlocks((prev) =>
+        prev.map((b) =>
+          b.detail.id !== targetChapterId
+            ? b
+            : {
+              ...b,
+              comments: comRes.data || [],
+              commentTotal: comRes.meta?.total || 0,
+              commentPage: 1,
+              commentHasNext: comRes.meta?.hasNext || false,
+            },
+        ),
+      );
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Không thể ghim bình luận');
+    }
+  };
+
+  const handleChapterCommentLoadMore = async (targetChapterId: string) => {
+    const target = blocks.find((b) => b.detail.id === targetChapterId);
+    if (!target || !target.commentHasNext || loadingMoreComments) return;
+    const nextPage = target.commentPage + 1;
+    setLoadingMoreComments(true);
+    try {
+      const comRes = await api.get<{ data: CommentItem[]; meta: { total: number; hasNext: boolean } }>(
+        `/comments/chapter/${targetChapterId}?page=${nextPage}`,
+        { token: accessToken },
+      );
+      setBlocks((prev) =>
+        prev.map((b) =>
+          b.detail.id !== targetChapterId
+            ? b
+            : {
+              ...b,
+              comments: [...b.comments, ...(comRes.data || [])],
+              commentTotal: comRes.meta?.total ?? b.commentTotal,
+              commentPage: nextPage,
+              commentHasNext: comRes.meta?.hasNext || false,
+            },
+        ),
+      );
+    } catch {
+      // Ignore
+    } finally {
+      setLoadingMoreComments(false);
+    }
+  };
+
+  const themeCfg = THEME_STYLES[settings.theme] || THEME_STYLES.ink;
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
+      <div className="flex min-h-screen items-center justify-center bg-[#111318] text-white">
+        <div className="h-9 w-9 animate-spin rounded-full border-2 border-white/20 border-t-[var(--accent-warm)]" />
       </div>
     );
   }
 
-  if (loadedChapters.length === 0 || !activeChapter) {
-    return <div className="flex min-h-screen items-center justify-center bg-black text-zinc-500">Chương không tồn tại</div>;
+  if (!activeChapter) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#111318] px-4 text-center text-white">
+        <p className="font-serif text-xl font-bold">Không tìm thấy chương truyện</p>
+        <Link href="/comics" className="mt-4">
+          <Button variant="warm">Quay lại kho truyện</Button>
+        </Link>
+      </div>
+    );
   }
 
-  const lastItem = loadedChapters[loadedChapters.length - 1];
+  const filterStyle = {
+    filter: `brightness(${settings.brightness}%) sepia(${settings.warmth}%)`,
+  };
 
   return (
-    <>
-      <div className={`min-h-screen ${bgColor} transition-colors duration-300 ${isReaderBgDark ? 'text-zinc-100' : 'text-zinc-900'}`}>
-        {/* Reader Header */}
-        <div className={`sticky top-0 z-50 border-b transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'} ${isReaderBgDark ? 'border-white/10 bg-black/90 text-white' : 'border-zinc-200 bg-white/95 text-zinc-900 shadow-sm'
-          } backdrop-blur-xl`}>
-          <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-4">
-            <Link href={`/comics/${activeChapter.comic.slug}`} className={`text-sm flex items-center gap-1.5 transition-colors ${isReaderBgDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'
-              }`}>
-              <i className="fa-light fa-arrow-left-long"></i>
-              <span className="hidden sm:inline">{activeChapter.comic.title}</span>
-            </Link>
-            <button
-              onClick={handleOpenChapterList}
-              className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-medium transition-colors ${isReaderBgDark ? 'text-white hover:bg-white/10 hover:text-amber-300' : 'text-zinc-800 hover:bg-zinc-100 hover:text-amber-600'
-                }`}>
-              <span>Chương {activeChapter.number}{activeChapter.title ? ` — ${activeChapter.title}` : ''}</span>
-            </button>
-            <div className="flex items-center gap-2">
+    <div className={`min-h-screen ${themeCfg.bg} ${themeCfg.text} select-none transition-colors duration-200`}>
+      {/* Top Floating Bar */}
+      <header
+        className={`fixed top-0 inset-x-0 z-50 border-b ${themeCfg.bar} ${themeCfg.border} backdrop-blur-xl transition-transform duration-300 ${showBars ? 'translate-y-0' : '-translate-y-full'
+          }`}
+      >
+        <div className="mx-auto flex h-13 max-w-6xl items-center justify-between gap-2 px-3 sm:px-5">
+          <Link
+            href={`/comics/${activeChapter.comic.slug}`}
+            className="inline-flex h-8 w-8 sm:h-auto sm:w-auto items-center justify-center sm:justify-start gap-2 min-w-0 rounded-xl border border-current/15 sm:border-transparent sm:px-0 text-sm font-medium opacity-90 hover:bg-current/5 sm:hover:bg-transparent hover:opacity-100"
+            title={`Quay lại ${activeChapter.comic.title}`}
+            aria-label={`Quay lại ${activeChapter.comic.title}`}
+          >
+            <ArrowLeft className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline truncate max-w-64 md:max-w-md">
+              {activeChapter.comic.title}
+            </span>
+          </Link>
+
+          <div className="flex items-center gap-1.5">
+            {settings.mode === 'scroll' && !activeChapter.isLocked && (
               <button
-                onClick={() => setShowSettings(true)}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors ${isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                type="button"
+                data-autoscroll-control
+                onClick={() => {
+                  settings.update({ autoScrollSpeed: settings.autoScrollSpeed > 0 ? 0 : 2 });
+                }}
+                className={`inline-flex h-8 items-center gap-1 rounded-xl border border-current/15 px-2.5 text-xs font-semibold cursor-pointer ${settings.autoScrollSpeed > 0 ? 'bg-[var(--accent-warm)] text-white border-transparent' : ''
                   }`}
-                title="Cài đặt trình đọc">
-                <i className="fa-regular fa-gear text-sm" />
+                title="Tự động cuộn (Space)"
+              >
+                {settings.autoScrollSpeed > 0 ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline">Cuộn</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowCommentsModal(true)}
+              className="inline-flex h-8 items-center gap-1 rounded-xl border border-current/15 px-2.5 text-xs font-semibold hover:bg-current/5 cursor-pointer"
+              title="Bình luận chương"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span>{activeBlock?.commentTotal || 0}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSettings(true)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-current/15 hover:bg-current/5 cursor-pointer"
+              title="Cài đặt (S)"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        {/* Progress Line */}
+        <div className="h-0.5 w-full bg-current/10">
+          <div
+            ref={progressBarRef}
+            className="h-full bg-[var(--accent-warm)]"
+            style={{ width: '0%' }}
+          />
+        </div>
+      </header>
+
+      {/* Main Reader Surface */}
+      <main
+        style={{ overflowAnchor: 'none' }}
+        className={`pt-14 pb-20 mx-auto ${WIDTH_CLASS[settings.width]}`}
+        onClick={() => setShowBars((v) => !v)}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        {activeChapter.isLocked ? (
+          <div className="mx-auto my-20 max-w-md px-4" onClick={(e) => e.stopPropagation()}>
+            <div className="rounded-3xl border border-current/15 bg-current/[0.04] p-7 text-center space-y-4">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--accent-warm-soft)] text-[var(--accent-warm)]">
+                <Lock className="h-7 w-7" />
+              </div>
+              <h2 className="font-serif text-2xl font-bold">Chương Premium VIP</h2>
+              <p className="text-sm opacity-80 leading-relaxed">
+                Chương {activeChapter.number}
+                {activeChapter.title ? ` (${activeChapter.title})` : ''} là nội dung ủng hộ tác giả. Mở khóa một lần để đọc vĩnh viễn!
+              </p>
+              <div className="inline-flex items-center gap-2 rounded-2xl border border-[var(--accent-warm)]/30 bg-[var(--accent-warm-soft)] px-4 py-2 text-sm font-bold text-[var(--accent-warm)]">
+                <Coins className="h-4 w-4" />
+                <span>Giá mở khóa: {activeChapter.priceCoins} Xu</span>
+              </div>
+              {user && (
+                <p className="text-xs opacity-70">
+                  Số dư hiện tại của bạn: <strong>{user.coins.toLocaleString('vi-VN')} Xu</strong>
+                </p>
+              )}
+              <div className="flex flex-col gap-2 pt-2">
+                <Button variant="warm" size="lg" isLoading={unlocking} onClick={handleUnlockChapter}>
+                  <Coins className="h-4 w-4" />
+                  <span>
+                    {user ? `Mở khóa ngay (${activeChapter.priceCoins} Xu)` : 'Đăng nhập để mở khóa'}
+                  </span>
+                </Button>
+                <Link href="/cultivation">
+                  <Button variant="ghost" size="sm" className="w-full">
+                    Làm nhiệm vụ kiếm thêm Xu →
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : settings.mode === 'scroll' ? (
+          <div className="flex flex-col">
+            {blocks.map((block) => (
+              <div key={block.detail.id} data-chapter-block={block.detail.id}>
+                <div
+                  className="flex flex-col items-center"
+                  style={{ gap: `${settings.pageGap}px`, overflowAnchor: 'none', ...filterStyle }}
+                >
+                  {block.detail.pages.map((page) => (
+                    <img
+                      key={page.id}
+                      data-ch-page={block.detail.id}
+                      data-page-num={page.pageNumber}
+                      src={page.imageUrl}
+                      alt={`Chương ${block.detail.number} - Trang ${page.pageNumber}`}
+                      width={page.width || undefined}
+                      height={page.height || undefined}
+                      style={
+                        page.width && page.height
+                          ? { aspectRatio: `${page.width} / ${page.height}` }
+                          : undefined
+                      }
+                      loading="lazy"
+                      draggable={false}
+                      className="w-full h-auto block"
+                    />
+                  ))}
+                </div>
+
+                {/* Chapter End Card */}
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="mx-4 my-8 rounded-2xl border border-current/15 bg-current/[0.04] p-6 text-center space-y-3"
+                >
+                  <p className="text-xs font-bold uppercase tracking-wider text-[var(--accent-warm)]">
+                    Hoàn thành Chương {block.detail.number}
+                  </p>
+                  {(() => {
+                    const nextNav = block.detail.navigation.next;
+                    if (!nextNav) {
+                      return <p className="text-sm opacity-75">Bạn đã đọc đến chương mới nhất của truyện.</p>;
+                    }
+                    const alreadyLoaded = blocks.some((b) => b.detail.id === nextNav.id);
+                    if (alreadyLoaded) {
+                      return (
+                        <p className="text-sm font-medium opacity-80">
+                          Tiếp theo bên dưới ↓ Chương {nextNav.number}
+                          {nextNav.title ? ` — ${nextNav.title}` : ''}
+                        </p>
+                      );
+                    }
+                    const nextLocked = isNavTargetLocked(nextNav);
+                    return (
+                      <div className="space-y-3">
+                        <p className="text-sm opacity-80">
+                          Tiếp theo: Chương {nextNav.number}
+                          {nextNav.title ? ` — ${nextNav.title}` : ''}
+                        </p>
+                        <Link href={`/read/${nextNav.id}`}>
+                          <Button variant="warm" size="sm">
+                            {nextLocked
+                              ? `Mở Chương VIP tiếp theo (${nextNav.priceCoins} Xu) →`
+                              : 'Đọc chương tiếp theo →'}
+                          </Button>
+                        </Link>
+                      </div>
+                    );
+                  })()}
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setReportChapterTarget({
+                          id: block.detail.id,
+                          label: `Chương ${block.detail.number} — ${block.detail.comic.title}`,
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 text-xs opacity-65 hover:opacity-100 transition-opacity cursor-pointer"
+                    >
+                      <Flag className="h-3.5 w-3.5" />
+                      Báo lỗi / Báo cáo chương
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {loadingNext && (
+              <div className="py-6 text-center text-xs opacity-70">Đang tải chương kế tiếp...</div>
+            )}
+            <div ref={bottomSentinelRef} className="h-4 w-full" aria-hidden="true" />
+          </div>
+        ) : (
+          /* Single or Double Page Mode */
+          <div
+            className="flex min-h-[calc(100vh-110px)] flex-col items-center justify-center px-3 py-4"
+            style={filterStyle}
+          >
+            {settings.mode === 'double' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                {activeChapter.pages.slice(currentPageIndex, currentPageIndex + 2).map((p) => (
+                  <img
+                    key={p.id}
+                    src={p.imageUrl}
+                    alt={`Trang ${p.pageNumber}`}
+                    draggable={false}
+                    className="max-h-[82vh] w-auto mx-auto rounded-lg object-contain"
+                  />
+                ))}
+              </div>
+            ) : (
+              activeChapter.pages[currentPageIndex] && (
+                <img
+                  src={activeChapter.pages[currentPageIndex].imageUrl}
+                  alt={`Trang ${currentPageIndex + 1}`}
+                  draggable={false}
+                  className="max-h-[84vh] w-auto rounded-lg object-contain"
+                />
+              )
+            )}
+
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="mt-4 flex items-center gap-3 rounded-2xl border border-current/15 bg-current/[0.06] px-4 py-2 text-xs font-semibold"
+            >
+              <button
+                type="button"
+                disabled={currentPageIndex === 0}
+                onClick={() =>
+                  setCurrentPageIndex((p) => Math.max(0, p - (settings.mode === 'double' ? 2 : 1)))
+                }
+                className="disabled:opacity-30 cursor-pointer"
+              >
+                ← Trang trước
+              </button>
+              <span className="opacity-70">
+                {currentPageIndex + 1} / {activeChapter.pages.length}
+              </span>
+              <button
+                type="button"
+                disabled={currentPageIndex >= activeChapter.pages.length - 1}
+                onClick={() =>
+                  setCurrentPageIndex((p) =>
+                    Math.min(activeChapter.pages.length - 1, p + (settings.mode === 'double' ? 2 : 1)),
+                  )
+                }
+                className="disabled:opacity-30 cursor-pointer"
+              >
+                Trang sau →
               </button>
             </div>
           </div>
-        </div>
+        )}
+      </main>
 
-        {/* Reader Content Area */}
-        <div ref={containerRef} className={`mx-auto ${readerWidth} transition-all duration-200`}>
-          {readMode === 'scroll' ? (
-            /* Scroll Mode (Multi-Chapter Infinite Scroll) */
-            <div className="flex flex-col">
-              {loadedChapters.map((chItem, idx) => (
-                <div key={chItem.chapter.id} data-chapter-block-id={chItem.chapter.id} className="chapter-block">
-                  {/* Chapter Pages */}
-                  <div className={`flex flex-col ${pageGap}`}>
-                    {chItem.chapter.pages.map((page) => (
-                      <img
-                        key={page.id}
-                        data-chapter-id={chItem.chapter.id}
-                        data-page-number={page.pageNumber}
-                        src={page.imageUrl}
-                        alt={`Chương ${chItem.chapter.number} - Trang ${page.pageNumber}`}
-                        className="w-full"
-                        loading="lazy"
-                        style={{ aspectRatio: page.width && page.height ? `${page.width}/${page.height}` : undefined }}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Chapter End & Separator */}
-                  <div className={`my-10 lg:rounded-2xl border p-6 text-center backdrop-blur-xl ${isReaderBgDark ? 'border-white/10 bg-white/[0.02]' : 'border-zinc-200 bg-zinc-50/50'
-                    }`}>
-                    <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-4 py-1 text-xs font-semibold text-amber-600 dark:text-amber-300">
-                      🎉 Hết Chương {chItem.chapter.number}
-                    </div>
-                    {chItem.nav.next ? (
-                      <p className={`text-xs ${isReaderBgDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                        Đoạn kế tiếp: <span className={`font-semibold ${isReaderBgDark ? 'text-white' : 'text-zinc-900'}`}>Chương {chItem.nav.next.number}</span>
-                      </p>
-                    ) : (
-                      <p className="text-xs text-zinc-555">Bạn đã đọc đến chương mới nhất của bộ truyện!</p>
-                    )}
-                  </div>
-
-                  {/* Comments for this chapter */}
-                  <div className="mt-8">
-                    <CommentSection
-                      comments={chItem.comments}
-                      totalCount={chItem.commentTotal}
-                      title={`Bình luận Chương ${chItem.chapter.number}`}
-                      currentUser={user ? { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl } : null}
-                      onSubmitComment={(content) => postComment(chItem.chapter.id, content)}
-                      onSubmitReply={(parentId, content) => postComment(chItem.chapter.id, content, parentId)}
-                      onDeleteComment={(commentId, parentId) => deleteComment(commentId, chItem.chapter.id, parentId)}
-                      hasNext={chItem.commentHasNext}
-                      isLoadingMore={chItem.loadingMoreComments}
-                      onLoadMore={() => loadMoreComments(chItem.chapter.id)}
-                      isSubmitting={submittingComment}
-                      isReaderBgDark={isReaderBgDark}
-                      accentColor="amber"
-                    />
-                  </div>
-
-                  {idx < loadedChapters.length - 1 && (
-                    <div className="my-12 h-px w-full bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
-                  )}
-                </div>
-              ))}
-
-              {/* Loading Indicator for Next Chapter */}
-              {loadingNextChapter && (
-                <div className={`my-8 flex items-center justify-center gap-3 py-6 text-sm ${isReaderBgDark ? 'text-amber-300' : 'text-amber-600'}`}>
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" />
-                  <span>Đang tải chương tiếp theo...</span>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* Page Mode (Single Page Step-by-Step) */
-            <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center p-4">
-              {activeChapter.pages[currentPage] && (
-                <>
-                  <img
-                    src={activeChapter.pages[currentPage].imageUrl}
-                    alt={`Trang ${currentPage + 1}`}
-                    className="max-h-[85vh] w-auto object-contain"
-                  />
-                  <div className="mt-4 flex items-center gap-4">
-                    <button
-                      onClick={() => setCurrentPage((p) => Math.max(p - 1, 0))}
-                      disabled={currentPage === 0}
-                      className={`rounded-lg border px-4 py-2 text-sm disabled:opacity-30 ${isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-400' : 'border-zinc-200 bg-white text-zinc-600'
-                        }`}
-                    >
-                      ← Trang trước
-                    </button>
-                    <span className={`text-sm ${isReaderBgDark ? 'text-zinc-500' : 'text-zinc-650'}`}>
-                      {currentPage + 1} / {activeChapter.pages.length}
-                    </span>
-                    <button
-                      onClick={() => setCurrentPage((p) => Math.min(p + 1, activeChapter.pages.length - 1))}
-                      disabled={currentPage === activeChapter.pages.length - 1}
-                      className={`rounded-lg border px-4 py-2 text-sm disabled:opacity-30 ${isReaderBgDark ? 'border-white/10 bg-white/5 text-zinc-400' : 'border-zinc-200 bg-white text-zinc-600'
-                        }`}
-                    >
-                      Trang sau →
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Navigation Footer */}
-        <div className={`border-t backdrop-blur-xl mt-4 ${isReaderBgDark ? 'border-white/10 bg-black/90 text-white' : 'border-zinc-200 bg-white/95 text-zinc-900 shadow-sm'
-          }`}>
-          <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-            {activeItem?.nav?.prev ? (
-              <Link
-                href={`/read/${activeItem.nav.prev.id}`}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm transition-colors ${isReaderBgDark ? 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900'
-                  }`}
-              >
-                ← Ch.{activeItem.nav.prev.number}
-              </Link>
-            ) : <div />}
-
-            <button
-              onClick={handleOpenChapterList}
-              className={`rounded-lg border px-4 py-2 text-sm transition-colors ${isReaderBgDark ? 'border-white/10 text-zinc-400 hover:text-white' : 'border-zinc-200 text-zinc-650 hover:text-zinc-900'
-                }`}
-            >
-              Danh sách chương
-            </button>
-
-            {lastItem?.nav?.next ? (
-              <Link
-                href={`/read/${lastItem.nav.next.id}`}
-                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30 px-4 py-2 text-sm font-medium text-white transition-all"
-              >
-                Ch.{lastItem.nav.next.number} →
-              </Link>
-            ) : <div />}
-          </div>
-        </div>
-      </div>
-
-      {/* Chapter List Modal */}
-      <div
-        className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-md transition-all duration-300 ${showChapterList ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-          }`}
-        onClick={() => setShowChapterList(false)}
-      >
+      {/* Floating Auto-Scroll Quick Control Pill */}
+      {settings.autoScrollSpeed > 0 && settings.mode === 'scroll' && !activeChapter.isLocked && (
         <div
+          data-autoscroll-control
           onClick={(e) => e.stopPropagation()}
-          className={`mx-4 flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 shadow-2xl transition-all duration-300 ${showChapterList ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
+          className={`fixed right-3 z-40 flex items-center gap-1 rounded-full border ${themeCfg.border} ${themeCfg.bar} px-2 py-1.5 text-xs font-bold shadow-xl backdrop-blur-xl transition-all duration-300 ${showBars ? 'bottom-16' : 'bottom-4'
             }`}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 px-5 py-4">
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white">📋 Danh sách chương</h3>
-            <button onClick={() => setShowChapterList(false)} className="text-zinc-500 hover:text-zinc-800 dark:hover:text-white text-xl leading-none">&times;</button>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const nextSpeed = settings.autoScrollSpeed >= 4 ? 1 : settings.autoScrollSpeed + 1;
+              settings.update({ autoScrollSpeed: nextSpeed });
+            }}
+            className="rounded-full bg-current/10 px-2.5 py-1 hover:bg-current/20 cursor-pointer"
+            title="Đổi tốc độ tự động cuộn"
+          >
+            {settings.autoScrollSpeed}x
+          </button>
+          <button
+            type="button"
+            onClick={() => settings.update({ autoScrollSpeed: 0 })}
+            className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-warm)] px-2.5 py-1 text-white hover:bg-[var(--accent-warm-hover)] cursor-pointer"
+            title="Tạm dừng cuộn"
+          >
+            <Pause className="h-3 w-3" />
+            <span>Dừng</span>
+          </button>
+        </div>
+      )}
 
-          {/* Search */}
-          <div className="border-b border-zinc-200 dark:border-white/10 px-5 py-3">
-            <input
-              value={chapterSearch}
-              onChange={(e) => {
-                setChapterSearch(e.target.value);
-                const num = e.target.value.trim();
-                if (num && chapterGridRef.current) {
-                  const el = chapterGridRef.current.querySelector(`[data-ch="${num}"]`);
-                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-              }}
-              placeholder="Nhập số chương để tìm..."
-              className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-2.5 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none focus:border-amber-500/50"
-            />
-          </div>
+      {/* Bottom Floating Navigation Bar */}
+      <footer
+        className={`fixed bottom-0 inset-x-0 z-50 border-t ${themeCfg.bar} ${themeCfg.border} backdrop-blur-xl transition-transform duration-300 ${showBars ? 'translate-y-0' : 'translate-y-full'
+          }`}
+      >
+        <div className="mx-auto flex h-13 max-w-5xl items-center justify-between px-4 text-xs sm:text-sm font-semibold">
+          {activeChapter.navigation.prev ? (
+            <Link
+              href={`/read/${activeChapter.navigation.prev.id}`}
+              className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 hover:bg-current/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span>Ch.{activeChapter.navigation.prev.number}</span>
+            </Link>
+          ) : (
+            <div />
+          )}
 
-          {/* Chapter Grid */}
-          <div ref={chapterGridRef} className="flex-1 overflow-y-auto p-5">
-            {allChapters.length === 0 ? (
-              <div className="flex justify-center py-8"><div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-500/30 border-t-amber-500" /></div>
-            ) : (
-              <div className="grid grid-cols-5 gap-2 sm:grid-cols-6 md:grid-cols-8">
-                {allChapters.map((ch) => {
-                  const isCurrent = ch.id === activeChapterId;
-                  const matchSearch = chapterSearch && ch.number.toString() === chapterSearch.trim();
+          <button
+            type="button"
+            onClick={openChapterList}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-current/15 px-3.5 py-1.5 hover:bg-current/10 cursor-pointer"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            <span>Mục lục · Ch.{activeChapter.number}</span>
+          </button>
+
+          {lastBlock?.detail.navigation.next ? (
+            <Link
+              href={`/read/${lastBlock.detail.navigation.next.id}`}
+              className="inline-flex items-center gap-1 rounded-xl bg-[var(--accent-warm)] px-3.5 py-1.5 text-white hover:bg-[var(--accent-warm-hover)]"
+            >
+              <span>Ch.{lastBlock.detail.navigation.next.number}</span>
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          ) : (
+            <div />
+          )}
+        </div>
+      </footer>
+
+      {/* Settings Drawer Modal */}
+      {showSettings && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5 text-[var(--text-primary)] shadow-2xl space-y-5"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
+              <h3 className="text-base font-bold">Cài đặt trình đọc</h3>
+              <button
+                type="button"
+                onClick={() => setShowSettings(false)}
+                className="rounded-lg p-1 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Mode */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                Chế độ đọc
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    { value: 'scroll', label: 'Cuộn dọc', icon: ScrollText },
+                    { value: 'page', label: 'Từng trang', icon: Layers },
+                    { value: 'double', label: 'Trang đôi', icon: Columns2 },
+                  ] as const
+                ).map((m) => {
+                  const Icon = m.icon;
+                  const active = settings.mode === m.value;
                   return (
-                    <Link
-                      key={ch.id}
-                      href={`/read/${ch.id}`}
-                      data-ch={ch.number}
-                      onClick={() => setShowChapterList(false)}
-                      className={`flex items-center justify-center rounded-lg border px-2 py-3 text-sm font-medium transition-all ${isCurrent
-                        ? 'border-amber-500 bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                        : matchSearch
-                          ? 'border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-300'
-                          : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-600 dark:text-zinc-400 hover:border-amber-500/30 hover:text-amber-600 dark:hover:text-white'
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => settings.update({ mode: m.value as ReaderMode })}
+                      className={`flex flex-col items-center gap-1 rounded-xl border p-2.5 text-xs font-semibold cursor-pointer ${active
+                        ? 'border-[var(--accent-primary)] bg-[var(--accent-primary-soft)] text-[var(--accent-primary)]'
+                        : 'border-[var(--border-subtle)] text-[var(--text-secondary)]'
                         }`}
-                      title={ch.title ? `Ch.${ch.number}: ${ch.title}` : `Chương ${ch.number}`}
                     >
-                      {ch.number}
-                    </Link>
+                      <Icon className="h-4 w-4" />
+                      <span>{m.label}</span>
+                    </button>
                   );
                 })}
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Settings Modal */}
-      <div
-        className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-md transition-all duration-300 ${showSettings ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-          }`}
-        onClick={() => setShowSettings(false)}
-      >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className={`mx-4 flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 shadow-2xl transition-all duration-300 ${showSettings ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'
-            }`}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 px-5 py-4">
-            <div className="flex items-center gap-2.5">
-              <i className="fa-regular fa-gear text-base text-amber-500 dark:text-amber-400" />
-              <h3 className="text-base font-semibold text-zinc-900 dark:text-white">Cài đặt trình đọc</h3>
-            </div>
-            <button
-              onClick={() => setShowSettings(false)}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-xl leading-none text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-zinc-800 dark:hover:text-white"
-            >
-              &times;
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="space-y-6 overflow-y-auto p-5 text-sm text-zinc-700 dark:text-zinc-300">
-            {/* Tự động tải chương tiếp theo */}
-            <div>
-              <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                Cuộn đọc vô tận
-              </label>
-              <button
-                onClick={() => setAutoLoadNext(!autoLoadNext)}
-                className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 font-medium transition-all ${autoLoadNext
-                  ? 'border-amber-500 bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                  : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20'
-                  }`}
-              >
-                <div className="flex items-center gap-2 text-xs font-semibold">
-                  <span>⚡ Tự động tải chương tiếp theo</span>
-                </div>
-                <div className={`h-5 w-9 rounded-full p-0.5 transition-colors ${autoLoadNext ? 'bg-amber-500' : 'bg-zinc-300 dark:bg-zinc-700'}`}>
-                  <div className={`h-4 w-4 rounded-full bg-white transition-transform ${autoLoadNext ? 'translate-x-4' : 'translate-x-0'}`} />
-                </div>
-              </button>
             </div>
 
-            {/* Giao diện Dark / Light */}
-            <div>
-              <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                Giao diện (Theme)
+            {/* Theme */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                Màu nền trình đọc
               </label>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    setBgColor('bg-black');
-                    document.documentElement.classList.add('dark');
-                  }}
-                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all ${isReaderBgDark
-                    ? 'border-amber-500 bg-amber-500/15 text-amber-600 dark:text-amber-300'
-                    : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-800 dark:hover:text-white'
-                    }`}
-                >
-                  🌙 Chế độ Tối (Dark)
-                </button>
-                <button
-                  onClick={() => {
-                    setBgColor('bg-white');
-                    document.documentElement.classList.remove('dark');
-                  }}
-                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all ${!isReaderBgDark
-                    ? 'border-amber-500 bg-amber-500/15 text-amber-600 dark:text-amber-300'
-                    : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-800 dark:hover:text-white'
-                    }`}
-                >
-                  ☀️ Chế độ Sáng (Light)
-                </button>
-              </div>
-            </div>
-
-            {/* Chế độ đọc */}
-            <div>
-              <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                Chế độ hiển thị
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setReadMode('scroll')}
-                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all ${readMode === 'scroll'
-                    ? 'border-amber-500 bg-amber-500/15 text-amber-600 dark:text-amber-300'
-                    : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-800 dark:hover:text-white'
-                    }`}
-                >
-                  📜 Cuộn liên tục
-                </button>
-                <button
-                  onClick={() => setReadMode('page')}
-                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 font-medium transition-all ${readMode === 'page'
-                    ? 'border-amber-500 bg-amber-500/15 text-amber-600 dark:text-amber-300'
-                    : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-800 dark:hover:text-white'
-                    }`}
-                >
-                  📄 Theo từng trang
-                </button>
-              </div>
-            </div>
-
-            {/* Chiều rộng khung đọc */}
-            <div>
-              <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-555 dark:text-zinc-400">
-                Chiều rộng khung đọc
-              </label>
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                {[
-                  { label: 'Nhỏ', value: 'max-w-xl' },
-                  { label: 'Vừa', value: 'max-w-2xl' },
-                  { label: 'Chuẩn', value: 'max-w-3xl' },
-                  { label: 'Rộng', value: 'max-w-4xl' },
-                  { label: 'Toàn màn', value: 'max-w-full' },
-                ].map((item) => (
+                {(Object.keys(THEME_STYLES) as ReaderTheme[]).map((t) => (
                   <button
-                    key={item.value}
-                    onClick={() => setReaderWidth(item.value as any)}
-                    className={`rounded-xl border py-2 text-xs font-medium transition-all ${readerWidth === item.value
-                      ? 'border-amber-500 bg-amber-500/15 text-amber-600 dark:text-amber-300'
-                      : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-800 dark:hover:text-white'
+                    key={t}
+                    type="button"
+                    onClick={() => settings.update({ theme: t })}
+                    className={`rounded-xl border px-3 py-2 text-xs font-semibold cursor-pointer ${settings.theme === t
+                      ? 'border-[var(--accent-primary)] bg-[var(--accent-primary-soft)] text-[var(--accent-primary)]'
+                      : 'border-[var(--border-subtle)] text-[var(--text-secondary)]'
                       }`}
                   >
-                    {item.label}
+                    {THEME_STYLES[t].label}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Khoảng cách trang (chế độ cuộn) */}
-            {readMode === 'scroll' && (
+            {/* Width */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                Độ rộng khung tranh
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {(
+                  [
+                    { k: 'narrow', l: 'Gọn' },
+                    { k: 'medium', l: 'Chuẩn' },
+                    { k: 'wide', l: 'Rộng' },
+                    { k: 'full', l: 'Toàn màn' },
+                  ] as const
+                ).map((w) => (
+                  <button
+                    key={w.k}
+                    type="button"
+                    onClick={() => settings.update({ width: w.k })}
+                    className={`rounded-xl border py-2 text-xs font-semibold cursor-pointer ${settings.width === w.k
+                      ? 'border-[var(--accent-primary)] bg-[var(--accent-primary-soft)] text-[var(--accent-primary)]'
+                      : 'border-[var(--border-subtle)] text-[var(--text-secondary)]'
+                      }`}
+                  >
+                    {w.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Brightness & Warmth */}
+            <div className="space-y-3">
               <div>
-                <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-555 dark:text-zinc-400">
-                  Khoảng cách giữa các trang
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { label: 'Không', value: 'gap-0' },
-                    { label: 'Nhỏ', value: 'gap-2' },
-                    { label: 'Vừa', value: 'gap-4' },
-                    { label: 'Lớn', value: 'gap-6' },
-                  ].map((item) => (
+                <div className="mb-1 flex justify-between text-xs">
+                  <span className="inline-flex items-center gap-1 font-medium">
+                    <Sun className="h-3.5 w-3.5" /> Độ sáng
+                  </span>
+                  <span>{settings.brightness}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={55}
+                  max={115}
+                  value={settings.brightness}
+                  onChange={(e) => settings.update({ brightness: Number(e.target.value) })}
+                  className="w-full accent-[var(--accent-primary)]"
+                />
+              </div>
+              <div>
+                <div className="mb-1 flex justify-between text-xs">
+                  <span className="font-medium">Lọc ánh sáng ấm (chống mỏi mắt)</span>
+                  <span>{settings.warmth}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={45}
+                  value={settings.warmth}
+                  onChange={(e) => settings.update({ warmth: Number(e.target.value) })}
+                  className="w-full accent-[var(--accent-warm)]"
+                />
+              </div>
+            </div>
+
+            {/* Auto-scroll speed */}
+            {settings.mode === 'scroll' && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold">Tốc độ tự động cuộn</span>
+                <div className="flex gap-1">
+                  {[0, 1, 2, 3, 4].map((sp) => (
                     <button
-                      key={item.value}
-                      onClick={() => setPageGap(item.value)}
-                      className={`rounded-xl border py-2 text-xs font-medium transition-all ${pageGap === item.value
-                        ? 'border-amber-500 bg-amber-500/15 text-amber-600 dark:text-amber-300'
-                        : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-800 dark:hover:text-white'
+                      key={sp}
+                      type="button"
+                      onClick={() => settings.update({ autoScrollSpeed: sp })}
+                      className={`h-7 min-w-8 rounded-lg px-2 text-xs font-bold cursor-pointer ${settings.autoScrollSpeed === sp
+                        ? 'bg-[var(--accent-warm)] text-white'
+                        : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)]'
                         }`}
                     >
-                      {item.label}
+                      {sp === 0 ? 'Tắt' : `${sp}x`}
                     </button>
                   ))}
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
 
-            {/* Màu nền */}
-            <div>
-              <label className="mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-555 dark:text-zinc-400">
-                Màu nền trình đọc
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { label: 'Trắng tinh', value: 'bg-white' },
-                  { label: 'Xám sáng', value: 'bg-zinc-100' },
-                  { label: 'Màu kem', value: 'bg-[#f4ebd0]' },
-                  { label: 'Đen tuyền', value: 'bg-black' },
-                  { label: 'Đen xám', value: 'bg-zinc-950' },
-                  { label: 'Xám tối', value: 'bg-zinc-900' },
-                ].map((item) => (
-                  <button
-                    key={item.value}
-                    onClick={() => setBgColor(item.value)}
-                    className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-medium transition-all ${bgColor === item.value
-                      ? 'border-amber-500 bg-amber-500/15 text-amber-600 dark:text-amber-300'
-                      : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-800 dark:hover:text-white'
+      {/* Chapter List Drawer */}
+      {showChapterDrawer && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          onClick={() => setShowChapterDrawer(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-h-[82vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-3.5">
+              <h3 className="text-base font-bold">Mục lục chương</h3>
+              <button
+                type="button"
+                onClick={() => setShowChapterDrawer(false)}
+                className="rounded-lg p-1 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="border-b border-[var(--border-subtle)] px-5 py-3">
+              <input
+                value={chapterFilter}
+                onChange={(e) => setChapterFilter(e.target.value)}
+                placeholder="Tìm số chương..."
+                className="h-9 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 text-sm"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto divide-y divide-[var(--border-subtle)]">
+              {allChapters
+                .filter((ch) => !chapterFilter.trim() || String(ch.number).includes(chapterFilter.trim()))
+                .map((ch) => (
+                  <Link
+                    key={ch.id}
+                    href={`/read/${ch.id}`}
+                    onClick={() => setShowChapterDrawer(false)}
+                    className={`flex items-center justify-between px-5 py-3 text-sm transition-colors hover:bg-[var(--bg-subtle)] ${ch.id === activeId ? 'bg-[var(--accent-primary-soft)] font-bold text-[var(--accent-primary)]' : ''
                       }`}
                   >
-                    <span className={`h-3 w-3 rounded-full border border-black/10 dark:border-white/20 ${item.value}`} />
-                    {item.label}
-                  </button>
+                    <span className="truncate">
+                      Chương {ch.number}
+                      {ch.title ? ` — ${ch.title}` : ''}
+                    </span>
+                    {ch.isPremium && ch.priceCoins > 0 && (
+                      ch.isUnlocked ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--success)] shrink-0">
+                          <Unlock className="h-3 w-3" /> Đã mở
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-[var(--accent-warm)] shrink-0">
+                          <Lock className="h-3 w-3" /> {ch.priceCoins} Xu
+                        </span>
+                      )
+                    )}
+                  </Link>
                 ))}
-              </div>
             </div>
           </div>
         </div>
-      </div>
-    </>
+      )}
+
+      {/* Chapter Comments Modal */}
+      {showCommentsModal && activeBlock && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          onClick={() => setShowCommentsModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] text-[var(--text-primary)] shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-5 py-3.5">
+              <h3 className="text-base font-bold">Bình luận Chương {activeBlock.detail.number}</h3>
+              <button
+                type="button"
+                onClick={() => setShowCommentsModal(false)}
+                className="rounded-lg p-1 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              {activeBlock.detail.isLocked ? (
+                <div className="py-10 text-center text-sm text-[var(--text-secondary)]">
+                  Vui lòng mở khóa chương này để xem và tham gia bình luận.
+                </div>
+              ) : (
+                <CommentSection
+                  title={`Bình luận Chương ${activeBlock.detail.number}`}
+                  comments={activeBlock.comments}
+                  totalCount={activeBlock.commentTotal}
+                  currentUserId={user?.id}
+                  currentUserRole={user?.role}
+                  comicAuthorId={activeBlock.detail.comic.authorId}
+                  isSubmitting={submittingComment}
+                  hasNext={activeBlock.commentHasNext}
+                  isLoadingMore={loadingMoreComments}
+                  onSubmitComment={(c, sp) => handleChapterCommentSubmit(activeBlock.detail.id, c, sp)}
+                  onSubmitReply={(pid, c, sp) => handleChapterCommentSubmit(activeBlock.detail.id, c, sp, pid)}
+                  onToggleLike={(cid) => handleChapterCommentLike(activeBlock.detail.id, cid)}
+                  onEditComment={(cid, c) => handleChapterCommentEdit(activeBlock.detail.id, cid, c)}
+                  onDeleteComment={(cid, pid) => handleChapterCommentDelete(activeBlock.detail.id, cid, pid)}
+                  onPinComment={(cid, pinned) => handleChapterCommentPin(activeBlock.detail.id, cid, pinned)}
+                  onLoadMore={() => handleChapterCommentLoadMore(activeBlock.detail.id)}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reportChapterTarget && (
+        <ReportModal
+          open={!!reportChapterTarget}
+          onClose={() => setReportChapterTarget(null)}
+          targetType={ReportTargetType.CHAPTER}
+          targetId={reportChapterTarget.id}
+          targetLabel={reportChapterTarget.label}
+        />
+      )}
+    </div>
   );
 }
-

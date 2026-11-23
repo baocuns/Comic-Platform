@@ -1,215 +1,281 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  ApprovalStatus,
+  ModerationTargetType,
+  NewsCategory,
+  NotificationType,
+  Prisma,
+  UserRole,
+} from '@prisma/client';
+import slugify from 'slugify';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateNewsDto, UpdateNewsDto, NewsQueryDto } from './dto/news.dto';
-import { UserRole, ApprovalStatus, ModerationTargetType, NotificationType } from '@prisma/client';
+import { RedisService } from '../redis/redis.service';
 import { ModerationService } from '../moderation/moderation.service';
 import { NotificationService } from '../notification/notification.service';
+import { CreateNewsCommentDto, CreateNewsDto, NewsQueryDto, UpdateNewsDto } from './dto/news.dto';
+
+const RESERVED_NEWS_SLUGS = new Set(['create', 'new', 'manage', 'edit', 'studio']);
 
 @Injectable()
 export class NewsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
     private readonly moderationService: ModerationService,
     private readonly notificationService: NotificationService,
   ) {}
 
-  private generateSlug(title: string): string {
-    return title
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/đ/g, 'd')
-      .replace(/Đ/g, 'D')
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .trim();
+  private readonly authorSelect = {
+    id: true,
+    username: true,
+    displayName: true,
+    avatarUrl: true,
+    level: true,
+    role: true,
+  };
+
+  private readonly publicListSelect = {
+    id: true,
+    authorId: true,
+    title: true,
+    slug: true,
+    excerpt: true,
+    coverUrl: true,
+    category: true,
+    tags: true,
+    readTimeMinutes: true,
+    viewCount: true,
+    likesCount: true,
+    commentsCount: true,
+    isPinned: true,
+    isPublished: true,
+    approvalStatus: true,
+    publishedAt: true,
+    createdAt: true,
+    updatedAt: true,
+    author: { select: this.authorSelect },
+  };
+
+  private computeReadTime(content: string): number {
+    const words = content.trim().split(/\s+/).filter(Boolean).length;
+    return Math.max(1, Math.ceil(words / 200));
   }
 
-  private async ensureUniqueSlug(slug: string, excludeArticleId?: string): Promise<string> {
-    let uniqueSlug = slug;
-    let counter = 0;
+  private async ensureUniqueSlug(title: string, excludeId?: string): Promise<string> {
+    const base = slugify(title, { lower: true, strict: true, locale: 'vi' }) || 'tin-tuc';
+    let counter = 1;
+    let slug = RESERVED_NEWS_SLUGS.has(base) ? `${base}-${counter++}` : base;
     while (true) {
-      const existing = await this.prisma.newsArticle.findUnique({ where: { slug: uniqueSlug } });
-      if (!existing || (excludeArticleId && existing.id === excludeArticleId)) {
-        return uniqueSlug;
+      if (!RESERVED_NEWS_SLUGS.has(slug)) {
+        const existing = await this.prisma.newsArticle.findUnique({ where: { slug } });
+        if (!existing || (excludeId && existing.id === excludeId)) {
+          return slug;
+        }
       }
-      counter++;
-      uniqueSlug = `${slug}-${counter}`;
+      slug = `${base}-${counter++}`;
     }
   }
 
   async create(userId: string, dto: CreateNewsDto) {
-    const slug = await this.ensureUniqueSlug(this.generateSlug(dto.title));
-    const requestedPublish = dto.isPublished !== undefined ? dto.isPublished : false;
-
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { isVerified: true, isTrusted: true, role: true },
     });
-    const isAutoApproved =
-      (user?.isTrusted === true && user?.isVerified === true) ||
-      user?.role === UserRole.ADMIN ||
-      user?.role === UserRole.MODERATOR;
+    const isStaff = user?.role === UserRole.ADMIN || user?.role === UserRole.MODERATOR;
+
+    if ((dto.isPinned || dto.category === NewsCategory.FEATURED) && !isStaff) {
+      throw new ForbiddenException('Chỉ quản trị viên hoặc kiểm duyệt viên mới có thể ghim hoặc gắn nhãn Nổi bật');
+    }
+
+    const slug = await this.ensureUniqueSlug(dto.title);
+    const isAutoApproved = (user?.isTrusted === true && user?.isVerified === true) || isStaff;
 
     let approvalStatus: ApprovalStatus = ApprovalStatus.DRAFT;
     let isPublished = false;
-
-    if (requestedPublish) {
-      if (isAutoApproved) {
-        approvalStatus = ApprovalStatus.APPROVED;
-        isPublished = true;
-      } else {
-        approvalStatus = ApprovalStatus.PENDING_APPROVAL;
-        isPublished = false;
-      }
+    if (dto.isPublished) {
+      approvalStatus = isAutoApproved ? ApprovalStatus.APPROVED : ApprovalStatus.PENDING_APPROVAL;
+      isPublished = isAutoApproved;
     }
 
-    const article = await this.prisma.newsArticle.create({
+    return this.prisma.newsArticle.create({
       data: {
         authorId: userId,
-        title: dto.title,
+        title: dto.title.trim(),
         slug,
-        excerpt: dto.excerpt,
+        excerpt: dto.excerpt?.trim() || null,
         content: dto.content,
-        coverUrl: dto.coverUrl,
+        coverUrl: dto.coverUrl || null,
         category: dto.category,
         tags: dto.tags || [],
-        isPinned: dto.isPinned || false,
+        readTimeMinutes: this.computeReadTime(dto.content),
+        isPinned: isStaff ? Boolean(dto.isPinned) : false,
         approvalStatus,
         isPublished,
         publishedAt: isPublished ? new Date() : null,
       },
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-      },
+      include: { author: { select: this.authorSelect } },
     });
-
-    return article;
   }
 
-  private async checkOwnershipOrAdmin(articleAuthorId: string, userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    if (!user) throw new ForbiddenException('User not found');
-    if (user.role === UserRole.ADMIN || user.role === UserRole.MODERATOR) return;
-    if (articleAuthorId !== userId) {
-      throw new ForbiddenException('You do not have permission to modify this article');
-    }
-  }
-
-  async findById(id: string, userId: string) {
+  async findByIdForStudio(id: string, userId: string, role: UserRole) {
     const article = await this.prisma.newsArticle.findUnique({
       where: { id },
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-      },
+      include: { author: { select: this.authorSelect } },
     });
-    if (!article || article.deletedAt) throw new NotFoundException('Article not found');
-    await this.checkOwnershipOrAdmin(article.authorId, userId);
+    if (!article || article.deletedAt) throw new NotFoundException('Không tìm thấy bài viết');
+    if (article.authorId !== userId && role !== UserRole.ADMIN && role !== UserRole.MODERATOR) {
+      throw new ForbiddenException('Bạn không có quyền xem bài viết này');
+    }
     return article;
   }
 
-  async update(id: string, userId: string, dto: UpdateNewsDto) {
+  async update(id: string, userId: string, role: UserRole, dto: UpdateNewsDto) {
     const article = await this.prisma.newsArticle.findUnique({ where: { id } });
-    if (!article) throw new NotFoundException('Article not found');
-    await this.checkOwnershipOrAdmin(article.authorId, userId);
+    if (!article || article.deletedAt) throw new NotFoundException('Không tìm thấy bài viết');
+    if (article.authorId !== userId && role !== UserRole.ADMIN && role !== UserRole.MODERATOR) {
+      throw new ForbiddenException('Bạn không có quyền chỉnh sửa bài viết này');
+    }
+
+    const isStaff = role === UserRole.ADMIN || role === UserRole.MODERATOR;
+    if (
+      (dto.isPinned === true ||
+        (dto.isPinned !== undefined && dto.isPinned !== article.isPinned) ||
+        dto.category === NewsCategory.FEATURED) &&
+      !isStaff
+    ) {
+      throw new ForbiddenException('Chỉ quản trị viên hoặc kiểm duyệt viên mới có thể ghim hoặc gắn nhãn Nổi bật');
+    }
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { isVerified: true, isTrusted: true, role: true },
     });
-    const isAutoApproved =
-      (user?.isTrusted === true && user?.isVerified === true) ||
-      user?.role === UserRole.ADMIN ||
-      user?.role === UserRole.MODERATOR;
+    const isAutoApproved = (user?.isTrusted === true && user?.isVerified === true) || isStaff;
 
-    const data: Record<string, unknown> = {};
-    if (dto.title !== undefined) {
-      data.title = dto.title;
-      data.slug = await this.ensureUniqueSlug(this.generateSlug(dto.title), id);
+    const data: Prisma.NewsArticleUpdateInput = {};
+    if (dto.title !== undefined && dto.title.trim() !== article.title) {
+      data.title = dto.title.trim();
+      data.slug = await this.ensureUniqueSlug(dto.title.trim(), id);
     }
-    if (dto.excerpt !== undefined) data.excerpt = dto.excerpt;
-    if (dto.content !== undefined) data.content = dto.content;
-    if (dto.coverUrl !== undefined) data.coverUrl = dto.coverUrl;
+    if (dto.excerpt !== undefined) data.excerpt = dto.excerpt || null;
+    if (dto.content !== undefined) {
+      data.content = dto.content;
+      data.readTimeMinutes = this.computeReadTime(dto.content);
+    }
+    if (dto.coverUrl !== undefined) data.coverUrl = dto.coverUrl || null;
     if (dto.category !== undefined) data.category = dto.category;
     if (dto.tags !== undefined) data.tags = dto.tags;
-    if (dto.isPinned !== undefined) data.isPinned = dto.isPinned;
+    if (dto.isPinned !== undefined && isStaff) data.isPinned = dto.isPinned;
+
+    let shouldLogStaffApprove = false;
     if (dto.isPublished !== undefined) {
       if (dto.isPublished) {
+        data.approvalStatus = isAutoApproved ? ApprovalStatus.APPROVED : ApprovalStatus.PENDING_APPROVAL;
+        data.isPublished = isAutoApproved;
         if (isAutoApproved) {
-          data.approvalStatus = ApprovalStatus.APPROVED;
-          data.isPublished = true;
           data.publishedAt = article.publishedAt || new Date();
-        } else {
-          data.approvalStatus = ApprovalStatus.PENDING_APPROVAL;
-          data.isPublished = false;
+          if (
+            isStaff &&
+            article.authorId !== userId &&
+            article.approvalStatus !== ApprovalStatus.APPROVED
+          ) {
+            shouldLogStaffApprove = true;
+          }
         }
       } else {
         data.isPublished = false;
       }
     }
 
-    return this.prisma.newsArticle.update({
-      where: { id },
-      data,
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-      },
+    const substantiveModified =
+      (dto.title !== undefined && dto.title.trim() !== article.title) ||
+      (dto.content !== undefined && dto.content !== article.content) ||
+      (dto.coverUrl !== undefined && (dto.coverUrl || null) !== article.coverUrl);
+
+    if (!isAutoApproved && article.approvalStatus === ApprovalStatus.APPROVED && substantiveModified) {
+      data.approvalStatus = ApprovalStatus.PENDING_APPROVAL;
+      data.isPublished = false;
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.newsArticle.update({
+        where: { id },
+        data,
+        include: { author: { select: this.authorSelect } },
+      });
+
+      if (shouldLogStaffApprove) {
+        await tx.moderationLog.create({
+          data: {
+            targetType: ModerationTargetType.NEWS,
+            targetId: id,
+            targetTitle: updated.title,
+            action: ApprovalStatus.APPROVED,
+            reason: 'Xuất bản trực tiếp từ trang chỉnh sửa',
+            moderatorId: userId,
+          },
+        });
+      }
+
+      return updated;
     });
   }
 
-  async submitReview(id: string, userId: string) {
-    return this.moderationService.submitForReview(userId, ModerationTargetType.NEWS, id);
-  }
-
-  async publish(id: string, userId: string) {
+  async publish(id: string, userId: string, role: UserRole) {
     const article = await this.prisma.newsArticle.findUnique({ where: { id } });
-    if (!article) throw new NotFoundException('Article not found');
-    await this.checkOwnershipOrAdmin(article.authorId, userId);
+    if (!article || article.deletedAt) throw new NotFoundException('Không tìm thấy bài viết');
+    if (article.authorId !== userId && role !== UserRole.ADMIN && role !== UserRole.MODERATOR) {
+      throw new ForbiddenException('Bạn không có quyền thao tác bài viết này');
+    }
 
     if (article.isPublished) {
       return this.prisma.newsArticle.update({
         where: { id },
         data: { isPublished: false },
-        include: {
-          author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-        },
+        include: { author: { select: this.authorSelect } },
       });
     }
 
     return this.moderationService.submitForReview(userId, ModerationTargetType.NEWS, id);
   }
 
-  async remove(id: string, userId: string) {
+  async remove(id: string, userId: string, role: UserRole) {
     const article = await this.prisma.newsArticle.findUnique({ where: { id } });
-    if (!article) throw new NotFoundException('Article not found');
-    await this.checkOwnershipOrAdmin(article.authorId, userId);
+    if (!article || article.deletedAt) throw new NotFoundException('Không tìm thấy bài viết');
+    if (article.authorId !== userId && role !== UserRole.ADMIN && role !== UserRole.MODERATOR) {
+      throw new ForbiddenException('Bạn không có quyền xóa bài viết này');
+    }
 
     await this.prisma.newsArticle.update({
       where: { id },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: new Date(), isPublished: false },
     });
+    return { deleted: true };
   }
 
   async findAll(query: NewsQueryDto) {
-    const page = Number(query.page) || 1;
-    const limit = Math.min(Number(query.limit) || 12, 50);
+    const page = Math.max(1, Math.floor(Number(query.page) || 1));
+    const limit = Math.min(Math.max(1, Math.floor(Number(query.limit) || 12)), 50);
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {
+    const where: Prisma.NewsArticleWhereInput = {
       isPublished: true,
       approvalStatus: ApprovalStatus.APPROVED,
       deletedAt: null,
+      ...(query.category && { category: query.category }),
+      ...(query.tag && { tags: { has: query.tag } }),
+      ...(query.search && {
+        OR: [
+          { title: { contains: query.search, mode: 'insensitive' } },
+          { excerpt: { contains: query.search, mode: 'insensitive' } },
+        ],
+      }),
     };
-
-    if (query.category) where.category = query.category;
-    if (query.tag) where.tags = { has: query.tag };
-    if (query.search) {
-      where.OR = [
-        { title: { contains: query.search, mode: 'insensitive' } },
-        { excerpt: { contains: query.search, mode: 'insensitive' } },
-      ];
-    }
 
     const [articles, total] = await Promise.all([
       this.prisma.newsArticle.findMany({
@@ -217,47 +283,42 @@ export class NewsService {
         orderBy: [{ isPinned: 'desc' }, { publishedAt: 'desc' }],
         skip,
         take: limit,
-        include: {
-          author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-        },
+        select: this.publicListSelect,
       }),
       this.prisma.newsArticle.count({ where }),
     ]);
 
     return {
       data: articles,
-      meta: { page, limit, total, totalPages: Math.ceil(total / limit), hasNext: skip + limit < total },
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: skip + limit < total,
+      },
     };
   }
 
-  async findStudioNews(query: NewsQueryDto, user: { sub: string; role: UserRole }) {
-    const page = Number(query.page) || 1;
-    const limit = Math.min(Number(query.limit) || 12, 50);
+  async findStudioNews(query: NewsQueryDto, userId: string, role: UserRole) {
+    const page = Math.max(1, Math.floor(Number(query.page) || 1));
+    const limit = Math.min(Math.max(1, Math.floor(Number(query.limit) || 12)), 50);
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {
+    const where: Prisma.NewsArticleWhereInput = {
       deletedAt: null,
+      ...(role === UserRole.AUTHOR && { authorId: userId }),
+      ...(query.status === 'published' && { isPublished: true }),
+      ...(query.status === 'draft' && { isPublished: false }),
+      ...(query.status === 'pinned' && { isPinned: true }),
+      ...(query.category && { category: query.category }),
+      ...(query.search && {
+        OR: [
+          { title: { contains: query.search, mode: 'insensitive' } },
+          { excerpt: { contains: query.search, mode: 'insensitive' } },
+        ],
+      }),
     };
-
-    // AUTHOR role only sees their own articles! MODERATOR/ADMIN can see all (or filter by authorId)
-    if (user.role === UserRole.AUTHOR) {
-      where.authorId = user.sub;
-    } else if (query.authorId) {
-      where.authorId = query.authorId;
-    }
-
-    if (query.status === 'published') where.isPublished = true;
-    else if (query.status === 'draft') where.isPublished = false;
-    else if (query.status === 'pinned') where.isPinned = true;
-
-    if (query.category) where.category = query.category;
-    if (query.tag) where.tags = { has: query.tag };
-    if (query.search) {
-      where.OR = [
-        { title: { contains: query.search, mode: 'insensitive' } },
-        { excerpt: { contains: query.search, mode: 'insensitive' } },
-      ];
-    }
 
     const [articles, total] = await Promise.all([
       this.prisma.newsArticle.findMany({
@@ -265,49 +326,87 @@ export class NewsService {
         orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
         skip,
         take: limit,
-        include: {
-          author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-        },
+        include: { author: { select: this.authorSelect } },
       }),
       this.prisma.newsArticle.count({ where }),
     ]);
 
     return {
       data: articles,
-      meta: { page, limit, total, totalPages: Math.ceil(total / limit), hasNext: skip + limit < total },
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: skip + limit < total,
+      },
     };
   }
 
-  async findBySlug(slug: string, userId?: string) {
-    const article = await this.prisma.newsArticle.findUnique({
-      where: { slug },
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-        _count: { select: { comments: true, likes: true } },
-      },
+  async findFeatured() {
+    const baseWhere: Prisma.NewsArticleWhereInput = {
+      isPublished: true,
+      approvalStatus: ApprovalStatus.APPROVED,
+      deletedAt: null,
+    };
+
+    const featured = await this.prisma.newsArticle.findFirst({
+      where: baseWhere,
+      orderBy: [{ isPinned: 'desc' }, { publishedAt: 'desc' }],
+      select: this.publicListSelect,
     });
 
-    if (!article || article.deletedAt) throw new NotFoundException('Article not found');
-    if (!article.isPublished || article.approvalStatus !== ApprovalStatus.APPROVED) {
-      let canAccess = false;
-      if (userId) {
+    const latest = await this.prisma.newsArticle.findMany({
+      where: {
+        ...baseWhere,
+        ...(featured && { id: { not: featured.id } }),
+      },
+      orderBy: { publishedAt: 'desc' },
+      take: 4,
+      select: this.publicListSelect,
+    });
+
+    return { featured, latest };
+  }
+
+  async findBySlug(slug: string, userId?: string, viewerIp?: string) {
+    const article = await this.prisma.newsArticle.findUnique({
+      where: { slug },
+      include: { author: { select: this.authorSelect } },
+    });
+    if (!article || article.deletedAt) throw new NotFoundException('Không tìm thấy bài viết');
+
+    const isPubliclyVisible = article.isPublished && article.approvalStatus === ApprovalStatus.APPROVED;
+    let isStaffOrAuthor = false;
+    if (userId) {
+      if (article.authorId === userId) isStaffOrAuthor = true;
+      else {
         const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-        if (user && (user.role === UserRole.ADMIN || user.role === UserRole.MODERATOR || article.authorId === userId)) {
-          canAccess = true;
+        if (user && (user.role === UserRole.ADMIN || user.role === UserRole.MODERATOR)) {
+          isStaffOrAuthor = true;
         }
-      }
-      if (!canAccess) {
-        throw new NotFoundException('Article not found');
       }
     }
 
-    // Increment view count
-    await this.prisma.newsArticle.update({
-      where: { id: article.id },
-      data: { viewCount: { increment: 1 } },
-    });
+    if (!isPubliclyVisible && !isStaffOrAuthor) {
+      throw new NotFoundException('Bài viết chưa được xuất bản');
+    }
 
-    // Check if user has liked this article
+    if (isPubliclyVisible) {
+      const viewerKey = userId || viewerIp || 'anon';
+      const throttleKey = `news:view:${article.id}:${viewerKey}`;
+      const alreadyViewed = await this.redis.exists(throttleKey);
+      if (!alreadyViewed) {
+        await this.redis.set(throttleKey, '1', 900);
+        await this.prisma.newsArticle
+          .update({
+            where: { id: article.id },
+            data: { viewCount: { increment: 1 } },
+          })
+          .catch(() => {});
+      }
+    }
+
     let isLiked = false;
     if (userId) {
       const like = await this.prisma.newsLike.findUnique({
@@ -316,39 +415,23 @@ export class NewsService {
       isLiked = !!like;
     }
 
-    return { ...article, isLiked };
-  }
-
-  async findFeatured() {
-    // Get pinned article or the latest one as the featured
-    const featured = await this.prisma.newsArticle.findFirst({
-      where: { isPublished: true, approvalStatus: ApprovalStatus.APPROVED, deletedAt: null },
-      orderBy: [{ isPinned: 'desc' }, { publishedAt: 'desc' }],
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-      },
-    });
-
-    // Get 4 latest articles excluding the featured
-    const latest = await this.prisma.newsArticle.findMany({
-      where: {
-        isPublished: true,
-        approvalStatus: ApprovalStatus.APPROVED,
-        deletedAt: null,
-        ...(featured ? { id: { not: featured.id } } : {}),
-      },
-      orderBy: { publishedAt: 'desc' },
-      take: 4,
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-      },
-    });
-
-    return { featured, latest };
+    const { rejectionReason, ...publicArticle } = article;
+    return {
+      ...(isStaffOrAuthor ? { ...publicArticle, rejectionReason } : publicArticle),
+      isLiked,
+    };
   }
 
   async findRelated(slug: string) {
-    const article = await this.prisma.newsArticle.findUnique({ where: { slug } });
+    const article = await this.prisma.newsArticle.findFirst({
+      where: {
+        slug,
+        isPublished: true,
+        approvalStatus: ApprovalStatus.APPROVED,
+        deletedAt: null,
+      },
+      select: { id: true, category: true },
+    });
     if (!article) return [];
 
     return this.prisma.newsArticle.findMany({
@@ -361,233 +444,207 @@ export class NewsService {
       },
       orderBy: { publishedAt: 'desc' },
       take: 3,
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-      },
+      select: this.publicListSelect,
     });
   }
 
-  // ── Comments ──
+  async toggleLike(userId: string, articleId: string) {
+    const article = await this.prisma.newsArticle.findFirst({
+      where: {
+        id: articleId,
+        deletedAt: null,
+        isPublished: true,
+        approvalStatus: ApprovalStatus.APPROVED,
+      },
+      select: { id: true, authorId: true, title: true, slug: true },
+    });
+    if (!article) throw new NotFoundException('Không tìm thấy bài viết');
+
+    const { liked, likesCount } = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM news_articles WHERE id = ${articleId}::uuid FOR UPDATE`;
+
+      const existing = await tx.newsLike.findUnique({
+        where: { userId_articleId: { userId, articleId } },
+      });
+
+      if (existing) {
+        await tx.newsLike.delete({ where: { id: existing.id } });
+      } else {
+        await tx.newsLike.create({ data: { userId, articleId } });
+      }
+
+      const count = await tx.newsLike.count({ where: { articleId } });
+      await tx.newsArticle.update({ where: { id: articleId }, data: { likesCount: count } });
+      return { liked: !existing, likesCount: count };
+    });
+
+    if (liked && article.authorId !== userId) {
+      const dedupeKey = `news:like-notif:${articleId}:${userId}`;
+      const alreadyNotified = await this.redis.exists(dedupeKey);
+      if (!alreadyNotified) {
+        await this.redis.set(dedupeKey, '1', 3600);
+        const liker = await this.prisma.user.findUnique({ where: { id: userId }, select: { displayName: true } });
+        this.notificationService
+          .createPersonal({
+            userId: article.authorId,
+            actorId: userId,
+            type: NotificationType.NEWS_LIKE,
+            title: `${liker?.displayName || 'Độc giả'} đã thích bài viết của bạn`,
+            content: article.title,
+            actionUrl: `/news/${article.slug}`,
+          })
+          .catch(() => {});
+      }
+    }
+
+    return { liked, likesCount };
+  }
 
   async getComments(articleId: string, page = 1, limit = 20) {
-    const skip = (page - 1) * limit;
+    const article = await this.prisma.newsArticle.findFirst({
+      where: {
+        id: articleId,
+        deletedAt: null,
+        isPublished: true,
+        approvalStatus: ApprovalStatus.APPROVED,
+      },
+      select: { id: true },
+    });
+    if (!article) throw new NotFoundException('Không tìm thấy bài viết');
+
+    const safePage = Math.max(1, Math.floor(Number(page) || 1));
+    const safeLimit = Math.min(Math.max(1, Math.floor(Number(limit) || 20)), 50);
+    const skip = (safePage - 1) * safeLimit;
     const [comments, total] = await Promise.all([
       this.prisma.newsComment.findMany({
         where: { articleId, parentId: null, deletedAt: null },
         orderBy: { createdAt: 'desc' },
         skip,
-        take: limit,
+        take: safeLimit,
         include: {
-          user: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
+          user: { select: this.authorSelect },
           replies: {
             where: { deletedAt: null },
             orderBy: { createdAt: 'asc' },
-            take: 3,
-            include: { user: { select: { id: true, displayName: true, avatarUrl: true, username: true } } },
+            take: 10,
+            include: { user: { select: this.authorSelect } },
           },
-          _count: { select: { replies: true } },
+          _count: { select: { replies: { where: { deletedAt: null } } } },
         },
       }),
       this.prisma.newsComment.count({ where: { articleId, parentId: null, deletedAt: null } }),
     ]);
 
-    return { data: comments, meta: { page, limit, total, hasNext: skip + limit < total } };
+    return {
+      data: comments,
+      meta: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages: Math.ceil(total / safeLimit),
+        hasNext: skip + safeLimit < total,
+      },
+    };
   }
 
-  async createComment(userId: string, articleId: string, content: string, parentId?: string) {
-    const article = await this.prisma.newsArticle.findUnique({ where: { id: articleId } });
-    if (!article || article.deletedAt) throw new NotFoundException('Article not found');
+  async createComment(userId: string, articleId: string, dto: CreateNewsCommentDto) {
+    const article = await this.prisma.newsArticle.findFirst({
+      where: {
+        id: articleId,
+        deletedAt: null,
+        isPublished: true,
+        approvalStatus: ApprovalStatus.APPROVED,
+      },
+      select: { id: true, authorId: true, title: true, slug: true },
+    });
+    if (!article) throw new NotFoundException('Không tìm thấy bài viết');
 
-    const comment = await this.prisma.newsComment.create({
-      data: { userId, articleId, content, parentId },
-      include: { user: { select: { id: true, displayName: true, avatarUrl: true, username: true } } },
+    const content = dto.content.trim();
+    if (!content) {
+      throw new BadRequestException('Nội dung bình luận không được để trống');
+    }
+
+    if (dto.parentId) {
+      const parent = await this.prisma.newsComment.findUnique({
+        where: { id: dto.parentId },
+        select: { id: true, articleId: true, parentId: true, deletedAt: true },
+      });
+      if (!parent || parent.deletedAt) {
+        throw new NotFoundException('Bình luận gốc không tồn tại hoặc đã bị xóa');
+      }
+      if (parent.articleId !== articleId) {
+        throw new BadRequestException('Bình luận trả lời không thuộc bài viết này');
+      }
+      if (parent.parentId !== null) {
+        throw new BadRequestException('Chỉ hỗ trợ trả lời tối đa 1 cấp');
+      }
+    }
+
+    const comment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.newsComment.create({
+        data: {
+          userId,
+          articleId,
+          content,
+          parentId: dto.parentId || null,
+        },
+        include: { user: { select: this.authorSelect } },
+      });
+
+      const commentsCount = await tx.newsComment.count({
+        where: { articleId, deletedAt: null },
+      });
+      await tx.newsArticle.update({ where: { id: articleId }, data: { commentsCount } });
+      return created;
     });
 
-    // Update comment count
-    await this.prisma.newsArticle.update({
-      where: { id: articleId },
-      data: { commentsCount: { increment: 1 } },
-    });
-
-    // Send real-time notification to the news article author if commenter is not the author
-    if (userId !== article.authorId) {
-      const commenterName = comment.user?.displayName || 'Một độc giả';
-      const snippet = content.length > 50 ? `${content.slice(0, 50)}...` : content;
+    if (article.authorId !== userId) {
       this.notificationService
         .createPersonal({
           userId: article.authorId,
+          actorId: userId,
           type: NotificationType.NEWS_COMMENT,
-          title: '💬 Bình luận mới trên tin tức',
-          content: `${commenterName} đã bình luận: "${snippet}" trên bài viết "${article.title}".`,
-          data: { articleId: article.id, slug: article.slug, commentId: comment.id, commenterId: userId },
+          title: `${comment.user.displayName} đã bình luận trên "${article.title}"`,
+          content: content
+            .replace(/!\[([^\]]*)\]\([^)]+\)/g, '[Sticker]')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 100),
+          actionUrl: `/news/${article.slug}`,
         })
         .catch(() => {});
     }
 
-    return comment;
+    return { ...comment, replies: [], _count: { replies: 0 } };
   }
 
-  async deleteComment(commentId: string, userId: string) {
+  async deleteComment(commentId: string, userId: string, role: UserRole) {
     const comment = await this.prisma.newsComment.findUnique({ where: { id: commentId } });
-    if (!comment) throw new NotFoundException('Comment not found');
-    if (comment.userId !== userId) throw new ForbiddenException('Not the author');
-
-    await this.prisma.newsComment.update({
-      where: { id: commentId },
-      data: { deletedAt: new Date() },
-    });
-  }
-
-  // ── Likes ──
-
-  async toggleLike(userId: string, articleId: string) {
-    const article = await this.prisma.newsArticle.findUnique({ where: { id: articleId } });
-    if (!article || article.deletedAt) throw new NotFoundException('Article not found');
-
-    const existing = await this.prisma.newsLike.findUnique({
-      where: { userId_articleId: { userId, articleId } },
-    });
-
-    if (existing) {
-      await this.prisma.newsLike.delete({ where: { id: existing.id } });
-      await this.prisma.newsArticle.update({
-        where: { id: articleId },
-        data: { likesCount: { decrement: 1 } },
-      });
-      return { liked: false };
-    } else {
-      await this.prisma.newsLike.create({ data: { userId, articleId } });
-      await this.prisma.newsArticle.update({
-        where: { id: articleId },
-        data: { likesCount: { increment: 1 } },
-      });
-
-      // Send real-time notification to the news article author if liker is not the author
-      if (userId !== article.authorId) {
-        const liker = await this.prisma.user.findUnique({ where: { id: userId }, select: { displayName: true } });
-        const likerName = liker?.displayName || 'Một độc giả';
-        this.notificationService
-          .createPersonal({
-            userId: article.authorId,
-            type: NotificationType.NEWS_LIKE,
-            title: '❤️ Lượt thích mới cho tin tức',
-            content: `${likerName} đã thích bài viết "${article.title}" của bạn.`,
-            data: { articleId: article.id, slug: article.slug, likerId: userId },
-          })
-          .catch(() => {});
-      }
-
-      return { liked: true };
+    if (!comment || comment.deletedAt) throw new NotFoundException('Không tìm thấy bình luận');
+    if (comment.userId !== userId && role !== UserRole.ADMIN && role !== UserRole.MODERATOR) {
+      throw new ForbiddenException('Bạn không có quyền xóa bình luận này');
     }
-  }
 
-  // ── Article Events & Stats ──
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.newsComment.update({
+        where: { id: commentId },
+        data: { deletedAt: now },
+      });
+      await tx.newsComment.updateMany({
+        where: { parentId: commentId, deletedAt: null },
+        data: { deletedAt: now },
+      });
 
-  async getArticleEvents(id: string, userId: string) {
-    const article = await this.prisma.newsArticle.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        title: true,
-        authorId: true,
-        viewCount: true,
-        likesCount: true,
-        commentsCount: true,
-        approvalStatus: true,
-        rejectionReason: true,
-        isPublished: true,
-        publishedAt: true,
-        createdAt: true,
-        deletedAt: true,
-      },
-    });
-    if (!article || article.deletedAt) throw new NotFoundException('Article not found');
-    await this.checkOwnershipOrAdmin(article.authorId, userId);
-
-    // Fetch recent likes
-    const likes = await this.prisma.newsLike.findMany({
-      where: { articleId: id },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      include: {
-        user: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-      },
+      const commentsCount = await tx.newsComment.count({
+        where: { articleId: comment.articleId, deletedAt: null },
+      });
+      await tx.newsArticle.update({
+        where: { id: comment.articleId },
+        data: { commentsCount },
+      });
     });
 
-    // Fetch recent comments
-    const comments = await this.prisma.newsComment.findMany({
-      where: { articleId: id, deletedAt: null },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      include: {
-        user: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-      },
-    });
-
-    // Fetch moderation logs
-    const logs = await this.prisma.moderationLog.findMany({
-      where: { targetType: ModerationTargetType.NEWS, targetId: id },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-      include: {
-        moderator: { select: { id: true, displayName: true, avatarUrl: true, username: true } },
-      },
-    });
-
-    // Combine into unified event timeline
-    const events: Array<{
-      id: string;
-      type: 'LIKE' | 'COMMENT' | 'MODERATION';
-      user?: { id: string; displayName: string; avatarUrl: string | null; username: string };
-      content?: string;
-      action?: string;
-      createdAt: Date;
-    }> = [];
-
-    likes.forEach((l) =>
-      events.push({
-        id: `like-${l.id}`,
-        type: 'LIKE',
-        user: l.user,
-        createdAt: l.createdAt,
-      }),
-    );
-
-    comments.forEach((c) =>
-      events.push({
-        id: `comment-${c.id}`,
-        type: 'COMMENT',
-        user: c.user,
-        content: c.content,
-        createdAt: c.createdAt,
-      }),
-    );
-
-    logs.forEach((log) =>
-      events.push({
-        id: `mod-${log.id}`,
-        type: 'MODERATION',
-        user: log.moderator,
-        action: log.action === ApprovalStatus.APPROVED ? 'Đã phê duyệt' : `Bị từ chối (Lý do: ${log.reason || 'Không có'})`,
-        content: log.reason || undefined,
-        createdAt: log.createdAt,
-      }),
-    );
-
-    events.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-    return {
-      stats: {
-        viewCount: article.viewCount,
-        likesCount: article.likesCount || likes.length,
-        commentsCount: article.commentsCount || comments.length,
-        approvalStatus: article.approvalStatus,
-        rejectionReason: article.rejectionReason,
-        isPublished: article.isPublished,
-        publishedAt: article.publishedAt,
-        createdAt: article.createdAt,
-      },
-      events: events.slice(0, 30),
-    };
+    return { deleted: true };
   }
 }

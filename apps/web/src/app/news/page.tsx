@@ -2,353 +2,183 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { Newspaper, Clock, Eye, Heart, Search } from 'lucide-react';
+import { NewsCategory, type NewsItem, type PaginationMeta } from 'shared';
 import { api } from '@/lib/api-client';
-
-interface NewsAuthor {
-  id: string;
-  displayName: string;
-  avatarUrl: string | null;
-  username: string;
-}
-
-interface NewsArticle {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string | null;
-  coverUrl: string | null;
-  category: string;
-  tags: string[];
-  isPinned: boolean;
-  viewCount: number;
-  likesCount: number;
-  commentsCount: number;
-  publishedAt: string;
-  author: NewsAuthor;
-}
-
-interface NewsResponse {
-  data: NewsArticle[];
-  meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean };
-}
-
-const CATEGORIES = [
-  { value: '', label: 'Tất cả' },
-  { value: 'ANNOUNCEMENT', label: '📢 Thông báo' },
-  { value: 'EVENT', label: '🎉 Sự kiện' },
-  { value: 'UPDATE', label: '🔄 Cập nhật' },
-  { value: 'COMMUNITY', label: '👥 Cộng đồng' },
-  { value: 'FEATURED', label: '⭐ Nổi bật' },
-];
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('vi-VN', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-function formatViews(count: number) {
-  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-  if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
-  return count.toString();
-}
-
-function getCategoryInfo(cat: string) {
-  const found = CATEGORIES.find((c) => c.value === cat);
-  return found || { value: cat, label: cat };
-}
+import { NEWS_CATEGORY_LABEL, formatDate } from '@/lib/format';
+import { Card } from '@/components/ui/card';
+import { Pagination } from '@/components/ui/pagination';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function NewsPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const currentCategory = searchParams.get('category') || '';
-  const currentPage = Number(searchParams.get('page')) || 1;
-
-  const [articles, setArticles] = useState<NewsArticle[]>([]);
-  const [featured, setFeatured] = useState<NewsArticle | null>(null);
-  const [meta, setMeta] = useState<NewsResponse['meta'] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [articles, setArticles] = useState<NewsItem[]>([]);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [category, setCategory] = useState<string>('');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
-    const params = new URLSearchParams();
-    if (currentCategory) params.set('category', currentCategory);
-    params.set('page', String(currentPage));
-    params.set('limit', '9');
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(page), limit: '12' });
+    if (category) params.set('category', category);
+    if (debouncedSearch) params.set('search', debouncedSearch);
 
     api
-      .get<{ data: NewsArticle[]; meta: NewsResponse['meta'] }>(`/news?${params}`)
-      .then((r) => {
-        setArticles(r.data);
-        setMeta(r.meta);
+      .get<{ data: NewsItem[]; meta: PaginationMeta }>(`/news?${params.toString()}`, {
+        signal: controller.signal,
       })
-      .catch(() => {})
-      .finally(() => setIsLoading(false));
-  }, [currentCategory, currentPage]);
+      .then((res) => {
+        if (!controller.signal.aborted) {
+          setArticles(res.data || []);
+          setMeta(res.meta || null);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setArticles([]);
+          setMeta(null);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
 
-  // Fetch featured for hero (only on first page with no category filter)
-  useEffect(() => {
-    if (currentPage === 1 && !currentCategory) {
-      api
-        .get<{ data: { featured: NewsArticle | null } }>('/news/featured')
-        .then((r) => setFeatured(r.data.featured))
-        .catch(() => {});
-    } else {
-      setFeatured(null);
-    }
-  }, [currentPage, currentCategory]);
-
-  const handleCategoryChange = (cat: string) => {
-    const params = new URLSearchParams();
-    if (cat) params.set('category', cat);
-    router.push(`/news${params.toString() ? `?${params}` : ''}`);
-  };
-
-  const handlePageChange = (page: number) => {
-    const params = new URLSearchParams();
-    if (currentCategory) params.set('category', currentCategory);
-    if (page > 1) params.set('page', String(page));
-    router.push(`/news${params.toString() ? `?${params}` : ''}`);
-  };
+    return () => controller.abort();
+  }, [page, category, debouncedSearch]);
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* Background effects */}
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute left-1/2 top-1/4 h-96 w-96 -translate-x-1/2 rounded-full bg-amber-500/5 dark:bg-amber-600/10 blur-[150px]" />
-        <div className="absolute bottom-0 right-1/4 h-64 w-64 rounded-full bg-orange-500/5 dark:bg-orange-600/8 blur-[120px]" />
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-6">
+      <div className="space-y-1">
+        <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--accent-primary)]">
+          <Newspaper className="h-4 w-4" />
+          Tạp Chí Biên Tập
+        </p>
+        <h1 className="font-serif text-3xl font-bold text-[var(--text-primary)]">Tin Tức & Sự Kiện</h1>
+        <p className="text-sm text-[var(--text-secondary)]">
+          Cập nhật nền tảng, phỏng vấn tác giả và những chuyên mục tuyển chọn hàng tuần.
+        </p>
       </div>
 
-      {/* Page Header */}
-      <section className="relative mx-auto max-w-6xl px-4 pt-12 pb-6">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 px-4 py-1.5 text-sm text-amber-600 dark:text-amber-400">
-          <i className="fa-light fa-newspaper" />
-          Tin tức
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-white">
-          Chuyện gì đang xảy ra vậy?
-        </h1>
-        <p className="mt-2 text-zinc-500 dark:text-zinc-400 max-w-xl">
-          Cập nhật tin tức mới nhất về nền tảng, sự kiện, và cộng đồng OWOC.
-        </p>
-      </section>
-
-      {/* Hero Featured Article */}
-      {featured && currentPage === 1 && !currentCategory && (
-        <section className="mx-auto max-w-6xl px-4 pb-8">
-          <Link
-            href={`/news/${featured.slug}`}
-            className="group relative block overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10"
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              setCategory('');
+              setPage(1);
+            }}
+            className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold cursor-pointer ${
+              category === ''
+                ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white'
+                : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)]'
+            }`}
           >
-            <div className="aspect-[21/9] sm:aspect-[21/8] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-              {featured.coverUrl ? (
-                <img
-                  src={featured.coverUrl}
-                  alt={featured.title}
-                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center bg-gradient-to-br from-amber-500/20 to-orange-500/20">
-                  <i className="fa-light fa-newspaper text-6xl text-zinc-300 dark:text-zinc-600" />
-                </div>
-              )}
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
-              <span className="inline-flex items-center rounded-full bg-amber-500/20 backdrop-blur-sm px-3 py-1 text-xs font-medium text-amber-300 border border-amber-500/30 mb-3">
-                {getCategoryInfo(featured.category).label}
-              </span>
-              <h2 className="text-xl sm:text-3xl font-bold text-white leading-tight line-clamp-2 mb-2">
-                {featured.title}
-              </h2>
-              {featured.excerpt && (
-                <p className="text-sm sm:text-base text-white/70 line-clamp-2 max-w-2xl mb-4">
-                  {featured.excerpt}
-                </p>
-              )}
-              <div className="flex items-center gap-3 text-sm text-white/60">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-[10px] font-bold text-white">
-                    {featured.author.avatarUrl ? (
-                      <img src={featured.author.avatarUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      featured.author.displayName.charAt(0).toUpperCase()
-                    )}
-                  </div>
-                  <span>{featured.author.displayName}</span>
-                </div>
-                <span>·</span>
-                <span>{formatDate(featured.publishedAt)}</span>
-                <span>·</span>
-                <span><i className="fa-light fa-eye mr-1" />{formatViews(featured.viewCount)}</span>
-              </div>
-            </div>
-          </Link>
-        </section>
-      )}
-
-      {/* Category Filter */}
-      <section className="mx-auto max-w-6xl px-4 pb-6">
-        <div className="flex flex-wrap gap-2">
-          {CATEGORIES.map((cat) => (
+            Tất cả
+          </button>
+          {Object.values(NewsCategory).map((cat) => (
             <button
-              key={cat.value}
-              onClick={() => handleCategoryChange(cat.value)}
-              className={`rounded-full border px-4 py-1.5 text-xs transition-all cursor-pointer ${
-                currentCategory === cat.value
-                  ? 'border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium'
-                  : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:border-amber-500/30 hover:bg-amber-500/5 hover:text-amber-600 dark:hover:text-amber-400'
+              key={cat}
+              type="button"
+              onClick={() => {
+                setCategory(cat);
+                setPage(1);
+              }}
+              className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold cursor-pointer ${
+                category === cat
+                  ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white'
+                  : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)]'
               }`}
             >
-              {cat.label}
+              {NEWS_CATEGORY_LABEL[cat]}
             </button>
           ))}
         </div>
-      </section>
 
-      {/* Articles Grid */}
-      <section className="mx-auto max-w-6xl px-4 pb-12">
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="animate-pulse rounded-2xl border border-zinc-200/60 dark:border-white/5 overflow-hidden">
-                <div className="aspect-video bg-zinc-200/60 dark:bg-zinc-800/60" />
-                <div className="p-5 space-y-3">
-                  <div className="h-4 w-20 rounded-full bg-zinc-200/60 dark:bg-zinc-800/60" />
-                  <div className="h-5 w-full rounded bg-zinc-200/60 dark:bg-zinc-800/60" />
-                  <div className="h-5 w-3/4 rounded bg-zinc-200/60 dark:bg-zinc-800/60" />
-                  <div className="h-4 w-full rounded bg-zinc-200/40 dark:bg-zinc-800/40" />
-                  <div className="h-4 w-1/2 rounded bg-zinc-200/40 dark:bg-zinc-800/40" />
+        <div className="relative w-full sm:w-64">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Tìm bài viết..."
+            className="h-9 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] pl-9 pr-3 text-xs sm:text-sm"
+          />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <Skeleton key={n} className="h-72 rounded-2xl" />
+          ))}
+        </div>
+      ) : articles.length === 0 ? (
+        <Card className="py-12 text-center text-sm text-[var(--text-muted)]">
+          Chưa có bài viết nào trong chuyên mục này.
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {articles.map((article) => (
+            <Link key={article.id} href={`/news/${article.slug}`} className="group">
+              <Card padded={false} interactive className="flex h-full flex-col overflow-hidden">
+                <div className="aspect-video w-full overflow-hidden bg-[var(--bg-subtle)]">
+                  {article.coverUrl && (
+                    <img
+                      src={article.coverUrl}
+                      alt={article.title}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : articles.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="text-5xl mb-4">📰</div>
-            <p className="text-zinc-500 dark:text-zinc-400 text-lg">Chưa có tin tức nào.</p>
-            <p className="text-zinc-400 dark:text-zinc-500 text-sm mt-1">Hãy quay lại sau nhé!</p>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {articles.map((article) => (
-                <Link
-                  key={article.id}
-                  href={`/news/${article.slug}`}
-                  className="group overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/[0.02] transition-all hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 dark:hover:shadow-amber-500/10"
-                >
-                  {/* Cover Image */}
-                  <div className="aspect-video overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                    {article.coverUrl ? (
-                      <img
-                        src={article.coverUrl}
-                        alt={article.title}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center bg-gradient-to-br from-amber-500/10 to-orange-500/10">
-                        <i className="fa-light fa-newspaper text-3xl text-zinc-300 dark:text-zinc-600" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div className="p-5">
-                    {/* Category + Pinned */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                        {getCategoryInfo(article.category).label}
-                      </span>
-                      {article.isPinned && (
-                        <span className="text-amber-500 text-xs"><i className="fa-solid fa-thumbtack" /></span>
-                      )}
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="text-base font-bold text-zinc-900 dark:text-white line-clamp-2 mb-2 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                <div className="flex flex-1 flex-col justify-between p-4 space-y-3">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--accent-warm)]">
+                      {NEWS_CATEGORY_LABEL[article.category]}
+                    </span>
+                    <h2 className="mt-1 font-serif text-lg font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-primary)] line-clamp-2">
                       {article.title}
-                    </h3>
-
-                    {/* Excerpt */}
+                    </h2>
                     {article.excerpt && (
-                      <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-3 mb-4 leading-relaxed">
+                      <p className="mt-1.5 text-xs text-[var(--text-secondary)] line-clamp-2">
                         {article.excerpt}
                       </p>
                     )}
+                  </div>
 
-                    {/* Meta */}
-                    <div className="flex items-center justify-between text-xs text-zinc-400 dark:text-zinc-500">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-[8px] font-bold text-white">
-                          {article.author.avatarUrl ? (
-                            <img src={article.author.avatarUrl} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            article.author.displayName.charAt(0).toUpperCase()
-                          )}
-                        </div>
-                        <span className="font-medium text-zinc-600 dark:text-zinc-300">{article.author.displayName}</span>
-                      </div>
-                      <span>{formatDate(article.publishedAt)}</span>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="flex items-center gap-4 mt-3 pt-3 border-t border-zinc-100 dark:border-white/5 text-xs text-zinc-400 dark:text-zinc-500">
-                      <span><i className="fa-light fa-eye mr-1" />{formatViews(article.viewCount)}</span>
-                      <span><i className="fa-light fa-heart mr-1" />{article.likesCount}</span>
-                      <span><i className="fa-light fa-comment mr-1" />{article.commentsCount}</span>
+                  <div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-3 text-[11px] text-[var(--text-muted)]">
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {formatDate(article.publishedAt)} · {article.readTimeMinutes}p đọc
+                    </span>
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center gap-1">
+                        <Eye className="h-3 w-3" /> {article.viewCount}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Heart className="h-3 w-3" /> {article.likesCount}
+                      </span>
                     </div>
                   </div>
-                </Link>
-              ))}
-            </div>
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
 
-            {/* Pagination */}
-            {meta && meta.totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-10">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage <= 1}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 dark:border-white/10 text-sm text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-zinc-50 dark:hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                >
-                  <i className="fa-light fa-chevron-left" />
-                </button>
-
-                {Array.from({ length: meta.totalPages }, (_, i) => i + 1)
-                  .filter((p) => p === 1 || p === meta.totalPages || Math.abs(p - currentPage) <= 2)
-                  .map((p, idx, arr) => (
-                    <span key={p} className="flex items-center">
-                      {idx > 0 && arr[idx - 1] !== p - 1 && (
-                        <span className="mx-1 text-zinc-400 dark:text-zinc-600">…</span>
-                      )}
-                      <button
-                        onClick={() => handlePageChange(p)}
-                        className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm transition-colors cursor-pointer ${
-                          p === currentPage
-                            ? 'bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-medium'
-                            : 'border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-white/5'
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    </span>
-                  ))}
-
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={!meta.hasNext}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 dark:border-white/10 text-sm text-zinc-600 dark:text-zinc-400 transition-colors hover:bg-zinc-50 dark:hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                >
-                  <i className="fa-light fa-chevron-right" />
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </section>
+      {meta && <Pagination page={meta.page} totalPages={meta.totalPages} onPageChange={setPage} />}
     </div>
   );
 }

@@ -2,165 +2,129 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
-
+import {
+  LayoutDashboard,
+  BookOpen,
+  Newspaper,
+  ShieldCheck,
+  Sliders,
+  ArrowLeft,
+  X,
+} from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 
-export function StudioSidebar({
-  mobileOpen = false,
-  onCloseMobile,
-}: {
+interface SidebarProps {
   mobileOpen?: boolean;
-  onCloseMobile?: () => void;
-}) {
+  onClose?: () => void;
+}
+
+export function StudioSidebar({ mobileOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user } = useAuthStore();
-  const [collapsed, setCollapsed] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const role = user?.role || 'READER';
 
-  const isAdminOrMod = user && (user.role === 'ADMIN' || user.role === 'MODERATOR');
+  const isModOrAdmin = role === 'MODERATOR' || role === 'ADMIN';
+  const isAdmin = role === 'ADMIN';
 
-  const navItems = [
-    { href: '/studio', label: 'Dashboard', icon: <i className="fa-solid fa-chart-mixed"></i>, exact: true },
-    { href: '/studio/comics', label: 'Truyện của tôi', icon: <i className="fa-solid fa-book"></i>, exact: false },
-    { href: '/studio/news', label: 'Quản lý tin tức', icon: <i className="fa-solid fa-newspaper"></i>, exact: false },
-    ...(isAdminOrMod
-      ? [{ href: '/studio/moderation', label: 'Phê duyệt nội dung', icon: <i className="fa-solid fa-shield-check"></i>, exact: false }]
+  const navGroups = [
+    {
+      label: 'Tác giả (Creator)',
+      items: [
+        { href: '/studio', label: 'Tổng quan Studio', icon: LayoutDashboard, exact: true },
+        { href: '/studio/comics', label: 'Quản lý Truyện', icon: BookOpen },
+        { href: '/studio/news', label: 'Bài viết & Tin tức', icon: Newspaper },
+      ],
+    },
+    ...(isModOrAdmin
+      ? [
+          {
+            label: 'Kiểm duyệt (Moderation)',
+            items: [
+              { href: '/studio/moderation', label: 'Duyệt nội dung & Báo cáo', icon: ShieldCheck },
+            ],
+          },
+        ]
+      : []),
+    ...(isAdmin
+      ? [
+          {
+            label: 'Quản trị (Admin)',
+            items: [
+              { href: '/studio/admin', label: 'Hệ thống & Người dùng', icon: Sliders },
+            ],
+          },
+        ]
       : []),
   ];
 
-  const isActive = (href: string, exact: boolean) =>
-    exact ? pathname === href : pathname.startsWith(href);
+  const sidebarContent = (
+    <div className="flex h-full flex-col justify-between border-r border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4">
+      <div className="space-y-6">
+        <div className="flex items-center justify-between px-2">
+          <Link href="/" className="flex items-center gap-2">
+            <img src="/img/owoc_banner_black.png" className="h-9 w-auto dark:hidden" alt="OWOC" />
+            <img src="/img/owoc_banner_white.png" className="hidden h-9 w-auto dark:block" alt="OWOC" />
+          </Link>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="lg:hidden rounded-lg p-1 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
+
+        <nav className="space-y-5">
+          {navGroups.map((group) => (
+            <div key={group.label} className="space-y-1.5">
+              <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                {group.label}
+              </p>
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = item.exact ? pathname === item.href : pathname?.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onClose}
+                    className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                      active
+                        ? 'bg-[var(--accent-primary-soft)] text-[var(--accent-primary)]'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+      </div>
+
+      <Link
+        href="/"
+        className="flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-2.5 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        <span>Quay về trang đọc truyện</span>
+      </Link>
+    </div>
+  );
 
   return (
     <>
-      {/* ── Mobile Drawer Overlay ── */}
+      <aside className="hidden lg:block w-64 shrink-0">{sidebarContent}</aside>
       {mobileOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm md:hidden animate-fade-in"
-          onClick={onCloseMobile}
-        />
+        <div className="fixed inset-0 z-[130] flex lg:hidden">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs" onClick={onClose} />
+          <div className="relative z-10 w-68 max-w-[82vw] h-full">{sidebarContent}</div>
+        </div>
       )}
-
-      {/* ── Mobile Drawer ── */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-full w-[260px] flex-col border-r border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[#0c0c0f] shadow-2xl transition-transform duration-300 md:hidden ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <div className="flex h-14 items-center justify-between border-b border-zinc-200 dark:border-white/[0.06] px-4">
-          <Link href="/studio" onClick={onCloseMobile} className="flex items-center gap-2">
-            <img src="/img/aaa_logo.png" alt="Logo" className="h-8 w-8" />
-            <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-white">
-              AAA Studio
-            </span>
-          </Link>
-          <button
-            onClick={onCloseMobile}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] hover:text-zinc-700 dark:hover:text-white"
-            aria-label="Đóng menu"
-          >
-            ✕
-          </button>
-        </div>
-
-        <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
-          {navItems.map((item) => {
-            const active = isActive(item.href, item.exact);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onCloseMobile}
-                className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                  active
-                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 shadow-sm'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-zinc-200'
-                }`}
-              >
-                <span className={`text-base ${active ? 'drop-shadow-[0_0_6px_rgba(245,158,11,0.4)]' : ''}`}>{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="border-t border-zinc-200 dark:border-white/[0.06] p-3 space-y-1">
-          <Link
-            href="/"
-            onClick={onCloseMobile}
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-white transition-colors"
-          >
-            <span className="text-base"><i className="fa-slab-press fa-regular fa-house"></i></span>
-            <span>Về Trang chủ</span>
-          </Link>
-        </div>
-      </aside>
-
-      {/* ── Desktop Sidebar ── */}
-      <aside
-        className={`fixed left-0 top-0 z-40 hidden md:flex h-full flex-col border-r border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-[#0c0c0f] transition-all duration-300 ${
-          collapsed ? 'w-[68px]' : 'w-[240px]'
-        }`}
-      >
-        {/* Logo */}
-        <div className="flex h-14 items-center gap-3 border-b border-zinc-200 dark:border-white/[0.06] px-4">
-          <Link href="/studio" className="flex items-center gap-2.5">
-            <img src="/img/aaa_logo.png" alt="Logo" className="h-8 w-8" />
-            {!collapsed && (
-              <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-white animate-fade-in">
-                AAA Studio
-              </span>
-            )}
-          </Link>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {navItems.map((item) => {
-            const active = isActive(item.href, item.exact);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
-                  active
-                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 shadow-sm shadow-amber-500/5'
-                    : 'text-zinc-600 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-zinc-300'
-                }`}
-                title={collapsed ? item.label : undefined}
-              >
-                <span className={`text-base ${active ? 'drop-shadow-[0_0_6px_rgba(245,158,11,0.4)]' : ''}`}>{item.icon}</span>
-                {!collapsed && <span>{item.label}</span>}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Bottom section */}
-        <div className="border-t border-zinc-200 dark:border-white/[0.06] p-3 space-y-1">
-          <Link
-            href="/"
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-600 dark:text-zinc-500 transition-colors hover:bg-zinc-100 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-zinc-400"
-            title={collapsed ? 'Trang chủ' : undefined}
-          >
-            <span className="text-base"><i className="fa-slab-press fa-regular fa-house"></i></span>
-            {!collapsed && <span>Trang chủ</span>}
-          </Link>
-
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-zinc-600 dark:text-zinc-500 transition-colors hover:bg-zinc-100 dark:hover:bg-white/[0.04] hover:text-zinc-900 dark:hover:text-zinc-400"
-          >
-            <span className={`text-sm transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`}>
-              «
-            </span>
-            {!collapsed && <span>Thu gọn</span>}
-          </button>
-        </div>
-      </aside>
-
-      {/* Desktop spacer */}
-      <div className={`shrink-0 hidden md:block transition-all duration-300 ${collapsed ? 'w-[68px]' : 'w-[240px]'}`} />
     </>
   );
 }

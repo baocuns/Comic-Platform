@@ -1,11 +1,12 @@
-import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
+import { Global, Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { NotificationController } from './notification.controller';
 import { NotificationService } from './notification.service';
 import { NotificationGateway } from './notification.gateway';
 
+@Global()
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [AuthModule],
   controllers: [NotificationController],
   providers: [NotificationService, NotificationGateway],
   exports: [NotificationService, NotificationGateway],

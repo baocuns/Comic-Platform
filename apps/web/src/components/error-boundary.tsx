@@ -1,50 +1,47 @@
 'use client';
 
-import { Component, ReactNode } from 'react';
-
-interface Props {
-  children: ReactNode;
-}
+import React from 'react';
+import { AlertTriangle, RotateCcw } from 'lucide-react';
+import { Button } from './ui/button';
 
 interface State {
   hasError: boolean;
-  error: Error | null;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
+export class ErrorBoundary extends React.Component<{ children: React.ReactNode }, State> {
+  constructor(props: { children: React.ReactNode }) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+  static getDerivedStateFromError(): State {
+    return { hasError: true };
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-[60vh] items-center justify-center px-4">
-          <div className="max-w-md rounded-2xl border border-red-500/20 bg-red-500/5 p-8 text-center">
-            <div className="mb-4 text-4xl">💥</div>
-            <h2 className="mb-2 text-xl font-bold text-white">Đã xảy ra lỗi</h2>
-            <p className="mb-6 text-sm text-zinc-400">
-              {this.state.error?.message || 'Một lỗi không mong muốn đã xảy ra.'}
-            </p>
-            <button
-              onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.reload();
-              }}
-              className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-amber-500/25"
-            >
-              Tải lại trang
-            </button>
+        <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--bg-canvas)] px-4 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--danger-soft)] text-[var(--danger)]">
+            <AlertTriangle className="h-7 w-7" />
           </div>
+          <h2 className="text-xl font-bold text-[var(--text-primary)]">Đã có sự cố hiển thị</h2>
+          <p className="mt-1 max-w-md text-sm text-[var(--text-secondary)]">
+            Vui lòng tải lại trang để khôi phục phiên làm việc.
+          </p>
+          <Button
+            className="mt-5"
+            onClick={() => {
+              this.setState({ hasError: false });
+              window.location.reload();
+            }}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Tải lại trang
+          </Button>
         </div>
       );
     }
-
     return this.props.children;
   }
 }

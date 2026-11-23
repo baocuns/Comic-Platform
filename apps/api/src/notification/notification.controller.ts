@@ -1,50 +1,43 @@
-import { Controller, Get, Patch, Delete, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Delete, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { NotificationService } from './notification.service';
 import { NotificationQueryDto } from './dto/notification.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
+@ApiTags('Notifications')
+@ApiBearerAuth()
 @Controller('notifications')
-@UseGuards(JwtAuthGuard)
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
   @Get()
-  async getAll(
-    @CurrentUser('sub') userId: string,
-    @Query() query: NotificationQueryDto,
-  ) {
-    const result = await this.notificationService.getAll(userId, query);
-    return { success: true, ...result };
+  getAll(@CurrentUser('sub') userId: string, @Query() query: NotificationQueryDto) {
+    return this.notificationService.getAll(userId, query);
   }
 
   @Get('unread-count')
-  async getUnreadCount(@CurrentUser('sub') userId: string) {
-    const count = await this.notificationService.getUnreadCount(userId);
-    return { success: true, data: { count } };
+  getUnreadCount(@CurrentUser('sub') userId: string) {
+    return this.notificationService.getUnreadCount(userId);
   }
 
   @Patch(':id/read')
-  async markAsRead(
+  markAsRead(
     @CurrentUser('sub') userId: string,
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
   ) {
-    await this.notificationService.markAsRead(userId, id);
-    return { success: true, data: { message: 'Notification marked as read' } };
+    return this.notificationService.markAsRead(userId, id);
   }
 
-  @Patch('read-all')
-  async markAllAsRead(@CurrentUser('sub') userId: string) {
-    await this.notificationService.markAllAsRead(userId);
-    return { success: true, data: { message: 'All notifications marked as read' } };
+  @Post('read-all')
+  markAllAsRead(@CurrentUser('sub') userId: string) {
+    return this.notificationService.markAllAsRead(userId);
   }
 
   @Delete(':id')
-  async delete(
+  remove(
     @CurrentUser('sub') userId: string,
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
   ) {
-    await this.notificationService.deleteNotification(userId, id);
-    return { success: true, data: { message: 'Notification deleted' } };
+    return this.notificationService.deleteNotification(userId, id);
   }
 }

@@ -1,238 +1,170 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Script from 'next/script';
+import { useRouter } from 'next/navigation';
+import { Eye, EyeOff, LogIn, Sparkles } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
+import { useToast } from '@/components/providers/toast-provider';
 import { ApiError } from '@/lib/api-client';
-import { useTheme } from '@/components/providers/theme-provider';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
-declare global {
-  interface Window {
-    google?: any;
+function sanitizeInternalUrl(raw?: string | null): string {
+  if (!raw || typeof raw !== 'string') return '/';
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//') && !trimmed.startsWith('/\\')) {
+    return trimmed;
   }
+  return '/';
 }
+
+const isDev = process.env.NODE_ENV === 'development';
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { login, googleLogin, isLoading } = useAuthStore();
-  const { theme } = useTheme();
+  const { login, isLoading } = useAuthStore();
+  const { toast } = useToast();
 
-  const [email, setEmail] = useState('');
+  const [redirectTo, setRedirectTo] = useState('/');
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setRedirectTo(sanitizeInternalUrl(params.get('redirect') || params.get('next')));
+  }, []);
+
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-
-  const redirectTo = searchParams.get('redirect') || '/';
-  const [googleInitialized, setGoogleInitialized] = useState(false);
-
-  const handleGoogleLogin = async (response: any) => {
-    setError('');
-    const idToken = response.credential;
-    try {
-      await googleLogin(idToken);
-      router.push(redirectTo);
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError('Đăng nhập bằng Google thất bại. Vui lòng thử lại.');
-      }
-    }
-  };
-
-  const initializeGoogleBtn = () => {
-    if (typeof window !== 'undefined' && window.google) {
-      window.google.accounts.id.initialize({
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '292333278398-p7b1stp89olfcsf0affr5v46kn8m40tr.apps.googleusercontent.com',
-        callback: handleGoogleLogin,
-      });
-
-      const card = document.getElementById('google-card-container');
-      const calculatedWidth = card ? Math.min(382, card.clientWidth - 64) : 382;
-
-      window.google.accounts.id.renderButton(
-        document.getElementById('google-signin-button'),
-        {
-          theme: theme === 'dark' ? 'filled_black' : 'outline',
-          size: 'large',
-          text: 'signin_with',
-          shape: 'rectangular',
-          width: calculatedWidth,
-        }
-      );
-      setGoogleInitialized(true);
-    }
-  };
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.google) {
-      initializeGoogleBtn();
-    }
-  }, [theme]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (typeof window !== 'undefined' && window.google && googleInitialized) {
-        const card = document.getElementById('google-card-container');
-        const calculatedWidth = card ? Math.min(382, card.clientWidth - 64) : 382;
-        window.google.accounts.id.renderButton(
-          document.getElementById('google-signin-button'),
-          {
-            theme: theme === 'dark' ? 'filled_black' : 'outline',
-            size: 'large',
-            text: 'signin_with',
-            shape: 'rectangular',
-            width: calculatedWidth,
-          }
-        );
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [googleInitialized, theme]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting || isLoading) return;
+    const cleanId = identifier.trim();
+    if (!cleanId) {
+      setError('Vui lòng nhập email hoặc tên đăng nhập.');
+      return;
+    }
     setError('');
-
+    setSubmitting(true);
     try {
-      await login(email, password);
+      await login(cleanId, password);
+      toast.success('Đăng nhập thành công!');
       router.push(redirectTo);
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError('Đã xảy ra lỗi. Vui lòng thử lại.');
-      }
+      setError(err instanceof ApiError ? err.message : 'Đăng nhập thất bại');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4">
-      {/* Background effects */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 h-80 w-80 rounded-full bg-amber-500/20 blur-[120px]" />
-        <div className="absolute -bottom-40 -right-40 h-80 w-80 rounded-full bg-orange-500/20 blur-[120px]" />
-      </div>
-
-      <div className="relative w-full max-w-md">
-        {/* Card */}
-        <div id="google-card-container" className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-white/[0.03] p-8 shadow-2xl backdrop-blur-xl">
-          {/* Header */}
-          <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-2xl font-bold text-white shadow-lg shadow-amber-500/30">
-              C
-            </div>
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">Chào mừng trở lại</h1>
-            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-              Đăng nhập để tiếp tục đọc truyện
+    <div className="mx-auto flex min-h-[calc(100vh-140px)] max-w-5xl items-center justify-center px-4 py-10 sm:px-6">
+      <div className="grid w-full grid-cols-1 overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xl md:grid-cols-2">
+        {/* Left Warm Editorial Showcase */}
+        <div className="hidden flex-col justify-between bg-gradient-to-br from-[#1B2340] via-[#2D3561] to-[#5458C4] p-8 text-white md:flex">
+          <div className="space-y-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-md">
+              <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+              OWOC 2.0 Warm Editorial
+            </span>
+            <h2 className="font-serif text-3xl font-bold leading-snug pt-3">
+              Chào mừng trở lại Tàng Kinh Các
+            </h2>
+            <p className="text-sm text-white/80 leading-relaxed">
+              Đồng bộ lịch sử đọc truyện, tủ sách theo dõi và tích lũy Xu Linh Thạch mỗi ngày.
             </p>
           </div>
 
-          {/* Error */}
+          {isDev ? (
+            <div className="rounded-2xl border border-white/15 bg-white/10 p-4 text-xs space-y-1.5 backdrop-blur-md">
+              <p className="font-bold text-amber-300">Tài khoản trải nghiệm nhanh (Dev):</p>
+              <p>Quản trị & Studio: <code className="font-mono">admin@owoc.vn</code> / <code className="font-mono">Admin@2026</code></p>
+              <p>Tác giả: <code className="font-mono">tacgia@owoc.vn</code> / <code className="font-mono">Author@2026</code></p>
+              <p>Độc giả: <code className="font-mono">docgia@owoc.vn</code> / <code className="font-mono">Reader@2026</code></p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-white/15 bg-white/10 p-4 text-xs text-white/80 backdrop-blur-md">
+              Đăng nhập an toàn qua mật khẩu hoặc tài khoản Google để trải nghiệm đầy đủ tính năng.
+            </div>
+          )}
+        </div>
+
+        {/* Right Form */}
+        <div className="p-6 sm:p-10 flex flex-col justify-center">
+          <div className="mb-6">
+            <h1 className="font-serif text-2xl font-bold text-[var(--text-primary)]">Đăng nhập</h1>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Nhập email hoặc tên đăng nhập để tiếp tục.
+            </p>
+          </div>
+
           {error && (
-            <div className="mb-6 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <div className="mb-4 rounded-xl border border-[var(--danger)]/30 bg-[var(--danger-soft)] px-3.5 py-2.5 text-xs font-semibold text-[var(--danger)]">
               {error}
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="your@email.com"
-                className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
-              />
-            </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              label="Email hoặc Tên đăng nhập"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="admin@owoc.vn"
+              required
+            />
 
-            <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Mật khẩu
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                  className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-4 py-3 pr-12 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none transition-all focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20"
-                />
+            <Input
+              label="Mật khẩu"
+              type={showPass ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              rightSlot={
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  onClick={() => setShowPass((v) => !v)}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+                  aria-label="Hiện/ẩn mật khẩu"
                 >
-                  {showPassword ? '🙈' : '👁️'}
+                  {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
-              </div>
-            </div>
+              }
+            />
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-amber-500/40 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  Đang đăng nhập...
-                </span>
-              ) : (
-                'Đăng nhập'
-              )}
-            </button>
+            <Button type="submit" size="lg" className="w-full" isLoading={isLoading}>
+              <LogIn className="h-4 w-4" />
+              <span>Đăng nhập</span>
+            </Button>
           </form>
 
-          {/* Divider */}
-          <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-zinc-200 dark:bg-white/10" />
-            <span className="text-xs text-zinc-500">HOẶC</span>
-            <div className="h-px flex-1 bg-zinc-200 dark:bg-white/10" />
+          {/* Divider + Google Sign-In */}
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-[var(--border-subtle)]" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+              Hoặc tiếp tục với
+            </span>
+            <div className="h-px flex-1 bg-[var(--border-subtle)]" />
           </div>
 
-          {/* Google Login */}
-          <div className="relative flex min-h-[44px] w-full justify-center">
-            <div
-              id="google-signin-button"
-              className={`w-full flex justify-center transition-opacity duration-300 ${googleInitialized ? 'opacity-100' : 'absolute pointer-events-none opacity-0'
-                }`}
-            />
-            {!googleInitialized && (
-              <div className="flex w-full items-center justify-center gap-3 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 py-3 text-sm font-medium text-zinc-500">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-500/30 border-t-zinc-500" />
-                Đang tải Google Sign-In...
-              </div>
-            )}
-          </div>
+          <GoogleSignInButton
+            mode="login"
+            onSuccess={() => router.push(redirectTo)}
+            onError={setError}
+          />
 
-          {/* Footer */}
-          <p className="mt-6 text-center text-sm text-zinc-500">
+          <p className="mt-6 text-center text-xs text-[var(--text-secondary)]">
             Chưa có tài khoản?{' '}
-            <Link href="/register" className="font-medium text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300">
-              Đăng ký ngay
+            <Link href="/register" className="font-bold text-[var(--accent-primary)] hover:underline">
+              Đăng ký ngay (+30 Xu tân thủ)
             </Link>
           </p>
         </div>
       </div>
-      <Script
-        src="https://accounts.google.com/gsi/client"
-        onLoad={initializeGoogleBtn}
-        strategy="afterInteractive"
-      />
     </div>
   );
 }

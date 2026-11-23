@@ -66,7 +66,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
       <div className="fixed inset-0 bg-black/55 backdrop-blur-xs" onClick={onClose} />
       <aside className="relative z-10 flex h-full w-76 max-w-[85vw] flex-col border-r border-[var(--border-subtle)] bg-[var(--bg-canvas)] shadow-2xl">
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3.5">
-          <Link href="/" onClick={onClose} className="flex items-center gap-2">
+          <Link href="/" prefetch={false} onClick={onClose} className="flex items-center gap-2">
             <img src="/img/owoc_banner_black.png" className="h-9 w-auto dark:hidden" alt="OWOC" />
             <img src="/img/owoc_banner_white.png" className="hidden h-9 w-auto dark:block" alt="OWOC" />
           </Link>
@@ -83,6 +83,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
           {user ? (
             <Link
               href={`/@${user.username}`}
+              prefetch={false}
               onClick={onClose}
               className="flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3"
             >
@@ -99,6 +100,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
             <div className="grid grid-cols-2 gap-2">
               <Link
                 href="/login"
+                prefetch={false}
                 onClick={onClose}
                 className="flex h-10 items-center justify-center rounded-xl bg-[var(--accent-primary)] text-xs font-semibold text-white"
               >
@@ -106,6 +108,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
               </Link>
               <Link
                 href="/register"
+                prefetch={false}
                 onClick={onClose}
                 className="flex h-10 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-xs font-semibold text-[var(--text-primary)]"
               >
@@ -122,6 +125,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={false}
                   onClick={onClose}
                   className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                     active
@@ -138,6 +142,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
             {user && ['AUTHOR', 'MODERATOR', 'ADMIN'].includes(user.role) && (
               <Link
                 href="/studio"
+                prefetch={false}
                 onClick={onClose}
                 className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--accent-warm)] hover:bg-[var(--accent-warm-soft)]"
               >

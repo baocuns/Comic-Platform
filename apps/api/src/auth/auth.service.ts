@@ -347,7 +347,11 @@ export class AuthService {
       throw new UnauthorizedException('Phiên làm việc không hợp lệ hoặc đã bị thu hồi');
     }
 
-    return this.issueTokens(session.user.id, session.user.role, meta);
+    const tokens = await this.issueTokens(session.user.id, session.user.role, meta);
+    return {
+      user: this.sanitizeUser(session.user),
+      ...tokens,
+    };
   }
 
   async logout(sessionId?: string, refreshToken?: string) {
@@ -543,6 +547,9 @@ export class AuthService {
         where: { id: user.id },
         data: { isBanned: false, bannedReason: null, bannedUntil: null },
       });
+      user.isBanned = false;
+      user.bannedReason = null;
+      user.bannedUntil = null;
       return;
     }
     const untilText = user.bannedUntil

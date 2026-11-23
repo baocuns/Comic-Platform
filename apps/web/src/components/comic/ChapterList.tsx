@@ -414,6 +414,7 @@ export function ChapterList({
               <Link
                 key={ch.id}
                 href={`/read/${ch.id}`}
+                prefetch={false}
                 className={`group flex items-center justify-between gap-1.5 rounded-xl border px-3 py-2.5 text-xs transition-all hover:-translate-y-0.5 ${
                   isCurrent
                     ? 'border-[var(--accent-warm)]/60 bg-[var(--accent-warm-soft)] hover:border-[var(--accent-warm)]'
@@ -481,6 +482,7 @@ export function ChapterList({
               <Link
                 key={ch.id}
                 href={`/read/${ch.id}`}
+                prefetch={false}
                 className={`group flex items-center justify-between gap-3 px-3.5 py-3 text-sm transition-colors sm:px-4 ${
                   isCurrent
                     ? 'bg-[var(--accent-warm-soft)]/60 hover:bg-[var(--accent-warm-soft)]'

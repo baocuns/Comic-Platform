@@ -104,6 +104,7 @@ export class AuthController {
     this.setRefreshTokenCookie(res, tokens.refreshToken);
 
     return {
+      user: tokens.user,
       accessToken: tokens.accessToken,
       expiresIn: tokens.expiresIn,
     };

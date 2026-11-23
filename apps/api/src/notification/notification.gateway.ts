@@ -77,22 +77,24 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
         return;
       }
 
-      const isBlacklisted = await this.redis.exists(`blacklist:session:${sid}`);
+      const [isBlacklisted, pwdChangedRaw, user] = await Promise.all([
+        this.redis.exists(`blacklist:session:${sid}`),
+        this.redis.get<string>(`pwdChangedAt:${userId}`),
+        this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, isBanned: true, bannedUntil: true, deletedAt: true },
+        }),
+      ]);
+
       if (isBlacklisted) {
         client.disconnect(true);
         return;
       }
 
-      const pwdChangedRaw = await this.redis.get<string>(`pwdChangedAt:${userId}`);
       if (pwdChangedRaw && payload.iat && payload.iat * 1000 < Number(pwdChangedRaw)) {
         client.disconnect(true);
         return;
       }
-
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { id: true, isBanned: true, bannedUntil: true, deletedAt: true },
-      });
 
       if (!user || user.deletedAt) {
         client.disconnect(true);

@@ -105,6 +105,7 @@ export function HeroSpotlight({ comics, isLoading }: HeroSpotlightProps) {
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Link
                 href={`/comics/${current.slug}`}
+                prefetch={false}
                 className="inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--accent-warm)] px-5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[var(--accent-warm-hover)] active:scale-[0.98]"
               >
                 <BookOpen className="h-4 w-4" />
@@ -112,6 +113,7 @@ export function HeroSpotlight({ comics, isLoading }: HeroSpotlightProps) {
               </Link>
               <Link
                 href="/rankings"
+                prefetch={false}
                 className="inline-flex h-10 items-center rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/20"
               >
                 Bảng xếp hạng
@@ -122,6 +124,7 @@ export function HeroSpotlight({ comics, isLoading }: HeroSpotlightProps) {
           {/* Right Poster */}
           <Link
             href={`/comics/${current.slug}`}
+            prefetch={false}
             className="hidden md:block aspect-[3/4] w-full overflow-hidden rounded-2xl border border-white/20 shadow-2xl transition-transform duration-300 hover:scale-[1.03]"
           >
             {current.coverUrl ? (

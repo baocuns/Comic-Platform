@@ -76,7 +76,7 @@ interface ProfileResponse {
 export default function UserProfilePage() {
   const params = useParams();
   const username = decodeURIComponent((params?.username as string) || '').replace(/^@/, '');
-  const { user: currentUser, accessToken, fetchProfile, updateUser } = useAuthStore();
+  const { user: currentUser, accessToken, isHydrated, fetchProfile, updateUser } = useAuthStore();
   const { toast } = useToast();
 
   const [data, setData] = useState<ProfileResponse | null>(null);
@@ -105,10 +105,11 @@ export default function UserProfilePage() {
   }, [username, accessToken]);
 
   useEffect(() => {
+    if (!isHydrated) return;
     const controller = new AbortController();
     loadProfile(controller.signal);
     return () => controller.abort();
-  }, [loadProfile]);
+  }, [isHydrated, loadProfile]);
 
   const handleToggleFollow = async () => {
     if (!data || !accessToken) {

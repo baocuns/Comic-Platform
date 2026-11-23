@@ -25,7 +25,7 @@ export function ComicCard({ comic, className = '' }: ComicCardProps) {
   const latestChap = comic.latestChapters?.[0];
 
   return (
-    <Link href={`/comics/${comic.slug}`} className={`group block ${className}`}>
+    <Link href={`/comics/${comic.slug}`} prefetch={false} className={`group block ${className}`}>
       <div className="relative aspect-[3/4] overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] transition-all duration-300 group-hover:-translate-y-1 group-hover:border-[var(--accent-primary)]/40 group-hover:shadow-lg">
         {comic.coverUrl ? (
           <img
@@ -97,6 +97,7 @@ export function ComicCardHorizontal({
   return (
     <Link
       href={`/comics/${comic.slug}`}
+      prefetch={false}
       className="group flex items-center gap-3.5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 transition-all duration-200 hover:border-[var(--border-strong)] hover:shadow-sm"
     >
       {rank !== undefined && (

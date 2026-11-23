@@ -53,7 +53,7 @@ import { Tabs } from '@/components/ui/tabs';
 export default function ComicDetailPage() {
   const params = useParams();
   const slug = params?.slug as string;
-  const { user, accessToken } = useAuthStore();
+  const { user, accessToken, isHydrated } = useAuthStore();
   const { toast } = useToast();
   const localHistory = useReadingHistoryStore((s) => s.getByComic(undefined, slug));
 
@@ -144,10 +144,12 @@ export default function ComicDetailPage() {
     setComments([]);
     setRecommendations([]);
 
+    if (!slug || !isHydrated) return;
+
     const controller = new AbortController();
     loadComic(controller.signal);
     return () => controller.abort();
-  }, [slug, loadComic]);
+  }, [slug, isHydrated, loadComic]);
 
   const loadComments = useCallback(
     async (comicId: string, pageNum = 1, append = false, signal?: AbortSignal) => {
@@ -433,7 +435,7 @@ export default function ComicDetailPage() {
         <p className="text-sm text-[var(--text-secondary)]">
           Bộ truyện có thể đã bị gỡ hoặc đang chờ kiểm duyệt.
         </p>
-        <Link href="/comics">
+        <Link href="/comics" prefetch={false}>
           <Button>Quay lại kho truyện</Button>
         </Link>
       </div>
@@ -528,6 +530,7 @@ export default function ComicDetailPage() {
                     <Link
                       key={g.id}
                       href={`/comics?genre=${g.slug}`}
+                      prefetch={false}
                       className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-canvas)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)] transition-colors"
                     >
                       {g.icon} {g.name}
@@ -559,7 +562,7 @@ export default function ComicDetailPage() {
               {/* Action Bar */}
               <div className="flex flex-wrap items-center gap-2.5 pt-1">
                 {resumeChapterId && (
-                  <Link href={`/read/${resumeChapterId}`}>
+                  <Link href={`/read/${resumeChapterId}`} prefetch={false}>
                     <Button variant="warm" size="lg">
                       <BookOpen className="h-4 w-4" />
                       <span>
@@ -617,7 +620,7 @@ export default function ComicDetailPage() {
                     )}
                   </div>
                 ) : (
-                  <Link href="/login">
+                  <Link href="/login" prefetch={false}>
                     <Button variant="outline" size="lg">
                       <Bookmark className="h-4 w-4" />
                       <span>Lưu vào tủ sách</span>
@@ -799,13 +802,14 @@ export default function ComicDetailPage() {
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2.5">
-                              <Link href={`/@${r.user.username}`}>
+                              <Link href={`/@${r.user.username}`} prefetch={false}>
                                 <Avatar src={r.user.avatarUrl} name={r.user.displayName} size="sm" />
                               </Link>
                               <div>
                                 <div className="flex items-center gap-2">
                                   <Link
                                     href={`/@${r.user.username}`}
+                                    prefetch={false}
                                     className="text-sm font-semibold text-[var(--text-primary)] hover:text-[var(--accent-primary)]"
                                   >
                                     {r.user.displayName}
@@ -892,12 +896,13 @@ export default function ComicDetailPage() {
                 Nhóm sáng tác / Tác giả
               </h3>
               <div className="flex items-center gap-3">
-                <Link href={`/@${comic.author.username}`}>
+                <Link href={`/@${comic.author.username}`} prefetch={false}>
                   <Avatar src={comic.author.avatarUrl} name={comic.author.displayName} size="md" />
                 </Link>
                 <div className="min-w-0 flex-1">
                   <Link
                     href={`/@${comic.author.username}`}
+                    prefetch={false}
                     className="block truncate text-sm font-bold text-[var(--text-primary)] hover:text-[var(--accent-primary)]"
                   >
                     {comic.author.displayName}
@@ -965,6 +970,7 @@ export default function ComicDetailPage() {
                       <Link
                         key={tag}
                         href={`/comics?search=${encodeURIComponent(tag)}`}
+                        prefetch={false}
                         className="rounded-lg bg-[var(--bg-subtle)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--accent-primary)]"
                       >
                         #{tag}

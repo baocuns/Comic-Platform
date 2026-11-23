@@ -19,7 +19,7 @@ import { Card } from '@/components/ui/card';
 export default function NewsDetailPage() {
   const params = useParams();
   const slug = params?.slug as string;
-  const { user, accessToken } = useAuthStore();
+  const { user, accessToken, isHydrated } = useAuthStore();
   const { toast } = useToast();
 
   const [article, setArticle] = useState<NewsItem | null>(null);
@@ -45,7 +45,7 @@ export default function NewsDetailPage() {
   }, []);
 
   useEffect(() => {
-    if (!slug) return;
+    if (!slug || !isHydrated) return;
     const controller = new AbortController();
     setLoading(true);
     setArticle(null);
@@ -73,7 +73,7 @@ export default function NewsDetailPage() {
       });
 
     return () => controller.abort();
-  }, [slug, accessToken, loadComments]);
+  }, [slug, isHydrated, accessToken, loadComments]);
 
   const handleToggleLike = async () => {
     if (!article) return;

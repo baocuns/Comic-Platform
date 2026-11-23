@@ -128,6 +128,7 @@ export default function HomePage() {
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
             <Link
               href="/comics"
+              prefetch={false}
               className="shrink-0 rounded-full border border-[var(--accent-primary)] bg-[var(--accent-primary-soft)] px-4 py-1.5 text-xs font-semibold text-[var(--accent-primary)] transition-colors hover:bg-[var(--accent-primary)] hover:text-white"
             >
               Tất cả thể loại
@@ -136,6 +137,7 @@ export default function HomePage() {
               <Link
                 key={g.id}
                 href={`/comics?genre=${g.slug}`}
+                prefetch={false}
                 className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
               >
                 {g.icon && <span>{g.icon}</span>}
@@ -158,6 +160,7 @@ export default function HomePage() {
             </div>
             <Link
               href="/history"
+              prefetch={false}
               className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-primary)] hover:underline"
             >
               <span>Xem lịch sử</span>
@@ -169,6 +172,7 @@ export default function HomePage() {
               <Link
                 key={entry.comicId}
                 href={`/read/${entry.chapterId}`}
+                prefetch={false}
                 className="group flex items-center gap-3.5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 transition-all hover:border-[var(--accent-primary)]/40 hover:shadow-sm"
               >
                 <div className="h-18 w-13 shrink-0 overflow-hidden rounded-xl bg-[var(--bg-subtle)]">
@@ -219,6 +223,7 @@ export default function HomePage() {
               </div>
               <Link
                 href="/comics?sort=updated"
+                prefetch={false}
                 className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-primary)] hover:underline"
               >
                 <span>Xem tất cả</span>
@@ -272,6 +277,7 @@ export default function HomePage() {
               </div>
               <Link
                 href="/rankings"
+                prefetch={false}
                 className="block border-t border-[var(--border-subtle)] bg-[var(--bg-subtle)]/40 py-2.5 text-center text-xs font-semibold text-[var(--accent-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
               >
                 Xem toàn bộ Bảng xếp hạng →
@@ -308,13 +314,13 @@ export default function HomePage() {
                     Điểm danh
                   </Button>
                 ) : (
-                  <Link href="/login" className="flex-1">
+                  <Link href="/login" prefetch={false} className="flex-1">
                     <Button size="sm" variant="warm" className="w-full">
                       Đăng nhập nhận Xu
                     </Button>
                   </Link>
                 )}
-                <Link href="/cultivation">
+                <Link href="/cultivation" prefetch={false}>
                   <Button size="sm" variant="outline">
                     Chi tiết
                   </Button>
@@ -340,6 +346,7 @@ export default function HomePage() {
             </div>
             <Link
               href="/comics?sort=rating"
+              prefetch={false}
               className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-primary)] hover:underline"
             >
               <span>Khám phá thêm</span>
@@ -368,6 +375,7 @@ export default function HomePage() {
             </div>
             <Link
               href="/news"
+              prefetch={false}
               className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-primary)] hover:underline"
             >
               <span>Tất cả bài viết</span>
@@ -379,6 +387,7 @@ export default function HomePage() {
             {newsData.featured && (
               <Link
                 href={`/news/${newsData.featured.slug}`}
+                prefetch={false}
                 className="group relative flex min-h-[290px] flex-col justify-end overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[#181B22] p-6 text-white lg:col-span-7"
               >
                 {newsData.featured.coverUrl && (
@@ -410,6 +419,7 @@ export default function HomePage() {
                 <Link
                   key={article.id}
                   href={`/news/${article.slug}`}
+                  prefetch={false}
                   className="group flex items-center gap-3.5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 transition-all hover:border-[var(--border-strong)] hover:shadow-xs"
                 >
                   <div className="h-18 w-24 shrink-0 overflow-hidden rounded-xl bg-[var(--bg-subtle)]">

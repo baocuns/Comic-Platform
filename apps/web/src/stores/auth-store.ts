@@ -49,6 +49,7 @@ interface AuthResponse {
 interface RefreshResponse {
   success: boolean;
   data: {
+    user?: UserProfile;
     accessToken: string;
     expiresIn: number;
   };
@@ -176,7 +177,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
           if (authGeneration !== gen) {
             return null;
           }
-          set({ accessToken: res.data.accessToken });
+          set({
+            accessToken: res.data.accessToken,
+            ...(res.data.user ? { user: res.data.user } : {}),
+          });
           return res.data.accessToken;
         } catch {
           if (authGeneration === gen) {
@@ -213,6 +217,10 @@ export const useAuthStore = create<AuthState>((set, get) => {
           const refreshRes = await api.post<RefreshResponse>('/auth/refresh', undefined, { skipAuthRefresh: true });
           if (authGeneration !== gen) return;
           const token = refreshRes.data.accessToken;
+          if (refreshRes.data.user) {
+            set({ user: refreshRes.data.user, accessToken: token, isHydrated: true });
+            return;
+          }
           set({ accessToken: token });
           const meRes = await api.get<{ success: boolean; data: UserProfile }>('/auth/me', { token });
           if (authGeneration !== gen) return;

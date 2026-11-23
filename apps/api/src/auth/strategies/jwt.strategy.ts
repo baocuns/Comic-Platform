@@ -33,20 +33,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Token không hợp lệ cho truy cập API');
     }
 
-    const isBlacklisted = await this.redis.exists(`blacklist:session:${payload.sid}`);
+    const [isBlacklisted, pwdChangedRaw, user] = await Promise.all([
+      this.redis.exists(`blacklist:session:${payload.sid}`),
+      this.redis.get<string>(`pwdChangedAt:${payload.sub}`),
+      this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { id: true, role: true, isBanned: true, bannedUntil: true, deletedAt: true },
+      }),
+    ]);
+
     if (isBlacklisted) {
       throw new UnauthorizedException('Phiên đăng nhập đã hết hiệu lực');
     }
 
-    const pwdChangedRaw = await this.redis.get<string>(`pwdChangedAt:${payload.sub}`);
     if (pwdChangedRaw && payload.iat && payload.iat * 1000 < Number(pwdChangedRaw)) {
       throw new UnauthorizedException('Mật khẩu đã thay đổi, vui lòng đăng nhập lại');
     }
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: { id: true, role: true, isBanned: true, bannedUntil: true, deletedAt: true },
-    });
 
     if (!user || user.deletedAt) {
       throw new UnauthorizedException('Tài khoản không tồn tại');

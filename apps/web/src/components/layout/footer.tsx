@@ -15,7 +15,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div className="md:col-span-2 space-y-3">
-            <Link href="/" className="inline-block">
+            <Link href="/" prefetch={false} className="inline-block">
               <img src="/img/owoc_banner_black.png" className="h-10 w-auto dark:hidden" alt="OWOC" />
               <img src="/img/owoc_banner_white.png" className="hidden h-10 w-auto dark:block" alt="OWOC" />
             </Link>
@@ -30,10 +30,10 @@ export function Footer() {
               Khám phá
             </h4>
             <ul className="space-y-2 text-sm text-[var(--text-secondary)]">
-              <li><Link href="/comics" className="hover:text-[var(--accent-primary)]">Kho truyện tranh</Link></li>
-              <li><Link href="/rankings" className="hover:text-[var(--accent-primary)]">Bảng xếp hạng</Link></li>
-              <li><Link href="/news" className="hover:text-[var(--accent-primary)]">Tạp chí & Tin tức</Link></li>
-              <li><Link href="/library" className="hover:text-[var(--accent-primary)]">Tủ sách & Lịch sử</Link></li>
+              <li><Link href="/comics" prefetch={false} className="hover:text-[var(--accent-primary)]">Kho truyện tranh</Link></li>
+              <li><Link href="/rankings" prefetch={false} className="hover:text-[var(--accent-primary)]">Bảng xếp hạng</Link></li>
+              <li><Link href="/news" prefetch={false} className="hover:text-[var(--accent-primary)]">Tạp chí & Tin tức</Link></li>
+              <li><Link href="/library" prefetch={false} className="hover:text-[var(--accent-primary)]">Tủ sách & Lịch sử</Link></li>
             </ul>
           </div>
 
@@ -43,9 +43,9 @@ export function Footer() {
               Hệ sinh thái
             </h4>
             <ul className="space-y-2 text-sm text-[var(--text-secondary)]">
-              <li><Link href="/cultivation" className="hover:text-[var(--accent-primary)]">Tàng Kinh Các (Tu Luyện)</Link></li>
-              <li><Link href="/studio" className="inline-flex items-center gap-1 hover:text-[var(--accent-warm)]"><PenTool className="h-3.5 w-3.5" />Author Studio</Link></li>
-              <li><Link href="/notifications" className="hover:text-[var(--accent-primary)]">Trung tâm Thông báo</Link></li>
+              <li><Link href="/cultivation" prefetch={false} className="hover:text-[var(--accent-primary)]">Tàng Kinh Các (Tu Luyện)</Link></li>
+              <li><Link href="/studio" prefetch={false} className="inline-flex items-center gap-1 hover:text-[var(--accent-warm)]"><PenTool className="h-3.5 w-3.5" />Author Studio</Link></li>
+              <li><Link href="/notifications" prefetch={false} className="hover:text-[var(--accent-primary)]">Trung tâm Thông báo</Link></li>
             </ul>
           </div>
         </div>

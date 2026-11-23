@@ -98,7 +98,7 @@ export function Header() {
               <Menu className="h-5 w-5" />
             </button>
 
-            <Link href="/" className="flex items-center gap-2 shrink-0">
+            <Link href="/" prefetch={false} className="flex items-center gap-2 shrink-0">
               <img
                 src="/img/owoc_banner_black.png"
                 className="h-10 sm:h-11 w-auto dark:hidden object-contain"
@@ -119,6 +119,7 @@ export function Header() {
                   <Link
                     key={link.href}
                     href={link.href}
+                    prefetch={false}
                     className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
                       active
                         ? 'bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] font-semibold'
@@ -201,6 +202,7 @@ export function Header() {
                     <div className="mt-1.5 space-y-0.5">
                       <Link
                         href={`/@${user.username}`}
+                        prefetch={false}
                         onClick={() => setMenuOpen(false)}
                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
                       >
@@ -209,6 +211,7 @@ export function Header() {
                       </Link>
                       <Link
                         href="/library"
+                        prefetch={false}
                         onClick={() => setMenuOpen(false)}
                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
                       >
@@ -217,6 +220,7 @@ export function Header() {
                       </Link>
                       <Link
                         href="/history"
+                        prefetch={false}
                         onClick={() => setMenuOpen(false)}
                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
                       >
@@ -225,6 +229,7 @@ export function Header() {
                       </Link>
                       <Link
                         href="/purchases"
+                        prefetch={false}
                         onClick={() => setMenuOpen(false)}
                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
                       >
@@ -233,6 +238,7 @@ export function Header() {
                       </Link>
                       <Link
                         href="/cultivation"
+                        prefetch={false}
                         onClick={() => setMenuOpen(false)}
                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
                       >
@@ -243,6 +249,7 @@ export function Header() {
                       {['AUTHOR', 'MODERATOR', 'ADMIN'].includes(user.role) && (
                         <Link
                           href="/studio"
+                          prefetch={false}
                           onClick={() => setMenuOpen(false)}
                           className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-semibold text-[var(--accent-warm)] hover:bg-[var(--accent-warm-soft)]"
                         >
@@ -254,6 +261,7 @@ export function Header() {
                       {['MODERATOR', 'ADMIN'].includes(user.role) && (
                         <Link
                           href="/studio/moderation"
+                          prefetch={false}
                           onClick={() => setMenuOpen(false)}
                           className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-semibold text-[var(--accent-primary)] hover:bg-[var(--accent-primary-soft)]"
                         >
@@ -284,12 +292,14 @@ export function Header() {
               <div className="flex items-center gap-1.5">
                 <Link
                   href="/login"
+                  prefetch={false}
                   className="inline-flex h-9 items-center justify-center rounded-xl bg-[var(--accent-primary)] px-3.5 text-xs sm:text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-primary-hover)]"
                 >
                   Đăng nhập
                 </Link>
                 <Link
                   href="/register"
+                  prefetch={false}
                   className="hidden sm:inline-flex h-9 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 text-sm font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-subtle)]"
                 >
                   Đăng ký

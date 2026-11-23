@@ -28,6 +28,7 @@ export function MobileBottomNav() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className={`flex flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors ${
                 active ? 'text-[var(--accent-primary)]' : 'text-[var(--text-muted)]'
               }`}

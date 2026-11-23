@@ -117,6 +117,7 @@ export function NotificationBell() {
                   <Link
                     key={item.id}
                     href={href}
+                    prefetch={false}
                     onClick={() => {
                       if (!item.isRead && accessToken) markAsRead(accessToken, item.id);
                       setOpen(false);
@@ -152,6 +153,7 @@ export function NotificationBell() {
 
           <Link
             href="/notifications"
+            prefetch={false}
             onClick={() => setOpen(false)}
             className="block border-t border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 py-2.5 text-center text-xs font-semibold text-[var(--accent-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
           >
